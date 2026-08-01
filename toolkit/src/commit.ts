@@ -391,8 +391,12 @@ export interface CommitOptions {
  * Crash entre 4 e 5 → WAL pending, checkpoint avançado → resume replay (idempotente).
  * Crash após 5 → tudo applied → resume normal.
  *
- * Ordem interna (AC3 — abort-before-write PRESERVADA): validar → canonicalizar/hash →
- * sanitizar artifactType → checar escopo → SÓ ENTÃO lock+WAL+escrever.
+ * Ordem interna (AC3 — abort-before-write PRESERVADA): validar payload → validar claims
+ * (1.4, source resolution read-only) → canonicalizar/hash → sanitizar artifactType → checar
+ * escopo → SÓ ENTÃO lock+WAL+escrever. Toda validação roda ANTES do lock: payloads inválidos
+ * falham fast, sem adquirir lock/WAL (zero side-effects). O TOCTOU entre validateClaims e o
+ * write é benigno — manifests são append-only (nunca deletados), então a direção insegura
+ * (🟢→🟡 por remoção concorrente) não ocorre (decisão code-review 1.4).
  *
  * Saídas (todas sob `root`):
  *  - artefato:   `_process-ai_output/<artifactType>/<sha256>.<ext>` (content-addressed)
@@ -414,10 +418,16 @@ export async function commit(
   // 1) VALIDAÇÃO (zero IO) — AC6
   validatePayload(payload);
 
-  // 1.4) VALIDAÇÃO DE CONFIANÇA (zero IO, exceto source resolution) — AD-5 / AC1-AC4
+  // 1.4) VALIDAÇÃO DE CONFIANÇA (zero IO, exceto source resolution) — AD-5 / AC1-AC4.
+  // P8: ConfidenceError (erro interno do módulo confidence) → CommitError no boundary,
+  // preservando o contrato 1.2 ("falhas de commit são CommitError") e o AC4 literal.
   let validatedClaims: ValidatedClaim[] | undefined;
-  if (payload.claims && payload.claims.length > 0) {
-    validatedClaims = await validateClaims(payload.claims, root);
+  if (payload.claims && Array.isArray(payload.claims) && payload.claims.length > 0) {
+    try {
+      validatedClaims = await validateClaims(payload.claims, root);
+    } catch (e) {
+      throw e instanceof ConfidenceError ? new CommitError(e.message) : e;
+    }
   }
 
   // 2) CANONICALIZAÇÃO + SHA-256 determinístico (zero IO) — AC2/AC5
@@ -426,6 +436,12 @@ export async function commit(
 
   // 3) SANITIZAÇÃO do artifactType (zero IO) — AC3
   const artifactType = sanitizeArtifactType(payload.artifactType);
+
+  // 1.4) BUILD LEDGER ENTRIES (zero IO — após sha256 para claimId determinístico) — AD-5 / AC3
+  const ledgerEntries =
+    validatedClaims && payload.claims
+      ? buildLedgerEntries(payload.claims, validatedClaims, artifactType, digest)
+      : undefined;
 
   // P15: valida extensão — previne que entradas futuras de EXT_BY_TYPE injetem
   // separadores `/`, `..`, `.` ou caracteres não-seguros no path do artefato.
@@ -479,6 +495,14 @@ export async function commit(
           agent,
           committedAt: new Date().toISOString(),
         });
+        // 1.4) Ledger de confiança: append idempotente (AD-5, AC3/AC5). P8: wrap no boundary.
+        if (ledgerEntries && ledgerEntries.length > 0) {
+          try {
+            await appendConfidenceLedger(root, ledgerEntries);
+          } catch (e) {
+            throw e instanceof ConfidenceError ? new CommitError(e.message) : e;
+          }
+        }
       },
     );
 

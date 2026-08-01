@@ -7,10 +7,12 @@
     "node": ">=24"
   },
   "bin": {
-    "process-ai": "bin/bootstrap.ts"
+    "process-ai": "bin/process-ai.ts",
+    "process-ai-bootstrap": "bin/bootstrap.ts"
   },
   "scripts": {
     "dev": "node bin/bootstrap.ts",
+    "conductor": "node bin/process-ai.ts",
     "test": "node --test",
     "typecheck": "tsc --noEmit"
   },

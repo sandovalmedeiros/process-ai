@@ -53,7 +53,11 @@ test('AC4: propose() é pass-through e delega ao commit (CommitResult, sem muta�
     const payload = {
       artifactType: 'sipoc',
       content: { supplier: ['Fornecedor A'], outputs: ['x', 'y'], nested: { n: 1 } },
-      claims: [{ claim: 'c1', marker: 'entrevista' }],
+      claims: [{
+        statement: 'Fornecedor A confirmado',
+        level: '🟡' as const,
+        reasoning: 'Inferido de indícios na entrevista',
+      }],
     };
     const snapshot = structuredClone(payload);
 
