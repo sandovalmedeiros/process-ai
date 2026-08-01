@@ -71,33 +71,46 @@ Só prossseguir para a pipeline após o Gate 0 aprovado.
 
 ## 3. Pipeline — especialistas + gates (AC3)
 
-A pipeline é **fixa** no v1: 4 slots de especialista, cada um precedido por um
-gate básico. A ordem é canônica e **não deve ser alterada** (o resume depende dela).
+A pipeline é **fixa** no v1: 4 especialistas, cada um precedido por um gate básico.
+A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 
-> **Fronteira 1.5 ↔ 1.6:** em 1.5 os especialistas (Bento/Miguel/Júlia/Zanoni) são
-> **slots de handoff declarados**. A Déa conhece a ordem e abre os gates, mas as
-> skills e os rascunhos reais de cada especialista chegam na story 1.6. Uma run
-> 1.5-only percorre o **loop do condutor** (gates → estágios → encerramento) sem
-> artefatos de especialista — o ledger fica vazio e o relatório mostra zeros
-> honestos (esperado, não é erro).
+> **Especialistas são skills** (`process-ai-bento`, `process-ai-miguel`,
+> `process-ai-julia`, `process-ai-zanoni`), instaladas junto com esta skill. A Déa
+> faz o **handoff** adotando a persona de cada especialista (segue a skill
+> correspondente). O leigo **não** invoca os especialistas diretamente.
 
-| Gate | Estágio (`stage --to`) | Especialista (slot) | Foco |
-|------|------------------------|---------------------|------|
-| `gate-1` | `discovery` | **Bento** | Entrevista → SIPOC + cadeia de valor |
-| `gate-2` | `mapping` | **Miguel** | Hierarquia completa do processo |
-| `gate-3` | `modeling` | **Júlia** | BPMN do fluxo + gargalos |
-| `gate-4` | `standardization` | **Zanoni** | POPs + diagnóstico/otimização |
+| Gate | Estágio (`stage --to`) | Especialista | Rascunho produzido (1.6) | `artifactType` |
+|------|------------------------|--------------|--------------------------|----------------|
+| `gate-1` | `discovery` | **Bento** | SIPOC + cadeia de valor | `sipoc`, `value-chain` |
+| `gate-2` | `mapping` | **Miguel** | hierarquia (Macro→Tarefa) | `hierarchy` |
+| `gate-3` | `modeling` | **Júlia** | fluxo simples (não BPMN XML) | `flow` |
+| `gate-4` | `standardization` | **Zanoni** | POP-rascunho | `pop` |
+
+> Estes são **rascunhos mínimos** do Walking Skeleton. Profundidade (SIPOC completo,
+> BPMN 2.0 XML, gargalos, diagnóstico, gates ricos) é **Epic 2**.
 
 Para cada especialista, em ordem:
 
-1. **Abra o gate** (antes de iniciar o slot):
+1. **Abra o gate** (antes de iniciar o especialista):
    `process-ai gate --id gate-<N> --decision approved`
    - Ao destacar o gate ao usuário, sinalize 🟢 (verificado), 🟡 (inferido) e 🔴
-     (gap). Nunca esconda incertezas (honestidade).
+     (gap). Nunca esconda incertezas (honestidade, NFR-1).
 2. **Avance o estágio**:
    `process-ai stage --to <estágio>` (`discovery` → `mapping` → `modeling` → `standardization`).
-3. **Conduza o handoff** para o especialista (slot declarado em 1.5; produção real
-   de rascunhos na 1.6).
+3. **Conduza o handoff ao especialista:** adote a persona do especialista seguindo a
+   skill `process-ai-<especialista>` (em `.claude/skills/`). O especialista conduz sua
+   etapa, produz o rascunho e o commita via `process-ai propose --payload <arquivo.json>`
+   (com `claims` — toda afirmação com marcador 🟢🟡🔴). **Toda escrita continua pelo
+   CLI — nem a Déa nem o especialista escrevem direto nas pastas protegidas (AD-1).**
+4. **Capture o `sha256`** do `CommitResult` impresso pelo `propose` e **passe ao próximo
+   especialista** — é a fonte que habilita claims 🟢 com `source` (provenance cruzada,
+   AD-5):
+   - **Bento** (1º estágio) → entrega os `sha256` de `sipoc` e `value-chain` ao Miguel.
+     (Bento só produz 🟡/🔴 — a entrevista não é um artefato commitado.)
+   - **Miguel** → entrega o `sha256` de `hierarchy` à Júlia (Miguel já pode 🟢 sourcing
+     a `value-chain` de Bento).
+   - **Júlia** → entrega o `sha256` de `flow` ao Zanoni.
+   - **Zanoni** (último) → ao fim, retorna à Déa para o encerramento.
 
 ---
 
