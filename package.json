@@ -1,0 +1,30 @@
+{
+  "name": "process-ai",
+  "version": "0.1.0",
+  "description": "Framework method-agnóstico de mapeamento de processos ponta-a-ponta, com núcleo hexagonal e adapters de engine (v1: Claude Code).",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "process-ai": "bin/bootstrap.ts"
+  },
+  "scripts": {
+    "dev": "node bin/bootstrap.ts",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "process-mapping",
+    "bpmn",
+    "sipoc",
+    "claude-code",
+    "hexagonal"
+  ],
+  "author": "process-ai",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

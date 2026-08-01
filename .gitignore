@@ -1,0 +1,9 @@
+node_modules/
+dist/
+_process-ai_output/
+.process-ai/
+_bmad/
+_bmad-output/
+.claude/
+.agents/
+docs/
