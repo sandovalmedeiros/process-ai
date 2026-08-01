@@ -3,7 +3,7 @@ dist/
 _process-ai_output/
 .process-ai/
 _bmad/
-_bmad-output/
+_bmad-output/**/.memlog.md
 .claude/
 .agents/
 docs/

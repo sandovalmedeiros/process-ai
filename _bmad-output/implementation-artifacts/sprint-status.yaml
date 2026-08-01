@@ -1,0 +1,79 @@
+# generated: 2026-08-01
+# last_updated: 2026-08-01
+# project: process-ai
+# project_key: NOKEY
+# tracking_system: file-system
+# story_location: _bmad-output/implementation-artifacts
+
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+#
+# Epic Status Transitions:
+#   - backlog → in-progress: Automatically when first story is created (via create-story)
+#   - in-progress → done: Manually when all stories reach 'done' status
+#
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created in stories folder
+#   - in-progress: Developer actively working on implementation
+#   - review: Ready for code review (via Dev's code-review workflow)
+#   - done: Story completed
+#
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+#
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+#
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when first story is created
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates next story after previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; sprint-status surfaces open ones
+
+generated: 2026-08-01
+last_updated: 2026-08-01
+project: process-ai
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+
+development_status:
+  # ===== Epic 1: Esqueleto Ponta-a-Ponta (Walking Skeleton) =====
+  epic-1: done
+  1-1-scaffold-engineadapter-claudecodeadapter: done
+  1-2-toolkit-propose-commit-sha256: done
+  1-3-toolkit-checkpoint-resume-atomico: done
+  1-4-toolkit-confianca-mecanica-ledger: done
+  1-5-dea-skill-condutora: done
+  1-6-pipeline-minima-rascunhos: done
+  epic-1-retrospective: optional
+
+  # ===== Epic 2: Documentação Completa e Honesta do Processo =====
+  epic-2: backlog
+  2-1-bento-entrevista-sipoc-cadeia-valor: backlog
+  2-2-miguel-hierarquia-completa: backlog
+  2-3-julia-bpmn-xml-gargalos: backlog
+  2-4-zanoni-pops-diagnostico: backlog
+  2-5-confianca-verificavel-rastreabilidade-relatorio: backlog
+  2-6-gates-completos-resumo-final: backlog
+  2-7-wedge-vendas-pme-validacao: backlog
+  epic-2-retrospective: optional
+
+  # ===== Epic 3: Method-Agnostic + Distribuição OSS =====
+  epic-3: backlog
+  3-1-schema-nucleo-toolkit-owned: backlog
+  3-2-method-pack-loader-validador: backlog
+  3-3-pack-padrao-bpmn-sipoc: backlog
+  3-4-distribuicao-npm-bootstrap: backlog
+  3-5-docs-contribuidor-packs-adapters: backlog
+  epic-3-retrospective: optional
