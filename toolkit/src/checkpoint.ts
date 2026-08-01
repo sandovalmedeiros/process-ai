@@ -377,7 +377,10 @@ function applyIntent(state: CheckpointState, entry: WalEntry): CheckpointState {
 // ---- T4: Resume + quarentena ----
 
 /**
- * Resume: função pura do estado on-disk (AD-4).
+ * Resume: reconstrói o estado canônico a partir do on-disk (AD-4). NÃO é pura —
+ * pode reescrever o checkpoint (após replay/discard de WAL) e mover manifestos
+ * órfãos para quarentena. Em uso single-session (uma sessão por projeto), roda
+ * sem lock no início da sessão, quando nenhum outro escritor está ativo.
  *
  * 1. Lê checkpoint.json → estado base.
  * 2. Lê wal.jsonl → entradas com cursor > checkpoint.walCursor e status

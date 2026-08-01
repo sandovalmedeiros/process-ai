@@ -111,9 +111,10 @@ Ao fim da pipeline (após o Gate 4):
    mapeado, decisões dos gates, lacunas conhecidas. Embuta o relatório de
    confiança nesta seção.
 3. **Commit o entregável final:**
-   - Escreva um arquivo de payload `summary-report.json` com o shape
-     `{ "artifactType": "summary-report", "content": "<markdown do resumo + relatório de confiança>" }`.
+   - Monte o payload com a **ferramenta de escrita de arquivos (Write), NÃO um heredoc de Bash** — evita escaping de aspas/backticks/newlines do shell.
+   - Shape esperado: `{ "artifactType": "summary-report", "content": "<markdown escapado em JSON>" }`. Em `content`, escape aspas como `\"` e newlines como `\n` (o markdown traz `>`, `*`, backticks e emoji — todos precisam estar dentro de uma string JSON válida).
    - Execute `process-ai propose --payload summary-report.json`.
+   - Após confirmar o commit, **remova o `summary-report.json` temporário** do diretório do projeto (ele vive fora das pastas protegidas e não deve persistir).
 4. Confirme o commit (o CLI imprime o `sha256` e os paths em `_process-ai_output/`).
 
 > **A sessão não termina sem esse entregável commitado.** Avance o estágio final

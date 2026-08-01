@@ -32,8 +32,7 @@
  *   process-ai --help | -h
  */
 import path from 'node:path';
-import { promises as fs } from 'node:fs';
-import { realpathSync } from 'node:fs';
+import { promises as fs, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ClaudeCodeAdapter } from '../toolkit/adapters/claude-code/adapter.ts';
 import type { EngineAdapter, ProposePayload } from '../toolkit/src/engine-adapter.ts';
@@ -91,9 +90,9 @@ Subcomandos (o agente invoca via Bash; TODA escrita passa pelo toolkit):
   stage --to <stageId>
       Avança o estágio da sessão no checkpoint. Imprime o CheckpointState (JSON).
   resume
-      Retoma a sessão a partir do checkpoint (função pura do estado on-disk).
-      Manifestos órfãos vão para .process-ai/quarantine/ (nunca auto-mergeados).
-      Imprime o ResumeResult (JSON: { state, orphans }).
+      Retoma a sessão a partir do checkpoint on-disk (replay de WAL + quarentena
+      de manifestos órfãos). Manifestos órfãos vão para .process-ai/quarantine/
+      (nunca auto-mergeados). Imprime o ResumeResult (JSON: { state, orphans }).
   report
       Gera o relatório de confiança MÍNIMO (contagem 🟢/🟡/🔴 agregada do ledger
       de confiança + artefatos + nota de gaps/orphans). Imprime markdown pt-BR.
@@ -253,10 +252,16 @@ async function readPayload(payloadPath: string): Promise<ProposePayload> {
     if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
       throw new Error(`Arquivo de payload não encontrado: ${payloadPath}.`);
     }
-    throw e;
+    const code = (e as NodeJS.ErrnoException).code;
+    throw new Error(
+      `Não foi possível ler o payload "${payloadPath}"${code ? ` (erro ${code})` : ''}. ` +
+        'Verifique se é um arquivo legível (não um diretório) e se há permissão de leitura.',
+    );
   }
   try {
-    return JSON.parse(raw) as ProposePayload;
+    // Descasca BOM UTF-8 (Node 'utf8' não remove; PowerShell Out-File/Notepad emitem ﻿ no Windows).
+    const stripped = raw.charCodeAt(0) === 0xfeff ? raw.slice(1) : raw;
+    return JSON.parse(stripped) as ProposePayload;
   } catch {
     throw new Error(
       `Payload inválido (JSON malformado): ${payloadPath}. Esperado { artifactType, content, claims? }.`,
@@ -271,7 +276,7 @@ async function readPayload(payloadPath: string): Promise<ProposePayload> {
  *  - propose  → adapter.propose() (commit, único escritor; AD-1).
  *  - gate     → checkpointAdvance com intent `gate` (apply no-op, atômico via WAL; AD-4).
  *  - stage    → checkpointAdvance com intent `stage-advance` (apply no-op; AD-4).
- *  - resume   → resume(root) (função pura do checkpoint; AD-4).
+ *  - resume   → resume(root) (replay de WAL + quarentena de órfãos; AD-4).
  *  - report   → reportConfidence(root) (lê o ledger; AD-5).
  *  - status   → checkpointRead(root) (leitura pura).
  *

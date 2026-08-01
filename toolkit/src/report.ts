@@ -120,9 +120,9 @@ async function countOrphans(root: string): Promise<number> {
   let entries: string[];
   try {
     entries = await fs.readdir(quarantineDir);
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return 0;
-    throw e;
+  } catch {
+    // quarantine/ ausente, não-diretório ou ilegível → 0 órfãos (nunca lança, NFR-1).
+    return 0;
   }
   return entries.filter((f) => f.endsWith('.json')).length;
 }
@@ -145,15 +145,27 @@ async function countOrphans(root: string): Promise<number> {
  */
 export async function reportConfidence(root: string): Promise<ConfidenceReport> {
   const { counts, total } = await aggregateLedger(root);
-  const state = await checkpointRead(root);
+
+  // Checkpoint: degrada honestamente se ilegível/corrompido (espelha aggregateLedger —
+  // o relatório sobrevive a estado parcial; nunca lança, NFR-1).
+  let artifacts: Array<{ sha256: string; artifactType: string }> = [];
+  let stage = 'unknown';
+  try {
+    const state = await checkpointRead(root);
+    artifacts = state.artifacts.map((a) => ({ sha256: a.sha256, artifactType: a.artifactType }));
+    stage = state.stage;
+  } catch {
+    // checkpoint.json corrompido/shape inválido → artefatos vazios, stage "unknown".
+  }
+
   const orphans = await countOrphans(root);
 
   return {
     counts,
     totalClaims: total,
-    artifacts: state.artifacts.map((a) => ({ sha256: a.sha256, artifactType: a.artifactType })),
+    artifacts,
     orphans,
-    stage: state.stage,
+    stage,
     generatedAt: new Date().toISOString(),
   };
 }
