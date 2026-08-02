@@ -96,3 +96,78 @@ test('Fonte única de verdade: installSkills copia a skill-fonte byte-a-byte par
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
+
+// ---- 2.6: Gates informativos (AC1, AC4) ----
+
+test('AC1/2.6: §3 menciona `process-ai report` antes de `process-ai gate` (gate informativo)', async () => {
+  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
+  // O relatório deve ser citado na seção de pipeline (§3) — não só no encerramento (§4).
+  // A §3 agora instrui a executar `process-ai report` para apresentar 🟡/🔴 ao usuário.
+  assert.ok(
+    /process-ai report/.test(content),
+    '§3 deve referenciar `process-ai report` para o gate informativo',
+  );
+});
+
+test('AC1/2.6: §3 menciona os 3 caminhos de decisão do gate (approved / changes-requested / rejected)', async () => {
+  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
+  assert.ok(/changes-requested/.test(content), '§3 deve mencionar `changes-requested` (reabrir especialista)');
+  assert.ok(/--decision rejected/.test(content), '§3 deve mencionar `--decision rejected` (encerrar fluxo)');
+  assert.ok(/--decision approved/.test(content), '§3 deve mencionar `--decision approved` (avançar)');
+});
+
+test('AC1/2.6: §3 instrui a destacar 🟡 e 🔴 proativamente (honestidade NFR-1)', async () => {
+  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
+  // O gate informativo deve mencionar a apresentação de 🟡/🔴 ao usuário.
+  assert.ok(/🟡/.test(content), '§3 deve mencionar 🟡 (inferidos) no gate informativo');
+  assert.ok(/🔴/.test(content), '§3 deve mencionar 🔴 (gaps) no gate informativo');
+});
+
+// ---- 2.6: Resumo final rico (AC2, AC3) ----
+
+test('AC2/2.6: §4 menciona resumo narrativo por etapa + próximos passos acionáveis', async () => {
+  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
+  assert.ok(
+    /pr[oó]ximos?\s*passos/i.test(content),
+    '§4 deve mencionar próximos passos acionáveis',
+  );
+  assert.ok(
+    /por etapa|1 parágrafo por estágio|discovery.*mapping.*modeling.*standardization/s.test(content),
+    '§4 deve instruir resumo narrativo por etapa (discovery→mapping→modeling→standardization)',
+  );
+});
+
+test('AC2/2.6: §4 sugere ações concretas atreladas a gaps (nunca genérico)', async () => {
+  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
+  // Deve instruir a Déa a ler os 🔴 e sugerir ações — e proibir genérico.
+  assert.ok(
+    /a[çc][ãa]o sugerida|a[çc][õo]es?\s*concretas/i.test(content),
+    '§4 deve instruir ações sugeridas concretas',
+  );
+  assert.ok(
+    /nunca\b.*\bgen[ée]rico|não\s+gen[ée]rico|evite\s+gen[ée]rico/i.test(content),
+    '§4 deve proibir recomendações genéricas',
+  );
+});
+
+test('AC3/2.6: contrato markdown preservado — `process-ai report` verbatim no `summary-report`', async () => {
+  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
+  assert.ok(/summary-report/.test(content), '§4 deve referenciar artifactType summary-report');
+  assert.ok(/process-ai propose/.test(content), '§4 deve instruir propose do summary-report');
+  // O relatório deve ser embutido verbatim (contrato duro).
+  assert.ok(
+    /verbatim|não reescreva|não resuma|não reformate|íntegro|contrato duro/i.test(content),
+    '§4 deve instruir a Déa a NÃO reescrever o relatório (verbatim)',
+  );
+});
+
+// ---- 2.6: deferred-work.md:96 — "rascunho" removido ----
+
+test('deferred-work.md:96: §3 não contém "rascunho" (especialistas são profundos desde 2.1–2.4)', async () => {
+  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
+  // O stale "produz o rascunho" foi substituído por "produz o artefato".
+  assert.ok(
+    !/rascunho/.test(content),
+    'SKILL.md não deve mais conter "rascunho" — todos os especialistas são profundos (2.1–2.4)',
+  );
+});

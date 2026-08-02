@@ -6,22 +6,36 @@
  * commitado (manifesto SHA-256 existe em .process-ai/manifests/). Sem fonte
  * verificável → 🟡 no máximo. Referências fantasmas/forward-refs → degradam a 🟡.
  *
+ * 2.5 (FR-14 full, AD-5 "opcionalmente com checagem de trecho … degradam a 🟡"):
+ * aprofunda a confiança 🟢 com verificação de EXCERPT (passo 4b) — se o claim
+ * carrega `source.excerpt`, o toolkit LÊ o artefato-fonte (via manifesto →
+ * artifactPath → fs.readFile) e casa o trecho como SUBSTRING dos bytes canônicos
+ * (AD-6: content opaco). Trecho presente + casa → 🟢; trecho presente + NÃO casa
+ * → degrada a 🟡 (`excerpt-mismatch`). Trecho ausente → sem checagem (🟢 mantém,
+ * contanto que a fonte resolva — comportamento 1.4 preservado). Também persiste
+ * `statement`+`reasoning` no ledger (AC4 — fecha deferral 2.3).
+ *
  * O agente PROPÕE nível + fonte; o toolkit VALIDA e grava no ledger de confiança
  * (.process-ai/confidence-ledger.jsonl, append-only JSONL).
  *
  * INVARIANTE AD-3 (núcleo hexagonal): este arquivo só importa `node:*` builtins
- * ou caminhos relativos dentro do core — nunca um package npm.
+ * ou caminhos relativos dentro do core — nunca um package npm. O teste
+ * tests/import-boundary.test.ts cobre `confidence.ts` automaticamente.
  *
  * DEFENSE-IN-DEPTH (code review 1.4, P1): os campos agent-supplied
  * `source.artifactType` + `source.sha256` fluem para um path de manifesto. São
  * validados (hex64 + kebab) e o path resolvido é checado contra o escopo
  * `.process-ai/manifests/` — espelhando `sanitizeArtifactType`/`assertWithinScope`
  * do commit.ts. `manifestExists` usa `lstat`+`isFile()` (rejeita symlink e dir).
+ * O passo 4b (excerpt) lê conteúdo do artefato-fonte: o manifesto é append-only/
+ * imutável (FR-20/AD-4), o `artifactPath` é checado contra o escopo do root e o
+ * leaf do artefato passa por `lstat`+`isFile()` (parity com `manifestExists` —
+ * deferred-work.md:63). Nunca lança fora do path de erro (trecho não-verificável
+ * → degrada honestamente a 🟡).
  *
  * Fronteiras (NÃO faça aqui — pertence a outra story):
- *  - verificação de trecho (excerpt match) → Story 2.5.
- *  - rastreabilidade bidirecional (navegar afirmação↔fonte) → Story 2.5.
- *  - relatório de confiança consolidado (contagem+lista) → Story 2.5.
+ *  - rastreabilidade bidirecional (navegar afirmação↔fonte) → Story 2.5 (report.ts).
+ *  - relatório de confiança consolidado (contagem+lista) → Story 2.5 (report.ts).
  *  - conteúdo real dos claims (agentes proporem claims) → Story 1.5/1.6.
  */
 
@@ -69,7 +83,8 @@ export interface Claim {
 
 /**
  * Resultado da validação de um claim (T2). Sem claimId — atribuído após sha256.
- * `degradationReason` ∈ { 'missing-source', 'malformed-source', 'unresolved-source' }.
+ * `degradationReason` ∈ { 'missing-source', 'malformed-source', 'unresolved-source',
+ * 'excerpt-mismatch' } (2.5: trecho presente + não-casa → 🟡 excerpt-mismatch).
  */
 export interface ValidatedClaim {
   /** Nível proposto pelo agente. */
@@ -98,6 +113,17 @@ export interface ConfidenceLedgerEntry {
   validatedAt: string;
   /** Motivo da degradação (se validated < proposed). */
   degradationReason?: string;
+  /**
+   * Texto da afirmação (AC4/2.5). Opcional no tipo persistido p/ backward-compat
+   * (ledgers legados da 1.4 não o carregam — leitores defensivos `?? ''`); o
+   * ESCRITOR sempre preenche a partir do `Claim`. Decision #3.
+   */
+  statement?: string;
+  /**
+   * Justificativa do agente (AC4/2.5). Opcional no tipo persistido pelo mesmo
+   * motivo que `statement`; o ESCRITOR sempre preenche. Decision #3.
+   */
+  reasoning?: string;
 }
 
 // ---- Constantes ----
@@ -162,16 +188,23 @@ function isWithinScope(absPath: string, scopeDir: string): boolean {
  *  3. 🟢 + sha256 presente mas fora do formato hex64, OU artifactType fora do kebab
  *     → 🟡 (malformed-source). Fecha path traversal/injection no path do manifesto.
  *  4. 🟢 + source bem-formado → verifica manifesto via `lstat`+`isFile()`
- *     (rejeita symlink e diretório). Existe arquivo regular → 🟢. Não → 🟡 (unresolved-source).
+ *     (rejeita symlink e diretório). Não existe → 🟡 (unresolved-source).
+ * 4b. (2.5, AD-5 excerpt) 🟢 cuja fonte resolveu E carrega `source.excerpt` (string
+ *     não-vazia) → lê o artefato-fonte (manifesto → artifactPath → fs.readFile) e
+ *     casa o trecho como SUBSTRING dos bytes canônicos (AD-6: content opaco). Casa
+ *     → 🟢. NÃO casa (ou artefato ilegível/não-verificável) → 🟡 (excerpt-mismatch).
+ *     Trecho ausente → sem checagem (🟢 mantém — comportamento 1.4 preservado).
  *  5. 🟡 → mantido (inferido, sem exigência de fonte).
  *  6. 🔴 → mantido (gap, não exige fonte).
  *
- * `source.excerpt` é IGNORADO na validação (verificação de trecho → Story 2.5).
- * `statement` e `reasoning` NÃO são validados (responsabilidade da skill layer).
- * Degradação NÃO aborta o commit — só nível inválido aborta (AC4).
+ * `statement` e `reasoning` NÃO são validados (responsabilidade da skill layer);
+ * apenas persistidos no ledger (AC4/2.5).
+ * Degradação (passos 2/3/4/4b) NÃO aborta o commit — só nível inválido aborta (AC4).
+ * O passo 4b só corre DEPOIS da fonte resolver (passo 4); a mecânica de
+ * source-resolution existente permanece intacta e na mesma precedência.
  *
  * @param claims - Claims propostos pelo agente.
- * @param root - Raiz da sessão (para resolver paths de manifesto).
+ * @param root - Raiz da sessão (para resolver paths de manifesto e artefato-fonte).
  * @returns ValidatedClaim[] com os níveis validados (possivelmente degradados).
  */
 export async function validateClaims(
@@ -224,11 +257,21 @@ export async function validateClaims(
         continue;
       }
       const sourceResolved = await manifestExists(sourceManifestPath);
-      if (sourceResolved) {
-        results.push({ proposed: '🟢', validated: '🟢' });
-      } else {
+      if (!sourceResolved) {
         results.push({ proposed: '🟢', validated: '🟡', degradationReason: 'unresolved-source' });
+        continue;
       }
+      // Passo 4b (2.5, AD-5 excerpt): só corre DEPOIS da fonte resolver (passo 4).
+      // Trecho presente → casa contra bytes canônicos do artefato-fonte; NÃO casa
+      // (ou não-verificável) → degrada a 🟡 (excerpt-mismatch). Trecho ausente → 🟢.
+      if (isNonEmptyString(src.excerpt)) {
+        const excerptMatches = await verifyExcerpt(root, sourceManifestPath, src.excerpt);
+        if (!excerptMatches) {
+          results.push({ proposed: '🟢', validated: '🟡', degradationReason: 'excerpt-mismatch' });
+          continue;
+        }
+      }
+      results.push({ proposed: '🟢', validated: '🟢' });
     } else if (claim.level === '🟡') {
       // Regra 5: 🟡 mantido
       results.push({ proposed: '🟡', validated: '🟡' });
@@ -253,6 +296,69 @@ async function manifestExists(manifestPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/**
+ * Passo 4b (2.5 — AD-5 excerpt): verifica se `excerpt` é SUBSTRING dos bytes
+ * canônicos do artefato-fonte (AD-6: content opaco — match sobre bytes, sem parse
+ * semântico). Lê o manifesto (cuja existência o passo 4 já confirmou) para achar
+ * o `artifactPath`, resolve-o contra o root, aplica leaf-symlink guard (`lstat`+
+ * `isFile()`, parity com `manifestExists` — deferred-work.md:63) e lê o conteúdo.
+ *
+ * NUNCA lança (resiliência): manifesto sumiu/ilegível, `artifactPath` ausente/
+ * fora-de-escopo, artefato ilegível/symlink/dir → retorna `false` (trecho não-
+ * verificável). O caller (passo 4b) decide a degradação a 🟡 `excerpt-mismatch`;
+ * este helper só reporta "casa / não-casa / não-verificável". O `excerpt` recebido
+ * é garantidamente string não-vazia pelo caller.
+ *
+ * Segurança do conteúdo-read (Decision #1): o artefato-fonte é sempre já-commitado,
+ * imutável e on-disk (manifestos append-only — FR-20/AD-4); a validação roda ANTES
+ * do lock/WAL/write (abort-before-write, `commit.ts:418-444`), lendo estado prévio
+ * — sem corrida com o write-deste-commit.
+ *
+ * @param root - Raiz da sessão (para resolver o artifactPath do manifesto).
+ * @param manifestPath - Path absoluto do manifesto-fonte (já confirmado existente).
+ * @param excerpt - Trecho citado (string não-vazia).
+ * @returns true se o trecho é substring do conteúdo do artefato-fonte; false caso contrário.
+ */
+async function verifyExcerpt(root: string, manifestPath: string, excerpt: string): Promise<boolean> {
+  // Lê o manifesto para achar o artifactPath (path relativo ao root, escrito pelo commit.ts).
+  let manifestRaw: string;
+  try {
+    manifestRaw = await fs.readFile(manifestPath, 'utf8');
+  } catch {
+    return false; // manifesto sumiu entre o passo 4 e aqui → não-verificável.
+  }
+  let manifest: { artifactPath?: unknown };
+  try {
+    manifest = JSON.parse(manifestRaw);
+  } catch {
+    return false; // manifesto corrompido → não-verificável.
+  }
+  if (typeof manifest.artifactPath !== 'string' || manifest.artifactPath.length === 0) {
+    return false;
+  }
+  const artifactAbsPath = path.join(root, manifest.artifactPath);
+  // Defense-in-depth (cinturão-e-suspensórios): o artifactPath vem do manifesto
+  // (toolkit-written, append-only), mas um manifesto editado poderia escapar do root.
+  if (!isWithinScope(artifactAbsPath, root)) {
+    return false;
+  }
+  // Leaf-symlink guard (parity com manifestExists / deferred-work.md:63): só lê
+  // arquivo regular — rejeita symlink e diretório (não-verificável, não lança).
+  try {
+    const st = await fs.lstat(artifactAbsPath);
+    if (!st.isFile()) return false;
+  } catch {
+    return false;
+  }
+  let content: string;
+  try {
+    content = await fs.readFile(artifactAbsPath, 'utf8');
+  } catch {
+    return false;
+  }
+  return content.includes(excerpt);
 }
 
 // ---- T3: Ledger de confiança ----
@@ -391,6 +497,10 @@ async function assertNotSymlinkLeaf(filePath: string): Promise<void> {
  *
  * O claimId é atribuído deterministicamente: `{artifactType}-{artifactSha256}-{index}`.
  * Isso garante idempotência (AC5): mesmo payload → mesmo sha256 → mesmos claimIds.
+ *
+ * AC4/2.5: copia `statement`+`reasoning` do Claim para a entry (hoje o escritor
+ * sempre preenche; leitores defensivos toleram entries legadas sem esses campos).
+ * Função PURA — sem IO (só mapeia). Ordem de chaves preservada.
  */
 export function buildLedgerEntries(
   claims: Claim[],
@@ -410,6 +520,8 @@ export function buildLedgerEntries(
       source: claim.source,
       validatedAt: now,
       degradationReason: v.degradationReason,
+      statement: claim.statement,
+      reasoning: claim.reasoning,
     };
   });
 }

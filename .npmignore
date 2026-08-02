@@ -1,0 +1,16 @@
+# Dev / internal
+tests/
+_bmad/
+_bmad-output/
+.claude/
+docs/
+memory/
+
+# Config files (dev-only)
+tsconfig.json
+.gitignore
+.gitattributes
+
+# OS files
+.DS_Store
+Thumbs.db

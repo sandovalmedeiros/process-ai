@@ -30,6 +30,8 @@ import {
   ConfidenceError,
 } from './confidence.ts';
 import type { ValidatedClaim } from './confidence.ts';
+import { validateContent } from './schema-core.ts';
+import { readConfig } from './pack-loader.ts';
 
 // ---- Windows reserved names (P10 — code review patch) ----
 
@@ -418,6 +420,15 @@ export async function commit(
   // 1) VALIDAÇÃO (zero IO) — AC6
   validatePayload(payload);
 
+  // 1.5) VALIDAÇÃO DE SCHEMA (zero IO — AD-2, 3.1). Abort-before-write:
+  // content fora do schema-núcleo → CommitError, zero side-effects.
+  const schemaResult = validateContent(payload.artifactType, payload.content);
+  if (!schemaResult.valid) {
+    throw new CommitError(
+      `artifactType "${payload.artifactType}": content inválido — ${schemaResult.errors.join('; ')}.`,
+    );
+  }
+
   // 1.4) VALIDAÇÃO DE CONFIANÇA (zero IO, exceto source resolution) — AD-5 / AC1-AC4.
   // P8: ConfidenceError (erro interno do módulo confidence) → CommitError no boundary,
   // preservando o contrato 1.2 ("falhas de commit são CommitError") e o AC4 literal.
@@ -436,6 +447,11 @@ export async function commit(
 
   // 3) SANITIZAÇÃO do artifactType (zero IO) — AC3
   const artifactType = sanitizeArtifactType(payload.artifactType);
+
+  // 3.2) CONFIG (IO — lê .process-ai/config para pack_id ativo) — AD-2 / 3.2
+  const config = await readConfig(root);
+  const packId = config.activePack?.id;
+  const packVersion = config.activePack?.version;
 
   // 1.4) BUILD LEDGER ENTRIES (zero IO — após sha256 para claimId determinístico) — AD-5 / AC3
   const ledgerEntries =
@@ -482,11 +498,16 @@ export async function commit(
         // Artefato: bytes canônicos (hash == sha do manifesto).
         await atomicWriteFile(artifactPath, canonical);
         // Manifesto: byte-estável (sem timestamp) → idempotente em re-commit.
-        const manifest = {
+        const manifest: Record<string, unknown> = {
           sha256: digest,
           artifactType,
           artifactPath: path.relative(root, artifactPath).split(path.sep).join('/'),
         };
+        // 3.2: registrar pack_id+versão se pack ativo (AD-2).
+        if (packId) {
+          manifest.pack_id = packId;
+          manifest.pack_version = packVersion;
+        }
         await atomicWriteFile(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
         // Provenance: append idempotente (dedupe por (sha256, agent, artifactType)).
         await appendProvenance(provenancePath, {

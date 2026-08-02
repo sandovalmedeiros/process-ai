@@ -1,0 +1,11 @@
+{
+  "allOf": [
+    { "$ref": "https://process-ai/schemas/sipoc/v1" },
+    {
+      "properties": {
+        "industry": { "type": "string", "description": "Setor da empresa (ex.: serviços, indústria, tecnologia)." },
+        "company_size": { "type": "string", "description": "Porte da empresa (ex.: PME 20-200)." }
+      }
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+[pack]
+name = "bpmn-sipoc"
+version = "1.0.0"
+description = "Pack padrão BPMN+SIPOC para mapeamento de processos (v1 wedge Vendas/PME)"
+artifact_types = ["sipoc", "value-chain", "flow"]

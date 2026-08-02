@@ -64,16 +64,16 @@ development_status:
   2-2-miguel-hierarquia-completa: done
   2-3-julia-bpmn-xml-gargalos: done
   2-4-zanoni-pops-diagnostico: done
-  2-5-confianca-verificavel-rastreabilidade-relatorio: backlog
-  2-6-gates-completos-resumo-final: backlog
-  2-7-wedge-vendas-pme-validacao: backlog
+  2-5-confianca-verificavel-rastreabilidade-relatorio: review
+  2-6-gates-completos-resumo-final: review
+  2-7-wedge-vendas-pme-validacao: review
   epic-2-retrospective: optional
 
   # ===== Epic 3: Method-Agnostic + Distribuição OSS =====
   epic-3: backlog
-  3-1-schema-nucleo-toolkit-owned: backlog
-  3-2-method-pack-loader-validador: backlog
-  3-3-pack-padrao-bpmn-sipoc: backlog
-  3-4-distribuicao-npm-bootstrap: backlog
-  3-5-docs-contribuidor-packs-adapters: backlog
+  3-1-schema-nucleo-toolkit-owned: review
+  3-2-method-pack-loader-validador: review
+  3-3-pack-padrao-bpmn-sipoc: review
+  3-4-distribuicao-npm-bootstrap: review
+  3-5-docs-contribuidor-packs-adapters: review
   epic-3-retrospective: optional

@@ -42,12 +42,33 @@ async function createManifest(
   root: string,
   artifactType: string,
   sha: string,
+  opts?: { artifactPath?: string },
 ): Promise<string> {
   const dir = path.join(root, '.process-ai', 'manifests');
   await fs.mkdir(dir, { recursive: true });
   const manifestPath = path.join(dir, `${artifactType}-${sha}.json`);
-  await fs.writeFile(manifestPath, JSON.stringify({ sha256: sha, artifactType }), 'utf8');
+  await fs.writeFile(manifestPath, JSON.stringify({
+    sha256: sha,
+    artifactType,
+    artifactPath: opts?.artifactPath,
+  }), 'utf8');
   return manifestPath;
+}
+
+/** Cria um artefato-fonte real (com conteúdo) + manifesto apontando para ele — para testes de excerpt. */
+async function createArtifactWithManifest(
+  root: string,
+  artifactType: string,
+  sha: string,
+  content: string,
+): Promise<string> {
+  const outputDir = path.join(root, '_process-ai_output', artifactType);
+  await fs.mkdir(outputDir, { recursive: true });
+  const artifactPath = path.join(outputDir, `${sha}.md`);
+  await fs.writeFile(artifactPath, content, 'utf8');
+  const relPath = path.relative(root, artifactPath).split(path.sep).join('/');
+  await createManifest(root, artifactType, sha, { artifactPath: relPath });
+  return artifactPath;
 }
 
 const LEDGER = (root: string) => path.join(root, '.process-ai', 'confidence-ledger.jsonl');
@@ -804,6 +825,243 @@ test('P6: re-validação atualiza a linha do ledger quando a base de source muda
     entry = JSON.parse(lines[0]);
     assert.equal(entry.validated, '🟢');
     assert.equal(entry.degradationReason, undefined);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+// ---- T3 (2.5) — AC4: statement + reasoning persistidos no ledger ----
+
+test('AC4/2.5: buildLedgerEntries persiste statement + reasoning', () => {
+  const claims: Claim[] = [
+    {
+      statement: 'O processo tem 3 etapas bem definidas',
+      level: '🟢',
+      source: { artifactType: 'sipoc', sha256: 'a'.repeat(64) },
+      reasoning: 'Confirmado na entrevista com o dono e revisado no SIPOC',
+    },
+    {
+      statement: 'Provavelmente há um gargalo na expedição',
+      level: '🟡',
+      reasoning: 'Inferido do tempo médio relatado',
+    },
+  ];
+
+  const validated: ValidatedClaim[] = [
+    { proposed: '🟢', validated: '🟢' },
+    { proposed: '🟡', validated: '🟡' },
+  ];
+
+  const entries = buildLedgerEntries(claims, validated, 'value-chain', 'b'.repeat(64));
+  assert.equal(entries.length, 2);
+
+  // Entry 0: 🟢 com source → statement + reasoning presentes
+  assert.equal(entries[0].statement, 'O processo tem 3 etapas bem definidas');
+  assert.equal(entries[0].reasoning, 'Confirmado na entrevista com o dono e revisado no SIPOC');
+  assert.equal(entries[0].source?.artifactType, 'sipoc');
+
+  // Entry 1: 🟡 sem source → statement + reasoning presentes
+  assert.equal(entries[1].statement, 'Provavelmente há um gargalo na expedição');
+  assert.equal(entries[1].reasoning, 'Inferido do tempo médio relatado');
+  assert.equal(entries[1].source, undefined);
+});
+
+test('AC4/2.5: round-trip statement/reasoning via buildLedgerEntries → append → parse on-disk', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-rt-'));
+  try {
+    const stmt = 'Fornecedor principal entrega em 48h';
+    const reason = 'Relatado pelo dono na entrevista e confirmado no SIPOC';
+
+    const entries: ConfidenceLedgerEntry[] = [{
+      claimId: 'sipoc-abc123-0',
+      artifactType: 'sipoc',
+      artifactSha256: 'abc123',
+      proposed: '🟢',
+      validated: '🟢',
+      source: { artifactType: 'interview', sha256: 'def456' },
+      validatedAt: new Date().toISOString(),
+      statement: stmt,
+      reasoning: reason,
+    }];
+
+    await appendConfidenceLedger(root, entries);
+
+    const raw = await fs.readFile(LEDGER(root), 'utf8');
+    const parsed = JSON.parse(raw.trim().split('\n')[0]);
+    assert.equal(parsed.statement, stmt);
+    assert.equal(parsed.reasoning, reason);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('AC4/2.5: backward-compat — ledger legado sem statement/reasoning → leitores toleram', () => {
+  // Simula uma linha de ledger da 1.4 (sem statement/reasoning).
+  const legacy = JSON.stringify({
+    claimId: 'sipoc-old-0',
+    artifactType: 'sipoc',
+    artifactSha256: 'oldsha',
+    proposed: '🟢',
+    validated: '🟡',
+    degradationReason: 'unresolved-source',
+    validatedAt: '2026-01-01T00:00:00.000Z',
+  });
+
+  const parsed = JSON.parse(legacy) as ConfidenceLedgerEntry;
+  // Campos ausentes → undefined, leitores defensivos usam ?? ''
+  assert.equal(parsed.statement, undefined);
+  assert.equal(parsed.reasoning, undefined);
+  // Campos existentes preservados
+  assert.equal(parsed.claimId, 'sipoc-old-0');
+  assert.equal(parsed.validated, '🟡');
+});
+
+// ---- T3 (2.5) — AC1: excerpt verification (passo 4b) ----
+
+test('AC1/2.5: 🟢 com excerpt que CASA no artefato-fonte → 🟢 mantido', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-exc-ok-'));
+  try {
+    const content = 'O processo de vendas tem 3 etapas: prospecção, qualificação e fechamento.';
+    const sourceSha = sha256(canonicalize({ data: 'excerpt-source' }));
+    await createArtifactWithManifest(root, 'sipoc', sourceSha, content);
+
+    const claims: Claim[] = [{
+      statement: 'Vendas tem 3 etapas',
+      level: '🟢',
+      source: { artifactType: 'sipoc', sha256: sourceSha, excerpt: 'prospecção, qualificação e fechamento' },
+      reasoning: 'Trecho exato do SIPOC',
+    }];
+
+    const result = await validateClaims(claims, root);
+    assert.equal(result[0].validated, '🟢');
+    assert.equal(result[0].degradationReason, undefined);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('AC1/2.5: 🟢 com excerpt que NÃO casa → 🟡 + excerpt-mismatch', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-exc-mis-'));
+  try {
+    const content = 'O processo de vendas tem 3 etapas: prospecção, qualificação e fechamento.';
+    const sourceSha = sha256(canonicalize({ data: 'excerpt-mismatch' }));
+    await createArtifactWithManifest(root, 'sipoc', sourceSha, content);
+
+    const claims: Claim[] = [{
+      statement: 'Vendas tem 4 etapas',
+      level: '🟢',
+      source: { artifactType: 'sipoc', sha256: sourceSha, excerpt: 'quatro etapas no total' },
+      reasoning: 'Afirmação que contradiz a fonte',
+    }];
+
+    const result = await validateClaims(claims, root);
+    assert.equal(result[0].proposed, '🟢');
+    assert.equal(result[0].validated, '🟡');
+    assert.equal(result[0].degradationReason, 'excerpt-mismatch');
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('AC1/2.5: 🟢 sem excerpt → 🟢 mantido (comportamento 1.4 preservado)', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-exc-none-'));
+  try {
+    const content = 'Dado irrelevante.';
+    const sourceSha = sha256(canonicalize({ data: 'no-excerpt' }));
+    await createArtifactWithManifest(root, 'sipoc', sourceSha, content);
+
+    const claims: Claim[] = [{
+      statement: 'Afirmação com fonte mas sem trecho',
+      level: '🟢',
+      source: { artifactType: 'sipoc', sha256: sourceSha },
+      reasoning: 'Fonte genérica',
+    }];
+
+    const result = await validateClaims(claims, root);
+    assert.equal(result[0].validated, '🟢');
+    assert.equal(result[0].degradationReason, undefined);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('AC1/2.5: 🟢 com excerpt presente mas fonte unresolved → 🟡 + unresolved-source (precedência: passo 4 antes de 4b)', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-exc-prec-'));
+  try {
+    // NÃO criamos manifesto → fonte não resolve.
+    const claims: Claim[] = [{
+      statement: 'Afirmação com excerpt para fonte inexistente',
+      level: '🟢',
+      source: { artifactType: 'sipoc', sha256: GHOST_SHA, excerpt: 'algum trecho' },
+      reasoning: 'Fonte fantasma',
+    }];
+
+    const result = await validateClaims(claims, root);
+    // Passo 4 (source resolution) falha ANTES do passo 4b (excerpt) — precedência preservada.
+    assert.equal(result[0].validated, '🟡');
+    assert.equal(result[0].degradationReason, 'unresolved-source');
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('AC1/2.5: 🟢 com excerpt vazio (whitespace-only) → 🟢 (tratado como ausente, comportamento 1.4)', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-exc-ws-'));
+  try {
+    const content = 'Conteúdo real.';
+    const sourceSha = sha256(canonicalize({ data: 'ws-excerpt' }));
+    await createArtifactWithManifest(root, 'sipoc', sourceSha, content);
+
+    const claims: Claim[] = [{
+      statement: 'Afirmação com excerpt whitespace-only',
+      level: '🟢',
+      source: { artifactType: 'sipoc', sha256: sourceSha, excerpt: '   ' },
+      reasoning: 'Agente deixou espaço',
+    }];
+
+    const result = await validateClaims(claims, root);
+    // isNonEmptyString('   ') → false → pula passo 4b → 🟢 mantido.
+    assert.equal(result[0].validated, '🟢');
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('AC1/2.5: 🟢 com excerpt — artefato-fonte é symlink → 🟡 + excerpt-mismatch (leaf-symlink guard, deferred-work.md:63)', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-exc-sym-'));
+  try {
+    const realContent = 'Conteúdo real do artefato.';
+    const sourceSha = sha256(canonicalize({ data: 'symlink-excerpt' }));
+
+    // Cria artefato real + symlink apontando para ele.
+    const outputDir = path.join(root, '_process-ai_output', 'sipoc');
+    await fs.mkdir(outputDir, { recursive: true });
+    const realPath = path.join(outputDir, `real-${sourceSha}.md`);
+    await fs.writeFile(realPath, realContent, 'utf8');
+    const symlinkPath = path.join(outputDir, `${sourceSha}.md`);
+    try {
+      await fs.symlink(realPath, symlinkPath);
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === 'EPERM' || (e as NodeJS.ErrnoException).code === 'EEXIST') {
+        return; // Windows sem Developer Mode — skip.
+      }
+      throw e;
+    }
+
+    const relPath = path.relative(root, symlinkPath).split(path.sep).join('/');
+    await createManifest(root, 'sipoc', sourceSha, { artifactPath: relPath });
+
+    const claims: Claim[] = [{
+      statement: 'Afirmação com fonte symlink',
+      level: '🟢',
+      source: { artifactType: 'sipoc', sha256: sourceSha, excerpt: 'Conteúdo real' },
+      reasoning: 'Symlink no artifactPath',
+    }];
+
+    const result = await validateClaims(claims, root);
+    // Leaf-symlink guard: lstat vê symlink → isFile=false → não-verificável → 🟡 excerpt-mismatch.
+    assert.equal(result[0].validated, '🟡');
+    assert.equal(result[0].degradationReason, 'excerpt-mismatch');
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

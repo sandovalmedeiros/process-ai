@@ -1,0 +1,11 @@
+{
+  "allOf": [
+    { "$ref": "https://process-ai/schemas/flow/v1" },
+    {
+      "properties": {
+        "notation_convention": { "type": "string", "description": "Convenção de notação BPMN usada (ex.: BPMN 2.0 descritivo)." },
+        "lanes": { "type": "array", "items": { "type": "string" }, "description": "Lanes/pools do diagrama." }
+      }
+    }
+  ]
+}

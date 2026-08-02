@@ -1,0 +1,12 @@
+{
+  "allOf": [
+    { "$ref": "https://process-ai/schemas/value-chain/v1" },
+    {
+      "properties": {
+        "industry": { "type": "string", "description": "Setor para contextualizar os elos da cadeia." },
+        "primary_activities": { "type": "array", "items": { "type": "string" }, "description": "Atividades primárias de Porter." },
+        "support_activities": { "type": "array", "items": { "type": "string" }, "description": "Atividades de suporte de Porter." }
+      }
+    }
+  ]
+}

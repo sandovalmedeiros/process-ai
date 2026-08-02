@@ -96,21 +96,21 @@ A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 > sourceiando o `flow`. Gates ricos também são Epic 2; method-packs (loader/schema/pack) são Epic 3.
 
 Para cada especialista, em ordem:
+> **Gate 0** (escopo) é executado separadamente na §2 — **antes** de qualquer
+> especialista. Os gates 1–4 abaixo ocorrem **após** cada especialista concluir
+> e commitar seus artefatos, e **bloqueiam** o próximo até aprovação (FR-4 full).
 
-1. **Abra o gate** (antes de iniciar o especialista):
-   `process-ai gate --id gate-<N> --decision approved`
-   - Ao destacar o gate ao usuário, sinalize 🟢 (verificado), 🟡 (inferido) e 🔴
-     (gap). Nunca esconda incertezas (honestidade, NFR-1).
-2. **Avance o estágio**:
-   `process-ai stage --to <estágio>` (`discovery` → `mapping` → `modeling` → `standardization`).
-3. **Conduza o handoff ao especialista:** adote a persona do especialista seguindo a
+**Etapa completa por especialista (repita para Bento→Miguel→Júlia→Zanoni):**
+
+1. **Conduza o handoff ao especialista:** adote a persona do especialista seguindo a
    skill `process-ai-<especialista>` (em `.claude/skills/`). O especialista conduz sua
-   etapa, produz o rascunho e o commita via `process-ai propose --payload <arquivo.json>`
+   etapa, produz o artefato e o commita via `process-ai propose --payload <arquivo.json>`
    (com `claims` — toda afirmação com marcador 🟢🟡🔴). **Toda escrita continua pelo
    CLI — nem a Déa nem o especialista escrevem direto nas pastas protegidas (AD-1).**
-4. **Capture o `sha256`** do `CommitResult` impresso pelo `propose` e **passe ao próximo
-   especialista** — é a fonte que habilita claims 🟢 com `source` (provenance cruzada,
-   AD-5):
+
+2. **Capture o `sha256`** do `CommitResult` impresso pelo `propose` e armazene para
+   passar ao próximo especialista — é a fonte que habilita claims 🟢 com `source`
+   (provenance cruzada, AD-5):
    - **Bento** (1º estágio) → **persiste a entrevista** (`discovery-interview`) e **pode 🟢**
      sourcing-a; entrega os **três** `sha256` (`discovery-interview`, `sipoc`, `value-chain`)
      ao Miguel — que continua sourceando a `value-chain` para a hierarquia.
@@ -119,26 +119,102 @@ Para cada especialista, em ordem:
    - **Júlia** → entrega o `sha256` de `flow` ao Zanoni.
    - **Zanoni** (último) → ao fim, retorna à Déa para o encerramento.
 
+3. **Gate informativo (2.6 — FR-4 full):** **antes** de registrar a decisão do gate,
+   execute `process-ai report` (via Bash) e capture a saída markdown. O relatório
+   (2.5) contém seções `### 🟢 Confiança Alta`, `### 🟡 Confiança Média` e
+   `### 🔴 Gaps Declarados` com `claimId`, `statement`, `reasoning`, `degradationReason`
+   e `excerptStatus` de cada afirmação. Apresente ao usuário em linguagem simples:
+
+   - *"O [especialista] concluiu. Antes de prosseguir para [próximo especialista], aqui está o que temos:"*
+   - Liste os 🟢 com 1-liner (ex.: *"✅ Fornecedores A e B confirmados na entrevista"*)
+   - Destaque os 🟡 com a fundamentação (ex.: *"⚠️ Cliente típico é PME — inferido do contexto, sem fonte direta. Fundamentação: inferido do perfil dos clientes atuais."*)
+   - Destaque os 🔴 com ação sugerida (ex.: *"🔴 Não sabemos o SLA da entrega — precisamos perguntar ao time de logística."*)
+   - Se for o **primeiro especialista** (Bento, antes de Miguel), o relatório reflete **apenas** o que Bento produziu.
+   - Se o relatório vier **zerado** (zero claims), diga honestamente: *"Nenhuma afirmação com marcador registrada ainda — isto é esperado se o especialista não emitiu claims."*
+
+4. **Pergunte ao usuário** e registre a decisão:
+   - *"Podemos prosseguir para [próximo especialista], quer ajustar algo, ou prefere parar?"*
+   - **Aprovado** → `process-ai gate --id gate-<N> --decision approved`
+     (depois avance o estágio e prossiga ao próximo especialista).
+   - **Ajustar** → `process-ai gate --id gate-<N> --decision changes-requested`
+     (**reabra o especialista atual** para ajustar o artefato; após re-commit,
+     repita os passos 3–4 — gate informativo atualizado + nova decisão).
+   - **Parar** → `process-ai gate --id gate-<N> --decision rejected`
+     (encerre o fluxo — **não** avance o estágio nem inicie o próximo especialista;
+     informe o usuário de que a sessão pode ser retomada via `process-ai resume`).
+
+5. **Se aprovado, avance o estágio:**
+   `process-ai stage --to <estágio>` (`discovery` → `mapping` → `modeling` → `standardization`).
+   > O avanço de estágio **só ocorre** após `--decision approved`. Se `changes-requested`
+   > ou `rejected`, o estágio **não avança** — o especialista atual é reaberto ou o
+   > fluxo é encerrado.
+
 ---
 
-## 4. Encerramento — resumo + relatório de confiança (AC6)
+## 4. Encerramento — resumo narrativo + relatório de confiança (AC6, FR-5 full)
 
-Ao fim da pipeline (após o Gate 4):
+Ao fim da pipeline (após o Gate 4 aprovado):
 
-1. **Gere o relatório de confiança:** execute `process-ai report` (via Bash) e
-   capture a saída (markdown pt-BR com a contagem 🟢/🟡/🔴 agregada do ledger).
-2. **Redija um resumo de encerramento** narrativo (a Déa escreve): o que foi
-   mapeado, decisões dos gates, lacunas conhecidas. Embuta o relatório de
-   confiança nesta seção.
-3. **Commit o entregável final:**
-   - Monte o payload com a **ferramenta de escrita de arquivos (Write), NÃO um heredoc de Bash** — evita escaping de aspas/backticks/newlines do shell.
-   - Shape esperado: `{ "artifactType": "summary-report", "content": "<markdown escapado em JSON>" }`. Em `content`, escape aspas como `\"` e newlines como `\n` (o markdown traz `>`, `*`, backticks e emoji — todos precisam estar dentro de uma string JSON válida).
+1. **Colete o estado final:**
+   - Execute `process-ai report` (via Bash) e capture a saída markdown — este é o
+     **relatório de confiança consolidado** (2.5: contagem + itens por nível +
+     breakdown + reverse-index + excerpt-status + órfãos).
+   - Execute `process-ai status` (via Bash) e capture o JSON — ele contém
+     `artifacts[]` (lista de artefatos commitados com `sha256`+`artifactType`)
+     e `stage` atual.
+
+2. **Redija o resumo narrativo de encerramento** (a Déa escreve, em markdown pt-BR).
+   O resumo deve conter as seções abaixo. Use os dados do `status` (artefatos) e
+   do `report` (contagens, itens, gaps) — **nunca invente** dados que não estejam
+   nesses dois comandos.
+
+   **Estrutura do resumo narrativo:**
+
+   a. **Cabeçalho:** *"Processo mapeado: [escopo confirmado no Gate 0]. Documentação
+      gerada em [data] pelo process-ai."*
+
+   b. **Por etapa — 1 parágrafo por estágio** (`discovery` → `mapping` → `modeling` →
+      `standardization`), citando:
+      - O que foi produzido (artefatos e seus `artifactType`s)
+      - Quantos 🟢/🟡/🔴 por etapa (do breakdown do relatório)
+      - A principal fonte de evidência da etapa
+      - Exemplo: *"**Descoberta (Bento):** entrevista registrada + SIPOC com 5
+        fornecedores + cadeia de valor com 4 elos. 8 afirmações (6 🟢 confirmadas
+        na entrevista, 1 🟡 inferida, 1 🔴 gap)."*
+
+   c. **Próximos passos acionáveis:** leia os itens 🔴 do relatório (seção
+      `### 🔴 Gaps Declarados`) e sugira **ações concretas** para cada gap.
+      - Exemplo concreto: *"🔴 'Não sabemos o SLA da entrega' → **Ação sugerida:**
+        Validar o prazo de entrega com o time de logística (João, coordenador)."*
+      - Se **zero 🔴**: sugira *"Validar o modelo com um segundo par de olhos
+        (spot-check de especialista em processos)"*.
+      - **Nunca** genérico como "revise o processo" ou "melhore a documentação" —
+        sempre específico e atrelado a um gap ou artefato concreto.
+
+   d. **Resumo das decisões dos gates:** 1-liner por gate (gate-1 a gate-4) com a
+      decisão registrada (`approved` / `changes-requested` / `rejected`).
+
+3. **Embuta o relatório de confiança:** sob o título `## Relatório de Confiança`,
+   inclua a saída **verbatim** de `process-ai report`. **Não reescreva, não resuma,
+   não reformate** — o markdown do relatório é um contrato duro (2.5). A narrativa
+   da Déa fica **acima** deste bloco; o relatório fica **íntegro** abaixo.
+
+4. **Commit o entregável final:**
+   - Monte o payload com a **ferramenta de escrita de arquivos (Write), NÃO um
+     heredoc de Bash** — evita escaping de aspas/backticks/newlines do shell.
+   - Shape esperado: `{ "artifactType": "summary-report", "content": "<markdown
+     escapado em JSON>" }`. Em `content`, escape aspas como `\"` e newlines como
+     `\n`. O conteúdo é o **resumo narrativo (passo 2) + relatório verbatim
+     (passo 3)** concatenados, com o relatório sob `## Relatório de Confiança`.
    - Execute `process-ai propose --payload summary-report.json`.
-   - Após confirmar o commit, **remova o `summary-report.json` temporário** do diretório do projeto (ele vive fora das pastas protegidas e não deve persistir).
-4. Confirme o commit (o CLI imprime o `sha256` e os paths em `_process-ai_output/`).
+   - Após confirmar o commit, **remova o `summary-report.json` temporário** do
+     diretório do projeto (ele vive fora das pastas protegidas e não deve persistir).
 
-> **A sessão não termina sem esse entregável commitado.** Avance o estágio final
-> para `summary` (`process-ai stage --to summary`) e entregue o resumo + relatório.
+5. **Finalize:** avance o estágio final para `summary`:
+   `process-ai stage --to summary`.
+
+> **A sessão não termina sem esse entregável commitado.** O `summary-report` é o
+> artefato que prova o ciclo completo — narrativa + confiança + próximos passos.
 
 ---
 
