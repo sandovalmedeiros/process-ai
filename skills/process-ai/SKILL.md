@@ -79,15 +79,17 @@ A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 > faz o **handoff** adotando a persona de cada especialista (segue a skill
 > correspondente). O leigo **não** invoca os especialistas diretamente.
 
-| Gate | Estágio (`stage --to`) | Especialista | Rascunho produzido (1.6) | `artifactType` |
-|------|------------------------|--------------|--------------------------|----------------|
-| `gate-1` | `discovery` | **Bento** | SIPOC + cadeia de valor | `sipoc`, `value-chain` |
+| Gate | Estágio (`stage --to`) | Especialista | Artefatos produzidos | `artifactType` |
+|------|------------------------|--------------|------------------------|----------------|
+| `gate-1` | `discovery` | **Bento** | Entrevista + SIPOC + cadeia de valor | `discovery-interview`, `sipoc`, `value-chain` |
 | `gate-2` | `mapping` | **Miguel** | hierarquia (Macro→Tarefa) | `hierarchy` |
 | `gate-3` | `modeling` | **Júlia** | fluxo simples (não BPMN XML) | `flow` |
 | `gate-4` | `standardization` | **Zanoni** | POP-rascunho | `pop` |
 
-> Estes são **rascunhos mínimos** do Walking Skeleton. Profundidade (SIPOC completo,
-> BPMN 2.0 XML, gargalos, diagnóstico, gates ricos) é **Epic 2**.
+> **Epic 2 em curso.** Bento (2.1) é **profundo**: entrevista persistida + SIPOC + cadeia
+> completos, com 🟢 sustentados pela entrevista. Miguel/Júlia/Zanoni profundos vêm nas
+> 2.2–2.4; BPMN 2.0 XML, gargalos, diagnóstico e gates ricos também são Epic 2; method-packs
+> (loader/schema/pack) são Epic 3.
 
 Para cada especialista, em ordem:
 
@@ -105,8 +107,9 @@ Para cada especialista, em ordem:
 4. **Capture o `sha256`** do `CommitResult` impresso pelo `propose` e **passe ao próximo
    especialista** — é a fonte que habilita claims 🟢 com `source` (provenance cruzada,
    AD-5):
-   - **Bento** (1º estágio) → entrega os `sha256` de `sipoc` e `value-chain` ao Miguel.
-     (Bento só produz 🟡/🔴 — a entrevista não é um artefato commitado.)
+   - **Bento** (1º estágio) → **persiste a entrevista** (`discovery-interview`) e **pode 🟢**
+     sourcing-a; entrega os **três** `sha256` (`discovery-interview`, `sipoc`, `value-chain`)
+     ao Miguel — que continua sourceando a `value-chain` para a hierarquia.
    - **Miguel** → entrega o `sha256` de `hierarchy` à Júlia (Miguel já pode 🟢 sourcing
      a `value-chain` de Bento).
    - **Júlia** → entrega o `sha256` de `flow` ao Zanoni.

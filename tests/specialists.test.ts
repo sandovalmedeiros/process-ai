@@ -22,7 +22,7 @@ const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 
 /** Os 4 especialistas: skill-dir name, artifactType(s) canônicos, persona. */
 const SPECIALISTS = [
-  { skill: 'process-ai-bento', persona: 'Bento', types: ['sipoc', 'value-chain'] },
+  { skill: 'process-ai-bento', persona: 'Bento', types: ['discovery-interview', 'sipoc', 'value-chain'] },
   { skill: 'process-ai-miguel', persona: 'Miguel', types: ['hierarchy'] },
   { skill: 'process-ai-julia', persona: 'Júlia', types: ['flow'] },
   { skill: 'process-ai-zanoni', persona: 'Zanoni', types: ['pop'] },

@@ -67,8 +67,8 @@ confirmou → 🟡/🔴.
    - **Todo achado tem um claim** com `level` + `reasoning` (FR-14, NFR-1).
    - **Provenance cruzada (AD-5):** pelo menos **um claim 🟢** usa `"source": { artifactType:
      "value-chain", sha256: <sha de Bento> }`. O toolkit valida que essa fonte **resolve a
-     um artefato commitado** — este é o **primeiro 🟢** da pipeline e prova a rastreabilidade
-     cross-artefato. (Bento foi só 🟡/🔴 porque não tinha upstream.)
+     um artefato commitado** — prova a rastreabilidade cross-artefato (Bento já alcança 🟢 em
+     2.1 sourcing a `discovery-interview`; Miguel continua a cadeia sourcing a `value-chain`).
 3. **Commite:** `process-ai propose --payload hierarchy.json`.
 4. **Capture o `sha256`** do `CommitResult` e **entregue à Déa** (ela o passará à Júlia).
 5. **Remova o `hierarchy.json` temp.**

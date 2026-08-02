@@ -11,6 +11,7 @@
  *  - o ledger `.process-ai/confidence-ledger.jsonl` é **não-vazio** e o relatório de confiança
  *    deixa de ter a nota de "zeros honestos" (AC6);
  *  - 6 artefatos commitados (sipoc, value-chain, hierarchy, flow, pop, summary-report);
+ *    **(2.1: +discovery-interview → 7 artefatos; Bento agora pode 🟢 sourcing a entrevista)**;
  *  - resume subsequente não duplica estado nem cria órfãos.
  *
  * Drive via `dispatch(parseArgs(...), adapter, root)` — determinístico, sem LLM (o teste
@@ -90,15 +91,26 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
     await runJson(['stage', '--to', 'scope'], adapter, tmp);
     await runJson(['gate', '--id', 'gate-0', '--decision', 'approved'], adapter, tmp);
 
-    // ---- Bento (discovery): sipoc + value-chain, claims 🟡/🔴 (sem upstream) ----
+    // ---- Bento (discovery): entrevista persistida + sipoc + value-chain (2.1: Bento pode 🟢 sourcing a entrevista) ----
     await runJson(['gate', '--id', 'gate-1', '--decision', 'approved'], adapter, tmp);
     await runJson(['stage', '--to', 'discovery'], adapter, tmp);
+
+    // 2.1: Bento persiste a entrevista PRIMEIRO — é a fonte que habilita claims 🟢.
+    const interview = await propose(adapter, tmp, {
+      artifactType: 'discovery-interview',
+      content: '# Entrevista de descoberta — Vendas\n## Fornecedores\nMarketing e indicações.\n## Processo\nLead → Qualificação → Proposta → Fechamento.',
+    });
 
     const sipoc = await propose(adapter, tmp, {
       artifactType: 'sipoc',
       content: '# SIPOC\nFornecedores: Marketing. Entradas: Leads. Processo: Vendas. Saídas: Proposta. Clientes: Lead.',
       claims: [
-        { statement: 'O Marketing fornece os leads', level: '🟡', reasoning: 'Inferido da entrevista com o leigo' },
+        {
+          statement: 'O Marketing fornece os leads',
+          level: '🟢',
+          source: { artifactType: 'discovery-interview', sha256: interview.sha256 },
+          reasoning: 'Confirmado pelo leigo na entrevista persistida (2.1)',
+        },
         { statement: 'Taxa de conversão atual', level: '🔴', reasoning: 'Leigo não soube informar — gap declarado' },
       ],
     });
@@ -106,12 +118,17 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
       artifactType: 'value-chain',
       content: '# Cadeia de Valor\nLead → Qualificação → Proposta → Fechamento',
       claims: [
-        { statement: 'A cadeia de valor tem 4 macroprocessos', level: '🟡', reasoning: 'Inferido da entrevista com o leigo' },
+        {
+          statement: 'A cadeia de valor tem 4 macroprocessos',
+          level: '🟢',
+          source: { artifactType: 'discovery-interview', sha256: interview.sha256 },
+          reasoning: 'Macroprocessos confirmados na entrevista persistida (2.1)',
+        },
       ],
     });
 
     // ---- Miguel (mapping): hierarchy com 🟢 sourcing value-chain (resolve) + 🟢 com sha
-    //      inexistente (degrada a 🟡, unresolved-source) + 🟡 inferido. Primeiro 🟢 do sistema. ----
+    //      inexistente (degrada a 🟡, unresolved-source) + 🟡 inferido. (Bento já 🟢 em 2.1.) ----
     await runJson(['gate', '--id', 'gate-2', '--decision', 'approved'], adapter, tmp);
     await runJson(['stage', '--to', 'mapping'], adapter, tmp);
 
@@ -190,14 +207,14 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
     // ---- Asserções de estado ----
     const cp = await readCheckpoint(tmp);
 
-    // 6 artefatos commitados (5 especialistas + summary-report).
+    // 7 artefatos commitados (2.1: +discovery-interview de Bento; 5 especialistas + summary-report).
     const types = cp.artifacts.map((a) => a.artifactType).sort();
     assert.deepEqual(
       types,
-      ['flow', 'hierarchy', 'pop', 'sipoc', 'summary-report', 'value-chain'],
-      '6 artefatos commitados pela pipeline',
+      ['discovery-interview', 'flow', 'hierarchy', 'pop', 'sipoc', 'summary-report', 'value-chain'],
+      '7 artefatos commitados pela pipeline (2.1: +discovery-interview)',
     );
-    assert.equal(cp.artifacts.length, 6);
+    assert.equal(cp.artifacts.length, 7);
     assert.ok(types.includes('flow') && !types.includes('bpmn'), 'Júlia emite flow (NÃO bpmn — AD-6 é 2.3)');
 
     // Gates gate-0..gate-4 (cada um uma vez).
@@ -214,6 +231,11 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
     const validated = entries.map((e) => e.validated);
     assert.ok(validated.length > 0, 'ledger não-vazio');
     assert.ok(validated.includes('🟢'), 'ao menos um 🟢 validado (provenance cruzada resolveu)');
+    // 2.1: Bento agora alcança 🟢 — há um 🟢 cuja fonte é a entrevista persistida.
+    const interviewSourced = entries.find(
+      (e) => e.validated === '🟢' && e.source?.sha256 === interview.sha256,
+    );
+    assert.ok(interviewSourced, 'ao menos um 🟢 de Bento sourceando a discovery-interview (mecanismo 2.1)');
     assert.ok(validated.includes('🟡'), 'ao menos um 🟡');
     assert.ok(validated.includes('🔴'), 'ao menos um 🔴 (gap declarado por Bento)');
 
@@ -228,7 +250,7 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
       state: CheckpointState;
       orphans: unknown[];
     };
-    assert.equal(reResume.state.artifacts.length, 6, 'artefatos não duplicados em re-resume');
+    assert.equal(reResume.state.artifacts.length, 7, 'artefatos não duplicados em re-resume (2.1: 7 artefatos)');
     assert.equal(reResume.state.gates.length, 5, 'gates não duplicados em re-resume');
     assert.equal(reResume.state.walCursor, walCursorBefore, 'walCursor não deve regredir/avançar');
     assert.deepEqual(reResume.orphans, [], 'todos os manifestos referenciados → sem órfãos');
