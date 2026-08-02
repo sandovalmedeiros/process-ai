@@ -184,9 +184,15 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
         '    <bpmn:exclusiveGateway id="Gateway_fit" name="Lead qualificado?"/>\n' +
         '    <bpmn:task id="A1.1.2.1" name="Enviar proposta"/>\n' +
         '    <bpmn:endEvent id="End_fechamento" name="Fechamento"/>\n' +
+        '    <bpmn:endEvent id="End_rejeicao" name="Lead descartado"/>\n' +
         '    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_captao_lead" targetRef="A1.1.1.1"/>\n' +
         '    <bpmn:sequenceFlow id="Flow_2" sourceRef="A1.1.1.1" targetRef="Gateway_fit"/>\n' +
-        '    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_fit" targetRef="A1.1.2.1"/>\n' +
+        '    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_fit" targetRef="A1.1.2.1">\n' +
+        '      <bpmn:conditionExpression>fit aprovado</bpmn:conditionExpression>\n' +
+        '    </bpmn:sequenceFlow>\n' +
+        '    <bpmn:sequenceFlow id="Flow_3n" sourceRef="Gateway_fit" targetRef="End_rejeicao">\n' +
+        '      <bpmn:conditionExpression>fit reprovado</bpmn:conditionExpression>\n' +
+        '    </bpmn:sequenceFlow>\n' +
         '    <bpmn:sequenceFlow id="Flow_4" sourceRef="A1.1.2.1" targetRef="End_fechamento"/>\n' +
         '  </bpmn:process>\n' +
         '</bpmn:definitions>',

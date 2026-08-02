@@ -125,9 +125,15 @@ test('2.3 AC2/AC3/AC4: Júlia profunda modela a hierarquia em fluxo BPMN 2.0 XML
         '    <bpmn:exclusiveGateway id="Gateway_fit" name="Lead qualificado?"/>\n' +
         '    <bpmn:task id="A1.1.2.1" name="Enviar proposta"/>\n' +
         '    <bpmn:endEvent id="End_fechamento" name="Fechamento"/>\n' +
+        '    <bpmn:endEvent id="End_rejeicao" name="Lead descartado"/>\n' +
         '    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_captao_lead" targetRef="A1.1.1.1"/>\n' +
         '    <bpmn:sequenceFlow id="Flow_2" sourceRef="A1.1.1.1" targetRef="Gateway_fit"/>\n' +
-        '    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_fit" targetRef="A1.1.2.1"/>\n' +
+        '    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_fit" targetRef="A1.1.2.1">\n' +
+        '      <bpmn:conditionExpression>fit aprovado</bpmn:conditionExpression>\n' +
+        '    </bpmn:sequenceFlow>\n' +
+        '    <bpmn:sequenceFlow id="Flow_3n" sourceRef="Gateway_fit" targetRef="End_rejeicao">\n' +
+        '      <bpmn:conditionExpression>fit reprovado</bpmn:conditionExpression>\n' +
+        '    </bpmn:sequenceFlow>\n' +
         '    <bpmn:sequenceFlow id="Flow_4" sourceRef="A1.1.2.1" targetRef="End_fechamento"/>\n' +
         '  </bpmn:process>\n' +
         '</bpmn:definitions>',
@@ -238,8 +244,8 @@ test('2.3 AC1/AC2/AC3: skill da Júlia profunda — BPMN 2.0 XML + roteiro + gar
   // Gargalos como CLAIM com evidência (reasoning/🟡/claim) — 1.6 só defere "→ 2.3".
   assert.match(
     content,
-    /gargalo[\s\S]{0,250}(claim|🟡|reasoning)/i,
-    'skill da Júlia (2.3) deve instruir gargalos como claim com evidência — 1.6 só defere',
+    /gargalo[\s\S]{0,120}reasoning/i,
+    'skill da Júlia (2.3) deve instruir gargalos como claim cujo reasoning cita evidência — 1.6 só defere',
   );
 
   // ---- Guards de honestidade (travam as correções do T1 contra regressões futuras) ----

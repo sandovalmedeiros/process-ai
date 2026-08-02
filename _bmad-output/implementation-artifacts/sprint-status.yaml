@@ -62,7 +62,7 @@ development_status:
   epic-2: in-progress
   2-1-bento-entrevista-sipoc-cadeia-valor: done
   2-2-miguel-hierarquia-completa: done
-  2-3-julia-bpmn-xml-gargalos: review
+  2-3-julia-bpmn-xml-gargalos: done
   2-4-zanoni-pops-diagnostico: backlog
   2-5-confianca-verificavel-rastreabilidade-relatorio: backlog
   2-6-gates-completos-resumo-final: backlog

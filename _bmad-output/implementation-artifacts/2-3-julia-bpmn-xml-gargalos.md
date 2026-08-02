@@ -4,7 +4,7 @@ baseline_commit: 9edd59370a27ad8679ac275d3202df171c92e1be
 
 # Story 2.3: Júlia profunda — BPMN 2.0 XML canônico + gargalos
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -210,7 +210,7 @@ GLM-5.1 (via Claude Code, skill `bmad-dev-story`).
 ### Debug Log References
 
 - **Baseline confirmada (antes de codar):** `node --test tests/*.test.ts` → **177 pass / 0 fail / 0 skipped** (HEAD `9edd593`, pós-2.2).
-- **RED-contra-1.6 (TDD):** `node --test tests/julia-flow.test.ts` contra a skill 1.6 atual → test 1 (mecanismo) passou; test 2 (profundidade) **falhou** já na 1ª asserção `/<bpmn:definitions|<bpmn:process/i` (ausente na 1.6, que diz "Não emita XML aqui") — profundeza não autorada, conforme esperado. Regexes validados: nenhum casa trivialmente a skill 1.6.
+- **RED-contra-1.6 (TDD):** `node --test tests/julia-flow.test.ts` contra a skill 1.6 atual → test 1 (mecanismo) passou; test 2 (profundidade) **falhou** já na 1ª asserção `/<bpmn:definitions|<bpmn:process/i` (ausente na 1.6, que diz "Não emita XML aqui") — profundeza não autorada, conforme esperado. Demais asserções de profundidade não são isoladamente exercitadas contra a 1.6 pela execução (`assert.match` lança na 1ª falha); verificação manual confirma que nenhum regex casa a 1.6.
 - **GREEN (pós-T1):** após reescrita da skill → `julia-flow.test.ts` 2/2 pass.
 - **Foco T1/T2/T3:** `specialists + skill + e2e-pipeline + julia-flow` → 23/23 pass.
 - **T4 final:** suite completa → **179 pass / 0 fail** (177 prévios + 2 novos); `npm run typecheck` (`tsc --noEmit`) limpo; `git status --short -- toolkit/src/` **vazio** (AD-3 verde — nenhum arquivo no core); `import-boundary.test.ts` verde (parte da suite).
@@ -237,3 +237,27 @@ GLM-5.1 (via Claude Code, skill `bmad-dev-story`).
 
 - **2026-08-02** — Story 2.3 criada (create-story): terceira do Epic 2. Aprofunda a Júlia de rascunho markdown (1.6) para **modelagem BPMN 2.0 XML canônica + gargalos com evidência**. Mantém **um** artifactType `flow` (profundidade no **conteúdo** = BPMN 2.0 XML — Decision #1, espelha 2.2; tipo `bpmn`/`bpmn.ts`/schema → 3.1). Mecanismo AD-5 já existe desde 1.4; **zero mudança no toolkit** (AD-3). Honestidade: 🟢 só onde deriva nominalmente da `hierarchy` confirmada (regra anti-inflação); gargalos = 🟡 com evidência (FR-11); correção das notes stale ("não emita XML"/"rascunho"). Render → deferred (AD-6/PRD §11). Cadeia de provenance limpa: `flow ← hierarchy ← value-chain ← discovery-interview`. **Inteligência da revisão da 2.2 codificada** (2 medium + lições de teste) como prevenção. Mudanças: `skills/process-ai-julia/SKILL.md` (MODIFY), `skills/process-ai/SKILL.md` §3 (MODIFY leve), `tests/e2e-pipeline.test.ts` seção Júlia (MODIFY leve — contagem 7), `tests/julia-flow.test.ts` (NEW). Builda sobre 1.1–2.2 sem reescrever o toolkit; baseline 177 testes + novos. Status → ready-for-dev.
 - **2026-08-02** — Story 2.3 implementada (dev-story, GLM-5.1): Júlia profunda. Skill reescrita do rascunho markdown (1.6) para **modelagem BPMN 2.0 XML canônica + gargalos com evidência (FR-11) + claims honestos por elemento** (🟢 sourcing `hierarchy` + 🟡 fluxo inferido + 🔴 passo indeterminado). `artifactType: flow` mantido (profundidade no **conteúdo**, Decision #1; tipo `bpmn`/`bpmn.ts` → Epic 3). **TDD RED-contra-1.6** confirmado antes da reescrita (test 2 falhou em `/<bpmn:definitions|<bpmn:process/i`); GREEN após. Condutor §3 atualizado (Júlia profunda; linha handoff "fluxo BPMN 2.0 XML"). `julia-flow.test.ts` NEW + `e2e-pipeline` seção Júlia enriquecida (contagem 7). **Zero mudança no toolkit** (AD-3 verde). Suite 177 → **179 pass / 0 fail**; `tsc --noEmit` limpo. Prevenção da revisão 2.2 codificada (🟢 não inflado; 🔴 não fabricado; asserções provam instrução; 🟡 literal isolado). Status → **review**.
+- **2026-08-02** — Code review adversarial (3 camadas, mesmo contexto/GLM; commit 9edd593..01daff3): 0 P0/P1; Acceptance Auditor PASS (AC1–AC5 + ADs + 179/179 + typecheck limpo). 1 decision-needed + 4 patches + 1 defer + 1 dismiss (dup da revisão 2.2). Patches aplicados e verificados (**179 pass / 0 fail**; `tsc --noEmit` limpo): gateway exclusivo ganhou ramo "não" (`End_rejeicao` + `conditionExpression`) nos 3 locais (SKILL + e2e + julia-flow); typo "candidateie"→"marque como"; regex gargalo apertado (`{0,120}reasoning`); dev-log TDD corrigido; nota de `serviceTask`/`parallelGateway` adicionada. Defer: `reasoning` não persistido no ledger → 2.5. Status → **done**.
+
+## Review Findings
+
+Code review adversarial de 3 camadas (Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `9edd593`, commit `01daff3`; 2026-08-02, mesmo contexto/GLM). **Acceptance Auditor: AC1–AC5 + AD-1/AD-3/AD-5/AD-6 + Decision #1 + NFR-1 + critério implícito = PASS** (`tsc --noEmit` limpo; `node --test` → 179 pass / 0 fail; AD-3 verde; RED-contra-1.6 confirmado). Achados abaixo são de qualidade/conteúdo — **nenhum P0/P1**.
+
+### Decision-needed
+
+- [x] [Review][Decision] **`exclusiveGateway` com um único `sequenceFlow` de saída — BPMN semanticamente não-canônico** — o exemplo-porta-estandarte de "BPMN canônico" (AC2/AD-6) tem `Gateway_fit` ("Lead qualificado?") com **um só** fluxo de saída (`Flow_3 → A1.1.2.1`), sem `conditionExpression` nem ramo "não" — contradiz o próprio §2 passo 4 da skill ("sim/não"). Duplicado em 3 locais. Agentes que mimetizem o exemplo produzirão BPMN que afirma decisões sem modelá-las. `[skills/process-ai-julia/SKILL.md:102-107]`, `[tests/e2e-pipeline.test.ts:184-189]`, `[tests/julia-flow.test.ts:125-130]`
+
+### Patch
+
+- [x] [Review][Patch] **Dev-log infla verificação TDD** — "Regexes validados: nenhum casa trivialmente a skill 1.6" (L213) é infalsificável pela execução: `assert.match` lança na 1ª falha, então só o 1º regex é efetivamente exercitado contra a 1.6. Suavizar a claim. `[2-3-julia-bpmn-xml-gargalos.md:213]`
+- [x] [Review][Patch] **Regex "gargalo…" é loose** — `/gargalo[\s\S]{0,250}(claim|🟡|reasoning)/i` casa por co-ocorrência frouxa; funciona hoje (verificado contra a 1.6 real), mas casaria uma skill regressiva. Apertar para exigir a palavra de instrução (ex.: `/gargalo[\s\S]{0,120}reasoning/i`). `[tests/julia-flow.test.ts:241]`
+- [x] [Review][Patch] **Typo "candidateie"** — forma verbal inválida em pt-BR no material-canonical (semente do method-pack). `[skills/process-ai-julia/SKILL.md:76]`
+- [x] [Review][Patch] **Exemplo omite `parallelGateway`/`serviceTask`** que o roteiro §2 cita (AC1 "completo") — o exemplo mostra só `task` + `exclusiveGateway`. `[skills/process-ai-julia/SKILL.md:62-68 vs 99-110]`
+
+### Deferred
+
+- [x] [Review][Defer] **`reasoning` do claim (evidência FR-11 do gargalo) não é persistido no ledger** — `ConfidenceLedgerEntry` (`toolkit/src/confidence.ts`) não carrega `statement`/`reasoning`; o ledger só guarda `validated`/`source`/`degradationReason`. Pré-existente (toolkit 1.4, intocável — AD-3); listing rico/excerpt → 2.5. `[toolkit/src/confidence.ts:83-101,232-234]` — deferred, pre-existing
+
+### Dismissed (1)
+
+- **🟢 aceito sem guarda semântica de `source.artifactType`** — duplicata de item já deferido na revisão da 2.2 (`confidence.ts` valida resolução do manifesto, não semântica → checagem semântica é 2.5/3.1). `[toolkit/src/confidence.ts:206-231]`

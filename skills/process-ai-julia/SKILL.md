@@ -73,7 +73,7 @@ Transforme a hierarquia de Miguel em um **fluxo BPMN ponta-a-ponta**, percorrend
    problemático entre elementos do fluxo (ex.: handoff manual entre duas tarefas sem sistema
    integrador). Cada gargalo vira um **claim 🟡 com evidência** (ver §4).
 
-> **Regra de honestidade na modelagem:** só candidateie a 🟢 os elementos que mapeiam a **nós
+> **Regra de honestidade na modelagem:** só marque como 🟢 os elementos que mapeiam a **nós
 > confirmados na hierarquia** (atividades/tarefas que Miguel marcou, tipicamente 🟢/🟡 na
 > `hierarchy`). Fluxo inferido (gateways, ordenações, paralelismos não explícitos) = 🟡; passo não
 > determinado = 🔴 (declare o gap; **não** fabrique um passo concreto e o rotule de 🔴).
@@ -102,9 +102,15 @@ real):
     <bpmn:exclusiveGateway id="Gateway_fit" name="Lead qualificado?"/>
     <bpmn:task id="A1.1.2.1" name="Enviar proposta"/>
     <bpmn:endEvent id="End_fechamento" name="Fechamento"/>
+    <bpmn:endEvent id="End_rejeicao" name="Lead descartado"/>
     <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_captao_lead" targetRef="A1.1.1.1"/>
     <bpmn:sequenceFlow id="Flow_2" sourceRef="A1.1.1.1" targetRef="Gateway_fit"/>
-    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_fit" targetRef="A1.1.2.1"/>
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_fit" targetRef="A1.1.2.1">
+      <bpmn:conditionExpression>fit aprovado</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_3n" sourceRef="Gateway_fit" targetRef="End_rejeicao">
+      <bpmn:conditionExpression>fit reprovado</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
     <bpmn:sequenceFlow id="Flow_4" sourceRef="A1.1.2.1" targetRef="End_fechamento"/>
   </bpmn:process>
 </bpmn:definitions>
@@ -113,6 +119,11 @@ real):
 > **Convenção:** `isExecutable="false"` (é um modelo de processo, não um processo executável);
 > IDs de `task`/`serviceTask` ancorados nos IDs de Miguel (`A…`/`T…`); `name` em pt-BR legível. O
 > `content` é opaco para o toolkit — sem schema/validação de XML well-formed aqui (3.1).
+>
+> **Tipos não ilustrados no exemplo mínimo:** `serviceTask` (atividade automatizada — ex.: envio
+> automático de proposta por e-mail) e `parallelGateway` (ramos paralelos — ex.: "Proposta" e
+> "Contrato" emitidos em paralelo) aplicam-se nos mesmos moldes — use-os quando o processo exigir;
+> a ancoragem em IDs de Miguel e a marcação de confiança (🟢 confirmado / 🟡 inferido) são idênticas.
 
 ## 4. Committa com claims por elemento (Júlia continua a cadeia de 🟢 sourcing `hierarchy`)
 
