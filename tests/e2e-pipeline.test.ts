@@ -14,6 +14,9 @@
  *    **(2.1: +discovery-interview → 7 artefatos; Bento agora pode 🟢 sourcing a entrevista)**;
  *    **(2.2: Miguel profundo — hierarchy com árvore completa (5 níveis, IDs estáveis, pai/filho)
  *    + 🔴 de gap de nível; a contagem permanece 7 — nenhum artifactType novo)**;
+ *    **(2.3: Júlia profunda — flow com content = BPMN 2.0 XML + 🟡 fluxo inferido + 🔴 passo
+ *    indeterminado + gargalo 🟡 com evidência; a contagem permanece 7 — artifactType flow
+ *    inalterado, profundidade no conteúdo (Decision #1))**;
  *  - resume subsequente não duplica estado nem cria órfãos.
  *
  * Drive via `dispatch(parseArgs(...), adapter, root)` — determinístico, sem LLM (o teste
@@ -163,19 +166,51 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
       ],
     });
 
-    // ---- Júlia (modeling): flow com 🟢 sourcing hierarchy ----
+    // ---- Júlia (2.3) profunda (modeling): flow com content = BPMN 2.0 XML + claims honestos
+    //      (🟢 sourcing hierarchy resolve + 🟡 fluxo inferido + 🔴 passo indeterminado + gargalo 🟡
+    //      com evidência citando o nó do flow). artifactType flow inalterado (Decision #1);
+    //      contagem permanece 7 (nenhum artefato novo). ----
     await runJson(['gate', '--id', 'gate-3', '--decision', 'approved'], adapter, tmp);
     await runJson(['stage', '--to', 'modeling'], adapter, tmp);
 
     const flow = await propose(adapter, tmp, {
       artifactType: 'flow',
-      content: '# Fluxo\n1. Captação do lead\n2. Qualificação\n3. Proposta\n4. Fechamento',
+      content:
+        '<?xml version="1.0" encoding="UTF-8"?>\n' +
+        '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" id="Definitions_vendas" targetNamespace="http://process-ai/flow/vendas">\n' +
+        '  <bpmn:process id="Process_vendas" isExecutable="false">\n' +
+        '    <bpmn:startEvent id="Start_captao_lead" name="Captação do lead"/>\n' +
+        '    <bpmn:task id="A1.1.1.1" name="Avaliar fit (Qualificação)"/>\n' +
+        '    <bpmn:exclusiveGateway id="Gateway_fit" name="Lead qualificado?"/>\n' +
+        '    <bpmn:task id="A1.1.2.1" name="Enviar proposta"/>\n' +
+        '    <bpmn:endEvent id="End_fechamento" name="Fechamento"/>\n' +
+        '    <bpmn:sequenceFlow id="Flow_1" sourceRef="Start_captao_lead" targetRef="A1.1.1.1"/>\n' +
+        '    <bpmn:sequenceFlow id="Flow_2" sourceRef="A1.1.1.1" targetRef="Gateway_fit"/>\n' +
+        '    <bpmn:sequenceFlow id="Flow_3" sourceRef="Gateway_fit" targetRef="A1.1.2.1"/>\n' +
+        '    <bpmn:sequenceFlow id="Flow_4" sourceRef="A1.1.2.1" targetRef="End_fechamento"/>\n' +
+        '  </bpmn:process>\n' +
+        '</bpmn:definitions>',
       claims: [
         {
-          statement: 'O fluxo começa com a captação do lead',
+          statement: 'A tarefa A1.1.1.1 (Avaliar fit) corresponde à atividade nominal na hierarchy',
           level: '🟢',
           source: { artifactType: 'hierarchy', sha256: hierarchy.sha256 },
-          reasoning: 'Derivado da atividade de captação na hierarquia de Miguel',
+          reasoning: 'Deriva nominalmente da atividade A1.1.1.1 confirmada na hierarchy de Miguel',
+        },
+        {
+          statement: 'O gateway exclusivo Gateway_fit (decisão de qualificação) é inferido',
+          level: '🟡',
+          reasoning: 'Ponto de decisão não explícito na hierarchy — fluxo inferido pela Júlia',
+        },
+        {
+          statement: 'O tempo de espera entre qualificação e proposta é indeterminado',
+          level: '🔴',
+          reasoning: 'Passo/medida não determinado na descoberta — gap declarado, sem inventar valor',
+        },
+        {
+          statement: 'Gargalo: handoff manual entre A1.1.1.1 (Qualificação) e A1.1.2.1 (Proposta)',
+          level: '🟡',
+          reasoning: 'Evidência: a sequenceFlow Flow_3 liga A1.1.1.1 a A1.1.2.1 sem sistema integrador — handoff inferido como ponto de espera',
         },
       ],
     });
