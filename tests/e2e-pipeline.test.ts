@@ -221,19 +221,32 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
       ],
     });
 
-    // ---- Zanoni (standardization): pop com 🟢 sourcing flow ----
+    // ---- Zanoni profundo (standardization): pop = POPs (ref A1.1.1.1) + diagnóstico (FR-13) +
+    //      🟢 sourcing flow + 🟡 (recomendação inferida) + 🔴 (gap). artifactType pop inalterado
+    //      (Decision #1 — diagnóstico é conteúdo, não tipo novo); contagem permanece 7. ----
     await runJson(['gate', '--id', 'gate-4', '--decision', 'approved'], adapter, tmp);
     await runJson(['stage', '--to', 'standardization'], adapter, tmp);
 
     await propose(adapter, tmp, {
       artifactType: 'pop',
-      content: '# POP — Qualificação de lead\nObjetivo: qualificar. Passos: 1. Verificar fito. 2. Documentar.',
+      content:
+        '# POP — Qualificação de lead (ref: A1.1.1.1)\nObjetivo: qualificar. Passos: 1. Avaliar fit. 2. Documentar.\n\n# Diagnóstico consolidado\n- Gargalo: handoff sem sistema integrador (🟡).\n- Gap: SLA não determinado (🔴).\n- Recomendação: integrar o CRM (🟡).',
       claims: [
         {
-          statement: 'O passo 1 do POP é qualificar o lead',
+          statement: 'O passo 1 do POP (A1.1.1.1) deriva do fluxo de Júlia',
           level: '🟢',
           source: { artifactType: 'flow', sha256: flow.sha256 },
-          reasoning: 'Derivado do passo correspondente no fluxo de Júlia',
+          reasoning: 'Deriva nominalmente da tarefa A1.1.1.1 confirmada no flow',
+        },
+        {
+          statement: 'Recomendação: integrar o CRM ao handoff',
+          level: '🟡',
+          reasoning: 'Recomendação inferencial citando o gargalo no flow — nunca 🟢',
+        },
+        {
+          statement: 'O SLA de resposta é indeterminado',
+          level: '🔴',
+          reasoning: 'Gap declarado — medida não determinada, sem inventar valor',
         },
       ],
     });

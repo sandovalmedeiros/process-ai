@@ -84,15 +84,16 @@ A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 | `gate-1` | `discovery` | **Bento** | Entrevista + SIPOC + cadeia de valor | `discovery-interview`, `sipoc`, `value-chain` |
 | `gate-2` | `mapping` | **Miguel** | hierarquia (Macro→Tarefa) | `hierarchy` |
 | `gate-3` | `modeling` | **Júlia** | fluxo BPMN 2.0 XML | `flow` |
-| `gate-4` | `standardization` | **Zanoni** | POP-rascunho | `pop` |
+| `gate-4` | `standardization` | **Zanoni** | POPs + diagnóstico | `pop` |
 
 > **Epic 2 em curso.** Bento (2.1), Miguel (2.2) e Júlia (2.3) são **profundos**: Bento entrega
 > entrevista persistida + SIPOC + cadeia completos (🟢 sustentados pela entrevista); Miguel entrega
 > a hierarquia **completa e rastreável** (5 níveis Macro→Tarefa, com pai/filho explícito e IDs
 > estáveis, 🟢 sourceiando a `value-chain`); Júlia entrega o **fluxo em BPMN 2.0 XML canônico**
 > (mapeando a hierarquia em elementos BPMN, com gargalos com evidência e claims honestos 🟢🟡🔴,
-> 🟢 sourceiando a `hierarchy`). Zanoni profundo vem na **2.4**; diagnóstico consolidado e gates
-> ricos também são Epic 2; method-packs (loader/schema/pack) são Epic 3.
+> 🟢 sourceiando a `hierarchy`). **Zanoni (2.4) agora é profundo**: entrega **POPs completos
+> (referenciando os IDs `A…`/`T…` da hierarquia) + diagnóstico consolidado (FR-13)**, 🟢
+> sourceiando o `flow`. Gates ricos também são Epic 2; method-packs (loader/schema/pack) são Epic 3.
 
 Para cada especialista, em ordem:
 

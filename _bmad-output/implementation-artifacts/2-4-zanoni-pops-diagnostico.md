@@ -4,7 +4,7 @@ baseline_commit: 16005c8
 
 # Story 2.4: Zanoni profundo — POPs autorados + diagnóstico consolidado
 
-Status: ready-for-dev
+Status: review
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -33,36 +33,36 @@ so that **a padronização deixe de ser "um POP-rascunho único e raso" (1.6) e 
 
 ## Tasks / Subtasks
 
-- [ ] **T1 — Aprofundar a skill do Zanoni `skills/process-ai-zanoni/SKILL.md` (AC: #1, #2, #3, #4)**
-  - [ ] **MODIFY — a skill-fonte hoje é o rascunho 1.6** (~79 linhas; §2 "Produz o POP-rascunho" = **um** POP para **uma** atividade; 1 claim 🟢 + 1 🔴; sem roteiro estruturado; sem cláusula anti-forja de sha). Substituir por skill de **padronização completa**. **Fonte única de verdade** (o adapter a copia byte-a-byte).
-  - [ ] **Roteiro de padronização completo (AC1):** substituir "Produz o POP-rascunho" por um **roteiro estruturado**: (a) identificar as atividades/tarefas significativas que aparecem no `flow` (âncora nos IDs `A…`/`T…` da `hierarchy`); (b) para cada uma, estruturar um POP completo; (c) consolidar o diagnóstico (gargalos do `flow` + gaps da `hierarchy` + recomendações); (d) emitir claims por elemento. Espelhar o §2 "Roteiro … completo" de Bento/Miguel/Júlia. O roteiro é **conteúdo autorado na skill** (semente do pack; loader → 3.2, extração → 3.3).
-  - [ ] **POPs completos (AC2/FR-12):** múltiplos POPs como **seções markdown dentro do `content` do `pop`** (um único artefato `pop`), cada POP referenciando os IDs estáveis `A…`/`T…` da hierarchy. **Estrutura mínima do POP fixada na skill** (Decision #3): objetivo, escopo, responsável, passos numerados, insumos/saídas, referência ao ID da hierarchy, marcador por afirmação. **Não** construir schema-núcleo (→ 3.1).
-  - [ ] **Diagnóstico consolidado (AC3/FR-13):** seção markdown dentro do `content` do `pop` (Decision #1) — gargalos (do `flow`) + gaps (da `hierarchy`) + recomendações; cada recomendação 🟡 com `reasoning` citando o nó do `flow`/`hierarchy`; cita **suas contagens diagnósticas** (NÃO a agregação do ledger — FR-16/2.5).
-  - [ ] **Claims honestos por elemento (AC4) + regra anti-inflação:** `ProposePayload` de `pop` com `claims[]`: 🟢 sourcing **só** `flow` (resolve, AD-5) para elementos que mapeiam a nós confirmados no flow; 🟡 para passo/ferramenta/responsável inferido e para recomendações; 🔴 para gap (`<?>`, sem fabricar). **Mecanismo AD-5 já existe (1.4); zero mudança no toolkit.** Inclua a **regra anti-inflação operacional** herdada da 2.2/2.3.
-  - [ ] **ADICIONAR cláusula anti-forja de sha (paridade com Bento/Miguel/Júlia):** "Se o `sha256` do `flow` não chegou, **não invente** a fonte — proponha só 🟡/🔴; 🟢 sem fonte degrada a 🟡 (`unresolved-source`)." (Ausente na 1.6.)
-  - [ ] **CORRIGIR notes stale (honestidade, NFR-1):** a seção "O que NÃO é do Zanoni" hoje diz *"Relatório de diagnóstico (… FR-13) → 2.4"* e *"POPs completos (… ) → 2.4"* — **ambas stale** (2.4 é esta story). **Absorver** como trabalho do Zanoni e **remover** essas duas deferrals. Atualizar o `description` do frontmatter (Zanoni agora produz **POPs + diagnóstico**, não "POP-rascunho").
-  - [ ] **Atualizar "O que NÃO é do Zanoni" (fronteiras):** remover os 2 itens satisfeitos (POP completo, diagnóstico). Reter/redirecionar: **rastreabilidade bidirecional navegável** + verificação de **excerpt** + relatório **consolidado** (FR-16) → **2.5**; **gates ricos** → **2.6**; **schema-núcleo** / `pop.ts` / loader / pack → **Epic 3** (3.1/3.2/3.3); fluxo (Júlia) / hierarquia (Miguel).
-  - [ ] **Preservar (não-regressão 1.6):** frontmatter `name: process-ai-zanoni` + `description` (afinar texto, mantém nome + "standardization" + "não invoque diretamente"); §"Como o Zanoni opera" com **AD-1 declarado estruturalmente** (sem escrita direta; sempre `process-ai propose --payload`); persona ("Pragmático", honesto NFR-1, pt-BR); padrão **Write-não-heredoc** + captura sha + entrega à Déa + remoção do temp.
+- [x] **T1 — Aprofundar a skill do Zanoni `skills/process-ai-zanoni/SKILL.md` (AC: #1, #2, #3, #4)**
+  - [x] **MODIFY — a skill-fonte hoje é o rascunho 1.6** (~79 linhas; §2 "Produz o POP-rascunho" = **um** POP para **uma** atividade; 1 claim 🟢 + 1 🔴; sem roteiro estruturado; sem cláusula anti-forja de sha). Substituir por skill de **padronização completa**. **Fonte única de verdade** (o adapter a copia byte-a-byte).
+  - [x] **Roteiro de padronização completo (AC1):** substituir "Produz o POP-rascunho" por um **roteiro estruturado**: (a) identificar as atividades/tarefas significativas que aparecem no `flow` (âncora nos IDs `A…`/`T…` da `hierarchy`); (b) para cada uma, estruturar um POP completo; (c) consolidar o diagnóstico (gargalos do `flow` + gaps da `hierarchy` + recomendações); (d) emitir claims por elemento. Espelhar o §2 "Roteiro … completo" de Bento/Miguel/Júlia. O roteiro é **conteúdo autorado na skill** (semente do pack; loader → 3.2, extração → 3.3).
+  - [x] **POPs completos (AC2/FR-12):** múltiplos POPs como **seções markdown dentro do `content` do `pop`** (um único artefato `pop`), cada POP referenciando os IDs estáveis `A…`/`T…` da hierarchy. **Estrutura mínima do POP fixada na skill** (Decision #3): objetivo, escopo, responsável, passos numerados, insumos/saídas, referência ao ID da hierarchy, marcador por afirmação. **Não** construir schema-núcleo (→ 3.1).
+  - [x] **Diagnóstico consolidado (AC3/FR-13):** seção markdown dentro do `content` do `pop` (Decision #1) — gargalos (do `flow`) + gaps (da `hierarchy`) + recomendações; cada recomendação 🟡 com `reasoning` citando o nó do `flow`/`hierarchy`; cita **suas contagens diagnósticas** (NÃO a agregação do ledger — FR-16/2.5).
+  - [x] **Claims honestos por elemento (AC4) + regra anti-inflação:** `ProposePayload` de `pop` com `claims[]`: 🟢 sourcing **só** `flow` (resolve, AD-5) para elementos que mapeiam a nós confirmados no flow; 🟡 para passo/ferramenta/responsável inferido e para recomendações; 🔴 para gap (`<?>`, sem fabricar). **Mecanismo AD-5 já existe (1.4); zero mudança no toolkit.** Inclua a **regra anti-inflação operacional** herdada da 2.2/2.3.
+  - [x] **ADICIONAR cláusula anti-forja de sha (paridade com Bento/Miguel/Júlia):** "Se o `sha256` do `flow` não chegou, **não invente** a fonte — proponha só 🟡/🔴; 🟢 sem fonte degrada a 🟡 (`unresolved-source`)." (Ausente na 1.6.)
+  - [x] **CORRIGIR notes stale (honestidade, NFR-1):** a seção "O que NÃO é do Zanoni" hoje diz *"Relatório de diagnóstico (… FR-13) → 2.4"* e *"POPs completos (… ) → 2.4"* — **ambas stale** (2.4 é esta story). **Absorver** como trabalho do Zanoni e **remover** essas duas deferrals. Atualizar o `description` do frontmatter (Zanoni agora produz **POPs + diagnóstico**, não "POP-rascunho").
+  - [x] **Atualizar "O que NÃO é do Zanoni" (fronteiras):** remover os 2 itens satisfeitos (POP completo, diagnóstico). Reter/redirecionar: **rastreabilidade bidirecional navegável** + verificação de **excerpt** + relatório **consolidado** (FR-16) → **2.5**; **gates ricos** → **2.6**; **schema-núcleo** / `pop.ts` / loader / pack → **Epic 3** (3.1/3.2/3.3); fluxo (Júlia) / hierarquia (Miguel).
+  - [x] **Preservar (não-regressão 1.6):** frontmatter `name: process-ai-zanoni` + `description` (afinar texto, mantém nome + "standardization" + "não invoque diretamente"); §"Como o Zanoni opera" com **AD-1 declarado estruturalmente** (sem escrita direta; sempre `process-ai propose --payload`); persona ("Pragmático", honesto NFR-1, pt-BR); padrão **Write-não-heredoc** + captura sha + entrega à Déa + remoção do temp.
 
-- [ ] **T2 — Atualizar a nota de fronteira do condutor `skills/process-ai/SKILL.md` §3 (AC: #4, #5)**
-  - [ ] **MODIFY a nota de fronteira:** *"…Zanoni profundo vem na 2.4…"* → atualizar: **Bento, Miguel, Júlia e Zanoni agora são profundos** (descoberta + mapeamento + modelagem BPMN + padronização/diagnóstico completos e rastreáveis); diagnóstico consolidado (FR-13) entregue; gates ricos também Epic 2; method-packs Epic 3.
-  - [ ] **VERIFICAR a linha de handoff do Zanoni** (`gate-4 | standardization | Zanoni | POP-rascunho | pop`): o `artifactType` **permanece `pop`** (Decision #1) — se a descrição disser "POP-rascunho", atualizar para "POPs + diagnóstico (FR-13)"; **não renomear** o tipo.
-  - [ ] **VERIFICAR a nota de provenance** ("Zanoni sourceia `flow`" / "Zanoni entrega o sha256 de `pop` à Déa"): **permanece correta** — manter.
-  - [ ] **Preservar (não-regressão 1.1/1.5/2.1/2.2/2.3):** frontmatter `name: process-ai`; abertura *"Qual processo vamos mapear?"*; `resume`; Gate 0; tabela de gates/estágios canônicos; threading dos shas; encerramento com `report`+`summary-report`; AD-1; `tests/skill.test.ts` verde.
+- [x] **T2 — Atualizar a nota de fronteira do condutor `skills/process-ai/SKILL.md` §3 (AC: #4, #5)**
+  - [x] **MODIFY a nota de fronteira:** *"…Zanoni profundo vem na 2.4…"* → atualizar: **Bento, Miguel, Júlia e Zanoni agora são profundos** (descoberta + mapeamento + modelagem BPMN + padronização/diagnóstico completos e rastreáveis); diagnóstico consolidado (FR-13) entregue; gates ricos também Epic 2; method-packs Epic 3.
+  - [x] **VERIFICAR a linha de handoff do Zanoni** (`gate-4 | standardization | Zanoni | POP-rascunho | pop`): o `artifactType` **permanece `pop`** (Decision #1) — se a descrição disser "POP-rascunho", atualizar para "POPs + diagnóstico (FR-13)"; **não renomear** o tipo.
+  - [x] **VERIFICAR a nota de provenance** ("Zanoni sourceia `flow`" / "Zanoni entrega o sha256 de `pop` à Déa"): **permanece correta** — manter.
+  - [x] **Preservar (não-regressão 1.1/1.5/2.1/2.2/2.3):** frontmatter `name: process-ai`; abertura *"Qual processo vamos mapear?"*; `resume`; Gate 0; tabela de gates/estágios canônicos; threading dos shas; encerramento com `report`+`summary-report`; AD-1; `tests/skill.test.ts` verde.
 
-- [ ] **T3 — Testes (AC: #1–#5 + AD-1/AD-3/AD-5 + regressão 1.1–2.3)**
-  - [ ] **`tests/specialists.test.ts` (PROVAVELMENTE SEM MUDANÇA — verificar):** Zanoni **mantém** `types: ['pop']` → o array `SPECIALISTS` **não muda** (Decision #1). As asserções de conteúdo (frontmatter `name: process-ai-zanoni`, persona `Zanoni`, pt-BR, `process-ai propose`, `claims`, marcadores 🟢🟡🔴, "sem escrita direta", artifactType `pop`) continuam válidas **contanto que a skill reescrita retenha essas strings**. *Ação: rodar e confirmar verde; se quebrar, é porque a skill perdeu uma string assertada — restaurar, não afrouxar o teste nem adicionar `types`.*
-  - [ ] **`tests/e2e-pipeline.test.ts` (MODIFY leve — seção Zanoni):** enriquecer para refletir "Zanoni profundo": (a) o `content` do `pop` → markdown com **POPs (referenciando IDs `A…`/`T…`) + seção de diagnóstico**; (b) os `claims` → manter o 🟢 sourcing `flow` (resolve) + **adicionar um 🟡 (recomendação/passo inferido) e um 🔴 (gap)**. **Contagem permanece 7** (`pop` continua `pop`, diagnóstico é conteúdo) → asserções `artifacts.length === 7` e `types` deepEqual **não mudam**. Ledger não-vazio; resume sem duplicação.
-  - [ ] **`tests/zanoni-pop.test.ts` (NEW — espelhar `tests/miguel-hierarchy.test.ts`/`julia-flow.test.ts`):** teste focado, **duas seções**:
+- [x] **T3 — Testes (AC: #1–#5 + AD-1/AD-3/AD-5 + regressão 1.1–2.3)**
+  - [x] **`tests/specialists.test.ts` (PROVAVELMENTE SEM MUDANÇA — verificar):** Zanoni **mantém** `types: ['pop']` → o array `SPECIALISTS` **não muda** (Decision #1). As asserções de conteúdo (frontmatter `name: process-ai-zanoni`, persona `Zanoni`, pt-BR, `process-ai propose`, `claims`, marcadores 🟢🟡🔴, "sem escrita direta", artifactType `pop`) continuam válidas **contanto que a skill reescrita retenha essas strings**. *Ação: rodar e confirmar verde; se quebrar, é porque a skill perdeu uma string assertada — restaurar, não afrouxar o teste nem adicionar `types`.*
+  - [x] **`tests/e2e-pipeline.test.ts` (MODIFY leve — seção Zanoni):** enriquecer para refletir "Zanoni profundo": (a) o `content` do `pop` → markdown com **POPs (referenciando IDs `A…`/`T…`) + seção de diagnóstico**; (b) os `claims` → manter o 🟢 sourcing `flow` (resolve) + **adicionar um 🟡 (recomendação/passo inferido) e um 🔴 (gap)**. **Contagem permanece 7** (`pop` continua `pop`, diagnóstico é conteúdo) → asserções `artifacts.length === 7` e `types` deepEqual **não mudam**. Ledger não-vazio; resume sem duplicação.
+  - [x] **`tests/zanoni-pop.test.ts` (NEW — espelhar `tests/miguel-hierarchy.test.ts`/`julia-flow.test.ts`):** teste focado, **duas seções**:
     - *(Mecanismo — espelhar miguel-hierarchy/julia-flow)*: propor `flow` (fonte) → propor `pop` com 🟢 sourcing `flow` (resolve) + 🟢 com sha inexistente (degrada a 🟡 `unresolved-source`, não aborta) + 🟡 literal (recomendação/passo inferido) + 🔴 (gap); asserir ledger com o 🟢 resolvido e o degradado; asserir relatório sem "zeros honestos". *Drive determinístico via `dispatch(parseArgs([...]), adapter, root)` com `new ClaudeCodeAdapter({ cwd: tmp })` — sem LLM.*
     - *(Profundidade da skill + guards de honestidade — específico do Zanoni)*: ler `skills/process-ai-zanoni/SKILL.md` e asserir propriedades que **NÃO existem na skill 1.6**: (a) a skill **instrui POPs referenciando IDs da hierarchy** (ex.: `/A\d|T\d|hierarchy/i` combinado com `/POP/i` — **falha contra 1.6**); (b) **diagnóstico consolidado** (`/diagn[ió]stico/i` + instrução de evidência/recomendação); (c) **regra anti-inflação** para recomendações (🟡, nunca 🟢); (d) **guards `doesNotMatch`**: a skill **não** contém mais `"Relatório de diagnóstico.*→\s*2\.4"` nem `"POPs completos.*→\s*2\.4"` nem `"rascunho"` (travam as correções do T1 contra regressões). **Disciplina TDD:** rodar a seção 2 contra o texto 1.6 *antes* da reescrita e confirmar que **falha**; se passar inalterada, o teste é fraco — endurecer.
-  - [ ] **Regressão intocada e verde:** `tests/{scaffold,bootstrap,commit,checkpoint,confidence,report,cli,import-boundary,skill,specialists,e2e-conductor,e2e-pipeline,adapter,bento-discovery,miguel-hierarchy,julia-flow}.test.ts` — **179 testes da 1.1–2.3 inalterados** (exceto `e2e-pipeline`, que enriquece a seção Zanoni). Em especial: `tests/import-boundary.test.ts` (AD-3) verde (**nenhum arquivo novo em `toolkit/src/`**); `tests/julia-flow.test.ts` verde (2.3 intocada); `tests/skill.test.ts` verde após a edição leve do condutor.
+  - [x] **Regressão intocada e verde:** `tests/{scaffold,bootstrap,commit,checkpoint,confidence,report,cli,import-boundary,skill,specialists,e2e-conductor,e2e-pipeline,adapter,bento-discovery,miguel-hierarchy,julia-flow}.test.ts` — **179 testes da 1.1–2.3 inalterados** (exceto `e2e-pipeline`, que enriquece a seção Zanoni). Em especial: `tests/import-boundary.test.ts` (AD-3) verde (**nenhum arquivo novo em `toolkit/src/`**); `tests/julia-flow.test.ts` verde (2.3 intocada); `tests/skill.test.ts` verde após a edição leve do condutor.
 
-- [ ] **T4 — Critério implícito (não-negociável)**
-  - [ ] `node --test tests/*.test.ts` → 100% pass (179 prévios + novos), 0 fail.
-  - [ ] `npm run typecheck` (`tsc --noEmit`) limpo.
-  - [ ] AD-3 verde (`toolkit/src/**` intocado — **nenhum** arquivo novo no core; mudança TS só em testes).
-  - [ ] E2E atualizado passando: …→ Júlia profunda (`flow`) → `gate-4`+`standardization` → **Zanoni profundo** (`pop` = POPs + diagnóstico + 🟢 sourcing `flow` + 🟡 + 🔴) → `report` → `summary-report` → `resume` sem duplicação (7 artefatos, 5 gates, sem órfãos).
+- [x] **T4 — Critério implícito (não-negociável)**
+  - [x] `node --test tests/*.test.ts` → 100% pass (179 prévios + novos), 0 fail.
+  - [x] `npm run typecheck` (`tsc --noEmit`) limpo.
+  - [x] AD-3 verde (`toolkit/src/**` intocado — **nenhum** arquivo novo no core; mudança TS só em testes).
+  - [x] E2E atualizado passando: …→ Júlia profunda (`flow`) → `gate-4`+`standardization` → **Zanoni profundo** (`pop` = POPs + diagnóstico + 🟢 sourcing `flow` + 🟡 + 🔴) → `report` → `summary-report` → `resume` sem duplicação (7 artefatos, 5 gates, sem órfãos).
 
 ## Dev Notes
 
@@ -124,15 +124,23 @@ Esta é a **story 2.4 — quarta e última de especialista do Epic 2**. O Epic 1
 
 ### Agent Model Used
 
-_(preenchido pelo dev-story)_
+GLM-5.1 (via Claude Code, skill `bmad-dev-story`).
 
 ### Debug Log References
 
 - **Baseline confirmada (antes de codar):** `node --test tests/*.test.ts` → **179 pass / 0 fail** (HEAD `16005c8`, pós-2.3 + code review). `npm run typecheck` limpo. `git status --short -- toolkit/src/` vazio (AD-3).
+- **RED-contra-1.6 (TDD):** `node --test tests/zanoni-pop.test.ts` contra a skill 1.6 → teste 1 (mecanismo) passou; teste 2 (profundidade) **falhou** já na 1ª asserção (`/roteiro/i` ausente na 1.6) — profundidade não autorada, conforme esperado.
+- **GREEN (pós-T1):** após reescrita da skill → `zanoni-pop.test.ts` 2/2 pass.
+- **T4 final:** suite completa → **181 pass / 0 fail** (179 prévios + 2 novos); `npm run typecheck` (`tsc --noEmit`) limpo; `git status --short -- toolkit/` **vazio** (AD-3 verde — nenhum arquivo no core); `import-boundary.test.ts` verde (parte da suite).
 
 ### Completion Notes List
 
-_(preenchido pelo dev-story)_
+- **T1 (skill do Zanoni):** `skills/process-ai-zanoni/SKILL.md` reescrita do rascunho 1.6 (~79 linhas → ~135) para padronização completa. §2 roteiro de padronização estruturado (atividades/tarefas → POPs ancorados nos IDs `A…`/`T…` → diagnóstico); §3 POPs + diagnóstico consolidado (FR-13) como **conteúdo** do `pop` (Decision #1); §4 claims por elemento (🟢 sourcing `flow` + 🟡 inferido/recomendação + 🔴 gap) + regra anti-inflação + cláusula anti-forja de sha. Notes stale corrigidas (removido "rascunho" e as deferrals "→ 2.4"); fronteiras atualizadas (rastreabilidade bidirecional/excerpt/consolidado→2.5; gates ricos→2.6; schema/loader/pack→Epic 3). `artifactType: pop` mantido (Decision #1). Strings assertadas pelo `specialists.test.ts` retidas.
+- **T2 (condutor):** `skills/process-ai/SKILL.md` §3 — nota de fronteira → "Zanoni (2.4) agora é profundo" (POPs + diagnóstico consolidado, FR-13); célula da tabela `gate-4` → "POPs + diagnóstico" (`artifactType pop` inalterado); nota de provenance verificada (limpa — "Júlia entrega o sha256 de flow ao Zanoni", mantida).
+- **T3 (testes):** `tests/zanoni-pop.test.ts` **NEW** (espelha `julia-flow.test.ts`): mecanismo (🟢 sourcing `flow` resolve + 🟢 sha inexistente degrada a 🟡 `unresolved-source` + 🟡 literal/recomendação + 🔴) + profundidade da skill (roteiro, IDs `A…`/`T…`, diagnóstico consolidado, recomendações 🟡) + guards `doesNotMatch` ("rascunho", "→ 2.4"). `tests/e2e-pipeline.test.ts` seção Zanoni enriquecida (content=POPs A1.1.1.1 + diagnóstico + 🟡 + 🔴; **contagem permanece 7**, `artifactType pop`). `tests/specialists.test.ts` **sem mudança** (`types: ['pop']` retido).
+- **T4 (critério implícito):** 179 → **181 pass / 0 fail**; typecheck limpo; AD-3 verde (zero arquivos em `toolkit/src/`); E2E atualizado passando (7 artefatos, 5 gates, sem órfãos; resume sem duplicação).
+- **Decisões registradas:** #1 (diagnóstico é conteúdo dentro do `pop`, artifactType `pop` inalterado — contagem 7); #2 (POPs para o que o `flow` modela); #3 (estrutura mínima do POP autorada na skill); #4 (recomendações 🟡, nunca 🟢).
+- **Prevenção da revisão 2.2/2.3 codificada:** (1) 🟢 não inflado — exemplo 🟢 ancora só em `A1.1.1.1` confirmado no flow; (2) 🔴 não fabricado — gap declarado no `reasoning`; (3) asserções provam instrução (RED-contra-1.6); (4) 🟡 literal isolado do degradado (`!degradationReason`).
 
 ### File List
 
@@ -140,5 +148,9 @@ _(preenchido pelo dev-story)_
 - `skills/process-ai/SKILL.md` — **MODIFIED** (T2: §3 nota de fronteira + linha de handoff do Zanoni).
 - `tests/e2e-pipeline.test.ts` — **MODIFIED** (T3: seção Zanoni enriquecida com POPs + diagnóstico + 🟡/🔴; contagem 7).
 - `tests/zanoni-pop.test.ts` — **NEW** (T3: mecanismo + profundidade da skill + guards de honestidade).
-- `_bmad-output/implementation-artifacts/sprint-status.yaml` — **MODIFIED** (status 2-4: backlog → ready-for-dev → … → review).
+- `_bmad-output/implementation-artifacts/sprint-status.yaml` — **MODIFIED** (status 2-4: ready-for-dev → in-progress → review).
 - _(Nenhum arquivo em `toolkit/src/**` — AD-3 verde.)_
+
+## Change Log
+
+- **2026-08-02** — Story 2.4 implementada (dev-story, GLM-5.1): Zanoni profundo. Skill reescrita do rascunho 1.6 (~79 linhas) para **POPs completos (FR-12, ancorados nos IDs `A…`/`T…` da hierarchy) + diagnóstico consolidado (FR-13)** como conteúdo do `pop` (Decision #1 — `artifactType: pop` inalterado, contagem 7 preservada). Claims honestos por elemento (🟢 sourcing `flow` + 🟡 inferido/recomendação + 🔴 gap) + regra anti-inflação (SM-C1) + cláusula anti-forja de sha. Condutor §3 atualizado (Zanoni profundo; célula tabela "POPs + diagnóstico"). `zanoni-pop.test.ts` **NEW** (RED-contra-1.6 confirmado antes da reescrita; GREEN após) + `e2e-pipeline` seção Zanoni enriquecida (contagem 7). **Zero mudança no toolkit** (AD-3 verde). Suite 179 → **181 pass / 0 fail**; `tsc --noEmit` limpo. Prevenção da revisão 2.2/2.3 codificada (🟢 não inflado; 🔴 não fabricado; asserções provam instrução; 🟡 literal isolado). Status → **review**.
