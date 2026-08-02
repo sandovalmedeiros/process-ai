@@ -1,6 +1,6 @@
 {
   "name": "process-ai",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Framework method-agnóstico de mapeamento de processos ponta-a-ponta — equipe de agentes IA (Déa+Bento+Miguel+Júlia+Zanoni) que conduz o usuário por Q&A até documentar o processo completo (SIPOC→hierarquia→BPMN→POPs) com confiança 🟢🟡🔴 verificável e rastreabilidade bidirecional.",
   "type": "module",
   "engines": {
@@ -12,6 +12,7 @@
   },
   "main": "toolkit/src/commit.ts",
   "files": [
+    "bin/postinstall.js",
     "bin/",
     "toolkit/",
     "skills/",
@@ -21,7 +22,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "postinstall": "node -e \"import('./bin/bootstrap.ts').catch(()=>{})\"",
+    "postinstall": "node bin/postinstall.js",
     "dev": "node bin/bootstrap.ts",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"
@@ -47,5 +48,8 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0"
+  },
+  "dependencies": {
+    "process-ai": "^0.2.0"
   }
 }
