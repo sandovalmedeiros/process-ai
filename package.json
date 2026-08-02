@@ -21,6 +21,7 @@
     "LICENSE"
   ],
   "scripts": {
+    "postinstall": "node -e \"import('./bin/bootstrap.ts').catch(()=>{})\"",
     "dev": "node bin/bootstrap.ts",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"

@@ -30,17 +30,21 @@ O **process-ai** resolve isso herdando o **rigor do Reversa** (confiança 🟢�
 
 ---
 
-## Instalação rápida
+## Instalação
 
 ```bash
 # Pré-requisito: Node.js ≥ 24 LTS
-npm install -g process-ai
+cd meu-projeto
+npm install process-ai
 
-# Registrar no engine (v1: Claude Code)
-process-ai-bootstrap
+# O postinstall copia as skills para .claude/skills/ automaticamente.
+# Se precisar reinstalar as skills manualmente:
+npx process-ai-bootstrap
 ```
 
-Após o bootstrap, o slash-command `/process-ai` está disponível no Claude Code.
+**Por que o bootstrap?** O Claude Code (engine v1) descobre slash-commands pelos arquivos em `.claude/skills/` do projeto. O `npm install` baixa o pacote para `node_modules/`, mas as skills precisam estar **fisicamente** em `.claude/skills/process-ai/SKILL.md`. O bootstrap faz essa cópia. Em engines futuros (Codex, Cursor, Gemini CLI), cada adapter fará o equivalente.
+
+Após a instalação, o slash-command `/process-ai` está disponível no Claude Code dentro do projeto.
 
 ---
 
