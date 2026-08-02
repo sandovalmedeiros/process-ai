@@ -99,13 +99,13 @@ test('2.2 AC2/AC3: Miguel profundo decompõe a cadeia em hierarquia completa ras
         '### E1.1. Lead-to-Close (Processo End-to-End) — pai: M1\n' +
         '#### S1.1.1. Qualificação (Subprocesso) — pai: E1.1\n' +
         '- A1.1.1.1. Avaliar fit (Atividade) — pai: S1.1.1\n' +
-        '  - T1.1.1.1.1. Aplicar critério BANT (Tarefa) — pai: A1.1.1.1',
+        '  - T1.1.1.1.1. <?> (Tarefa — gap: não confirmada) — pai: A1.1.1.1',
       claims: [
         {
-          statement: 'O macroprocesso Vendas se decompõe em Lead-to-Close (E1.1)',
+          statement: 'O macroprocesso M1 (Vendas) consta nominalmente na Cadeia de Valor',
           level: '🟢',
           source: { artifactType: 'value-chain', sha256: valueChain.sha256 },
-          reasoning: 'Decomposição derivada nominalmente da Cadeia de Valor commitada por Bento',
+          reasoning: 'M1 (Vendas) aparece nominalmente na value-chain (deriva da fonte)',
         },
         {
           statement: 'Claim com fonte inexistente (deve degradar)',
@@ -114,14 +114,14 @@ test('2.2 AC2/AC3: Miguel profundo decompõe a cadeia em hierarquia completa ras
           reasoning: 'sha256 não resolve a manifesto → degrada a 🟡 (unresolved-source)',
         },
         {
-          statement: 'O subprocesso S1.1.1 (Qualificação) tem 3 atividades',
+          statement: 'A decomposição de M1 em E1.1/S1.1.1/A1.1.1.1 é inferida',
           level: '🟡',
-          reasoning: 'Decomposição inferida — nível não confirmado nominalmente na cadeia',
+          reasoning: 'Decomposição estimada — não confirmada nominalmente na cadeia',
         },
         {
-          statement: 'A tarefa T1.1.1.1.1 não está confirmada',
+          statement: 'O nível Tarefa (T1.1.1.1.1) é gap',
           level: '🔴',
-          reasoning: 'Nível de Tarefa é gap — não determinado na descoberta',
+          reasoning: 'Tarefa não confirmada pelo leigo; representada como <?>, sem inventar',
         },
       ],
     });
@@ -152,6 +152,9 @@ test('2.2 AC2/AC3: Miguel profundo decompõe a cadeia em hierarquia completa ras
 
     // Marcadores completos e honestos (mix 🟢/🟡/🔴) — incluindo o 🔴 de gap de nível (2.2).
     assert.ok(validated.includes('🟢'), 'ao menos um 🟢');
+    // 🟡 literal (inferido) distinto do 🟡 que vem de degradação — isola a preservação do 🟡 literal.
+    const literalYellow = entries.find((e) => e.validated === '🟡' && !e.degradationReason);
+    assert.ok(literalYellow, 'há um 🟡 literal (inferido, não vindo de degradação)');
     assert.ok(validated.includes('🟡'), 'ao menos um 🟡');
     assert.ok(validated.includes('🔴'), 'ao menos um 🔴 (gap de nível declarado pelo Miguel)');
 
@@ -188,11 +191,17 @@ test('2.2 AC1/AC2: skill do Miguel profunda — IDs estáveis + árvore completa
     /E\d+\.\d+/,
     'skill do Miguel (2.2) deve mostrar IDs estáveis no nível E2E (ex.: E1.1) — ausente na 1.6',
   );
-  // Ramo profundo até Tarefa (T-x.x.x...) — prova hierarquia completa, não "1–2 níveis" da 1.6.
+  // O roteiro INSTRUI a decomposição em 5 níveis (prova instrução, não só exemplo colado).
   assert.match(
     content,
-    /T\d+(\.\d+){2,}/,
-    'skill do Miguel (2.2) deve decompor até Tarefa (T-x.x.x...) — 1.6 para em 1–2 níveis',
+    /decomponha recursivamente/i,
+    'skill do Miguel (2.2) deve instruir o roteiro de decomposição em 5 níveis (não só exemplificar)',
+  );
+  // Ramo profundo até Tarefa (5 segmentos: T-x.x.x.x.x) — prova hierarquia completa, não "1–2 níveis" da 1.6.
+  assert.match(
+    content,
+    /T\d+(\.\d+){4,}/,
+    'skill do Miguel (2.2) deve decompor até Tarefa (T com 5 segmentos) — 1.6 para em 1–2 níveis',
   );
 
   // ---- Guards de honestidade (travam as correções do T1 contra regressões futuras) ----

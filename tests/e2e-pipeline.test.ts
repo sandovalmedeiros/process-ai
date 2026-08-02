@@ -144,13 +144,13 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
         '### E1.1. Lead-to-Close (Processo End-to-End) — pai: M1\n' +
         '#### S1.1.1. Qualificação (Subprocesso) — pai: E1.1\n' +
         '- A1.1.1.1. Avaliar fit (Atividade) — pai: S1.1.1\n' +
-        '  - T1.1.1.1.1. Aplicar critério BANT (Tarefa) — pai: A1.1.1.1',
+        '  - T1.1.1.1.1. <?> (Tarefa — gap: não confirmada) — pai: A1.1.1.1',
       claims: [
         {
-          statement: 'O macroprocesso M1 (Vendas) se decompõe em E1.1 (Lead-to-Close)',
+          statement: 'O macroprocesso M1 (Vendas) consta nominalmente na Cadeia de Valor',
           level: '🟢',
           source: { artifactType: 'value-chain', sha256: valueChain.sha256 },
-          reasoning: 'Decomposição derivada nominalmente da Cadeia de Valor commitada por Bento',
+          reasoning: 'M1 (Vendas) aparece nominalmente na value-chain (deriva da fonte)',
         },
         {
           statement: 'Claim com fonte inexistente (deve degradar)',
@@ -158,8 +158,8 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
           source: { artifactType: 'value-chain', sha256: NONEXISTENT_SHA },
           reasoning: 'sha256 não resolve a manifesto → degrada a 🟡 (unresolved-source)',
         },
-        { statement: 'O subprocesso S1.1.1 (Qualificação) tem 3 atividades', level: '🟡', reasoning: 'Decomposição inferida — não confirmada nominalmente na cadeia' },
-        { statement: 'A tarefa T1.1.1.1.1 não está confirmada', level: '🔴', reasoning: 'Nível de Tarefa é gap — não determinado na descoberta' },
+        { statement: 'A decomposição de M1 em E1.1/S1.1.1/A1.1.1.1 é inferida', level: '🟡', reasoning: 'Decomposição estimada — não confirmada nominalmente na cadeia' },
+        { statement: 'O nível Tarefa (T1.1.1.1.1) é gap', level: '🔴', reasoning: 'Tarefa não confirmada pelo leigo; representada como <?>, sem inventar' },
       ],
     });
 

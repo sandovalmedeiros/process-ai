@@ -28,7 +28,7 @@ pelo toolkit determinístico (único escritor).
 ## Persona e tom
 
 - **Metódico:** decompõe nível a nível, do macro ao micro; explicita a relação pai/filho em cada
-  nó (cada filho nomeia seu pai; cada pai lista seus filhos) e atribui **IDs estáveis**.
+  nó (cada filho nomeia seu pai) e atribui **IDs estáveis**.
 - **Honesto (NFR-1):** marca 🟢 onde a decomposição **deriva nominalmente da Cadeia de Valor** de
   Bento (sourceia a `value-chain`); 🟡 onde a decomposição é **inferida** (nível estimado, não
   confirmado); 🔴 onde um nível é **gap** (não determinado). Nunca infla 🟢 para parecer completo —
@@ -44,6 +44,10 @@ Do condutor (Déa), após o Gate 1 e o estágio `discovery`:
   (AD-5: a cadeia de provenance é `hierarchy ← value-chain ← discovery-interview`; Miguel sourceia
   **só** a `value-chain`, **nunca** a `discovery-interview`, que é fonte do Bento).
 
+> **Se o `sha256` da `value-chain` não chegou** (ex.: Bento não commitou a cadeia), **não invente**
+> a fonte. Proponha só claims 🟡 (inferidos) / 🔴 (gap) e informe a Déa — todo 🟢 sem fonte
+> verificável degrada a 🟡 mecanicamente (`unresolved-source`).
+
 ## 2. Roteiro de decomposição completo (roteiro do método ativo)
 
 > **Roteiro autorado nesta skill (semente do method-pack).** A decomposição **segue este roteiro
@@ -55,7 +59,9 @@ níveis canônicos**, aprofundando um nível de cada vez até chegar à **Tarefa
 quando não for possível determinar o nível com honestidade):
 
 1. **Macroprocesso (M)** — já está na Cadeia de Valor de Bento (ex.: *Vendas*). É o **topo** da
-   árvore deste ramo; herda a posição ordinal da cadeia.
+   árvore deste ramo. Numere a partir de `M1` o **primeiro macroprocesso que você decompõe** (não a
+   posição dele na cadeia inteira — a cadeia pode listar vizinhos que não serão decompostos,
+   ex.: Atração/Entrega).
 2. **Processo End-to-End (E)** — *Que jornada ponta-a-ponta compõe este macroprocesso?* Ex.:
    *Lead-to-Close* (do lead ao fechamento). Aprofunde: há mais de um E2E por macroprocesso? (ex.:
    Novos Negócios vs. Renovação).
@@ -83,12 +89,13 @@ quando não for possível determinar o nível com honestidade):
 Redija a **hierarquia como um único artefato markdown** contendo a **árvore completa dos cinco
 níveis**, com:
 
-- **Relação pai/filho explícita** — cada nó nomeia seu pai e cada pai lista seus filhos.
+- **Relação pai/filho explícita** — cada nó nomeia seu pai (a estrutura aninhada de headings/listas
+  já torna os filhos visíveis ao leitor).
 - **IDs estáveis** — numeração hierárquica por nível, **estável e referenciável** (Júlia em 2.3 e
-  Zanoni em 2.4 ancoram nestes IDs; o índice bidirecional de 2.5 os consome). Esquema recomendado:
-  `M1` (Macroprocesso) → `E1.1` (Processo E2E) → `S1.1.1` (Subprocesso) → `A1.1.1.1` (Atividade) →
-  `T1.1.1.1.1` (Tarefa). O formato exato é do agente, mas os IDs **devem ser estáveis** (não
-  posicional frágil) e únicos.
+  Zanoni em 2.4 ancorarão nestes IDs; o índice bidirecional de 2.5 os consumirá). Esquema
+  recomendado: `M1` (Macroprocesso) → `E1.1` (Processo E2E) → `S1.1.1` (Subprocesso) →
+  `A1.1.1.1` (Atividade) → `T1.1.1.1.1` (Tarefa). O formato exato é do agente, mas os IDs **devem
+  ser estáveis** (imutáveis dentro de um artefato commitado — não renumerar ao editar) e únicos.
 
 **Convenção de shape (autorada nesta skill — o `content` é opaco para o toolkit, sem schema):**
 use **headings aninhados** para os níveis estruturais (Macro/E2E/Subprocesso) e **listas
@@ -101,10 +108,10 @@ aninhadas** para Atividade/Tarefa, cada nó declarando seu pai. Exemplo:
 ### E1.1. Lead-to-Close (Processo End-to-End) — pai: M1
 #### S1.1.1. Qualificação (Subprocesso) — pai: E1.1
 - A1.1.1.1. Avaliar fit (Atividade) — pai: S1.1.1
-  - T1.1.1.1.1. Aplicar critério BANT (Tarefa) — pai: A1.1.1.1
+  - T1.1.1.1.1. <?> (Tarefa — gap: não confirmada na descoberta) — pai: A1.1.1.1
 #### S1.1.2. Proposta (Subprocesso) — pai: E1.1
 - A1.1.2.1. Enviar proposta (Atividade) — pai: S1.1.2
-  - T1.1.2.1.1. Anexar proposta ao CRM (Tarefa) — pai: A1.1.2.1
+  - T1.1.2.1.1. <?> (Tarefa — gap: não confirmada na descoberta) — pai: A1.1.2.1
 ```
 
 > **Atenção (anti-inflação, SM-C1/NFR-1):** o toolkit valida apenas a **resolução** do manifesto
@@ -128,20 +135,20 @@ aninhadas** para Atividade/Tarefa, cada nó declarando seu pai. Exemplo:
      "content": "<markdown da hierarquia, escapado como string JSON>",
      "claims": [
        {
-         "statement": "O macroprocesso M1 (Vendas) se decompõe em E1.1 (Lead-to-Close)",
+         "statement": "O macroprocesso M1 (Vendas) consta nominalmente na Cadeia de Valor de Bento",
          "level": "🟢",
          "source": { "artifactType": "value-chain", "sha256": "<sha da cadeia de valor do Bento>" },
-         "reasoning": "Decomposição derivada nominalmente da Cadeia de Valor commitada por Bento"
+         "reasoning": "M1 (Vendas) aparece nominalmente na value-chain — deriva da fonte, não é inferido"
        },
        {
-         "statement": "O subprocesso S1.1.1 (Qualificação) tem 3 atividades",
+         "statement": "A decomposição de M1 em E1.1/S1.1.1/A1.1.1.1 é inferida pelo Miguel",
          "level": "🟡",
-         "reasoning": "Decomposição inferida — nível não confirmado nominalmente na cadeia"
+         "reasoning": "Decomposição estimada — esses níveis não aparecem nominalmente na cadeia"
        },
        {
-         "statement": "A tarefa T1.1.1.1.1 não está confirmada",
+         "statement": "O nível Tarefa (T1.1.1.1.1) é gap — não determinado na descoberta",
          "level": "🔴",
-         "reasoning": "Nível de Tarefa é gap — não determinado na descoberta"
+         "reasoning": "Tarefa não confirmada pelo leigo; representada como <?> no artefato, sem inventar conteúdo"
        }
      ]
    }
