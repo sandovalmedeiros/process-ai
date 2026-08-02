@@ -123,10 +123,13 @@ test('2.4 AC2/AC3/AC4: Zanoni profundo propõe pop com 🟢 sourcing flow + 🟡
       content:
         '# POP — Qualificação de lead (A1.1.1.1)\n' +
         'Objetivo: qualificar o lead. Responsável: Vendas. Passos: 1. Avaliar fit. 2. Documentar.\n\n' +
+        '# POP — Envio de proposta (A1.1.2.1)\n' +
+        'Objetivo: enviar a proposta. Responsável: Vendas. Passos: 1. Redigir proposta. 2. Enviar.\n\n' +
         '# Diagnóstico consolidado\n' +
         '- Gargalo: handoff sem sistema integrador entre A1.1.1.1 e A1.1.2.1 (🟡).\n' +
-        '- Gap: SLA de resposta não determinado (🔴).\n' +
-        '- Recomendação: integrar o CRM ao handoff (🟡).',
+        '- Gap: SLA de resposta não determinado — <?> (🔴).\n' +
+        '- Recomendação: integrar o CRM ao handoff (🟡).\n' +
+        '- Contagem: 1 gargalo, 1 gap, 1 recomendação.',
       claims: [
         {
           statement: 'O passo 1 do POP (A1.1.1.1) deriva do fluxo de Júlia',
@@ -148,7 +151,7 @@ test('2.4 AC2/AC3/AC4: Zanoni profundo propõe pop com 🟢 sourcing flow + 🟡
         {
           statement: 'O SLA de resposta é indeterminado',
           level: '🔴',
-          reasoning: 'Passo/medida não determinado na descoberta — gap declarado, sem inventar valor',
+          reasoning: 'Passo/medida não determinado na descoberta — gap declarado, sem inventar valor (SLA: <?>)',
         },
       ],
     });
@@ -219,17 +222,45 @@ test('2.4 AC1/AC2/AC3: skill do Zanoni profundo — roteiro + POPs (IDs A…/T�
   );
 
   // POPs ancorados nos IDs A…/T… da hierarchy (FR-12) — 1.6 referencia "atividades", não IDs.
+  // O ID `A\d`/`T\d` deve aparecer perto de "POP" ou "hierarch" (ancora real, não coincidência solta).
   assert.match(
     content,
-    /A\d|T\d/,
+    /(?:POP|hierarch)[\s\S]{0,140}?(?:A\d|T\d)|(?:A\d|T\d)[\s\S]{0,140}?(?:POP|hierarch)/i,
     'skill do Zanoni (2.4) deve ancorar POPs nos IDs A…/T… da hierarchy — ausente na 1.6',
   );
 
   // Diagnóstico consolidado (AC3/FR-13) como trabalho do Zanoni — 1.6 só defere "→ 2.4".
   assert.match(
     content,
-    /diagn[ió]stico consolidado/i,
+    /diagn[óo]stico consolidado/i,
     'skill do Zanoni (2.4) deve produzir diagnóstico consolidado (FR-13) — 1.6 só defere',
+  );
+
+  // O diagnóstico cita sua própria contagem (AC3/FR-13) — 1.6 não instrui contagem.
+  assert.match(
+    content,
+    /contagem/i,
+    'skill do Zanoni (2.4) deve instruir o diagnóstico a citar a contagem (AC3) — ausente na 1.6',
+  );
+
+  // Regra anti-inflação (NFR-1/AC4): 🟢 só para nó confirmado no flow — 1.6 não tem a regra
+  // operacional. Trava a remoção futura do box anti-inflação (o toolkit valida resolução, não semântica).
+  assert.match(
+    content,
+    /anti-infla[çc]ão/,
+    'skill do Zanoni (2.4) deve ter a regra anti-inflação (🟢 só nó confirmado no flow) — ausente na 1.6',
+  );
+  assert.match(
+    content,
+    /nunca[\s\S]{0,60}🟢[\s\S]{0,60}(?:fabricado|inferido|recomenda)/i,
+    'skill do Zanoni (2.4) deve proibir 🟢 em elemento fabricado/inferido/recomendação (NFR-1)',
+  );
+
+  // 🔴 gap representado com o placeholder <?> (AC4) — 1.6 não nomeia a notação.
+  assert.match(
+    content,
+    /<\?>/,
+    'skill do Zanoni (2.4) deve instruir o placeholder <?> para gap 🔴 (AC4) — ausente na 1.6',
   );
 
   // Recomendações são inferenciais → 🟡 (NFR-1/SM-C1) — 1.6 não instrui isso.
@@ -242,15 +273,16 @@ test('2.4 AC1/AC2/AC3: skill do Zanoni profundo — roteiro + POPs (IDs A…/T�
   // ---- Guards de honestidade (travam as correções do T1 contra regressões futuras) ----
 
   // Notes stale corrigidas: 1.6 deferia "Relatório de diagnóstico → 2.4" e "POPs completos → 2.4"
-  // — removidos em 2.4 (agora é trabalho do Zanoni).
+  // — removidos em 2.4 (agora é trabalho do Zanoni). Guard aceita seta (→/->) ou conector verbal
+  // ("para"/"story") e janela de 120 chars — pega deferral reescrita, não só a forma literal.
   assert.doesNotMatch(
     content,
-    /Relatório de diagnóstico[\s\S]{0,80}→\s*2\.4/,
+    /Relat[óo]rio de diagn[óo]stico[\s\S]{0,120}(?:→|->|para|\bstory)\s*2\.4/i,
     'skill (2.4) não deve mais deferir diagnóstico para 2.4 (agora é trabalho do Zanoni)',
   );
   assert.doesNotMatch(
     content,
-    /POPs completos[\s\S]{0,80}→\s*2\.4/,
+    /POPs? completos?[\s\S]{0,120}(?:→|->|para|\bstory)\s*2\.4/i,
     'skill (2.4) não deve mais deferir POPs completos para 2.4',
   );
   // "rascunho" removido (Zanoni agora produz POPs completos + diagnóstico, não rascunho).

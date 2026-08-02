@@ -4,7 +4,7 @@ baseline_commit: 16005c8
 
 # Story 2.4: Zanoni profundo — POPs autorados + diagnóstico consolidado
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -154,3 +154,35 @@ GLM-5.1 (via Claude Code, skill `bmad-dev-story`).
 ## Change Log
 
 - **2026-08-02** — Story 2.4 implementada (dev-story, GLM-5.1): Zanoni profundo. Skill reescrita do rascunho 1.6 (~79 linhas) para **POPs completos (FR-12, ancorados nos IDs `A…`/`T…` da hierarchy) + diagnóstico consolidado (FR-13)** como conteúdo do `pop` (Decision #1 — `artifactType: pop` inalterado, contagem 7 preservada). Claims honestos por elemento (🟢 sourcing `flow` + 🟡 inferido/recomendação + 🔴 gap) + regra anti-inflação (SM-C1) + cláusula anti-forja de sha. Condutor §3 atualizado (Zanoni profundo; célula tabela "POPs + diagnóstico"). `zanoni-pop.test.ts` **NEW** (RED-contra-1.6 confirmado antes da reescrita; GREEN após) + `e2e-pipeline` seção Zanoni enriquecida (contagem 7). **Zero mudança no toolkit** (AD-3 verde). Suite 179 → **181 pass / 0 fail**; `tsc --noEmit` limpo. Prevenção da revisão 2.2/2.3 codificada (🟢 não inflado; 🔴 não fabricado; asserções provam instrução; 🟡 literal isolado). Status → **review**.
+
+- **2026-08-02 (code review)** — Patches do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; diff `16005c8..bd1917b`). Acceptance Auditor **PASS** (AC1–AC5 + critério implícito; 181/0 testes, typecheck limpo, AD-3 verde). **11 findings aplicados, 1 defer** (condutor "rascunho" → `deferred-work.md`, pré-existente desde 2.1). Skill: notação `<?>` para 🔴 (AC4), taxonomia correta de degradação (`missing-source`/`malformed-source`/`unresolved-source`), regra defensiva de ID órfão, contagem zero. Testes: asserções novas em `zanoni-pop.test.ts` §2 (contagem AC3, anti-inflação AC4, `<?>`), 2º POP no fixture (caminho multi-POP), regex de IDs ancorado, char-class corrigida, guards de deferral alargados; `e2e-pipeline` com entry 2.4 no header + contagem + `<?>`. Suite **181 pass / 0 fail**, `tsc --noEmit` limpo, AD-3 verde. Status → **done**.
+
+## Code Review (2026-08-02)
+
+Review adversarial em 3 camadas (Blind Hunter + Edge Case Hunter + Acceptance Auditor), diff `16005c8..bd1917b` (6 arquivos, +578/-49). Acceptance Auditor: **AC1–AC5 + critério implícito SATISFIED** (181/0 testes, typecheck limpo, AD-3 verde). Achados abaixo.
+
+### Review Findings
+
+**Patch (médios):**
+
+- [x] [Review][Patch] **[Med]** AC3 "cita a contagem" — linha de contagem ausente dos fixtures de teste + nenhuma asserção `/contagem/` (a skill ensina em SKILL.md:67-68,95; fixtures param em "Recomendação…"). Requisito de AC explícito sem cobertura de teste [tests/zanoni-pop.test.ts:126-129, tests/e2e-pipeline.test.ts:233]
+- [x] [Review][Patch] **[Med]** Regra anti-inflação "🟢 só nó confirmado no flow" (NFR-1/AC4) sem guard de regressão no §2 — remoção futura do box anti-inflação passaria ilesa pelos testes (espelha 2.2/2.3, mas precedente não fecha o buraco) [tests/zanoni-pop.test.ts:209-262 vs skills/process-ai-zanoni/SKILL.md:149-153]
+
+**Patch (baixos — correções de correção/consistência):**
+
+- [x] [Review][Patch] **[Low]** Notação `<?>` do AC4 (placeholder de gap 🔴) ausente da skill/fixtures/tests — skill diz "represente o gap" sem o token `<?>`; intent anti-fabricação capturada, só a notação nomeada no AC falta [skills/process-ai-zanoni/SKILL.md:144-145, tests/zanoni-pop.test.ts:150-152, tests/e2e-pipeline.test.ts:247-249]
+- [x] [Review][Patch] **[Low]** Cláusula anti-forja cita `unresolved-source` para o caso de fonte ausente — toolkit emite `missing-source` quando `source` está ausente/vazia (`unresolved-source` = sha bem-formado que não resolve); verbalização diverge do toolkit [skills/process-ai-zanoni/SKILL.md:45-47 vs toolkit/src/confidence.ts:210]
+- [x] [Review][Patch] **[Low]** Diagnóstico com contagem zero (sem gargalos/gaps) — estado não-tratado; skill não diz se cita "0" ou omite a categoria [skills/process-ai-zanoni/SKILL.md:64-68]
+- [x] [Review][Patch] **[Low]** Referência órfã de ID `A…`/`T…` (flow↔hierarchy divergentes) — sem regra defensiva; agente poderia ancorar 🟢 em ID ausente do flow (toolkit valida sha, não existência de ID). Validação cross-artefato profunda = 2.5 [skills/process-ai-zanoni/SKILL.md:56-59]
+- [x] [Review][Patch] **[Low]** Caminho multi-POP não exercitado — fixtures modelam flow com 2 tasks (`A1.1.1.1`+`A1.1.2.1`) mas o `pop` documenta só 1, violando o critério de parada da própria skill; nenhuma asserção conta POPs [tests/zanoni-pop.test.ts:108-111 vs 123-125]
+- [x] [Review][Patch] **[Low]** Char-class `/diagn[ió]stico/` com `i` morto (typo) e frágil a Unicode (não casa `o` desacentuado/NFD) — intent era `[óo]` [tests/zanoni-pop.test.ts:231]
+- [x] [Review][Patch] **[Low]** Header do `e2e-pipeline` (changelog) omite entry 2.4, apesar da seção Zanoni ter sido editada nesta story [tests/e2e-pipeline.test.ts:13-19]
+
+**Patch (baixos — hardening de teste opcional):**
+
+- [x] [Review][Patch] **[Low]** Regex de profundidade `/A\d|T\d/` largo demais (falso-positivo); RED-contra-1.6 vale, mas é fraco contra regressões futuras [tests/zanoni-pop.test.ts:222-226]
+- [x] [Review][Patch] **[Low]** Guards `doesNotMatch` de deferral estreitos (seta literal `→` + janela de 80 chars) — deferral reescrita sem a seta escapa [tests/zanoni-pop.test.ts:246-255]
+
+**Defer:**
+
+- [x] [Review][Defer] Narrativa genérica do condutor ainda diz "produz o rascunho" — stale desde 2.1, contradiz o update "profundos" na mesma §3 (pré-existente, fora do escopo T2 da 2.4; one-word fix oportunístico) [skills/process-ai/SKILL.md:108] — deferred, pre-existing

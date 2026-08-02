@@ -43,8 +43,9 @@ Do condutor (Déa), após o Gate 3 e o estágio `modeling`:
 > (nunca `hierarchy`/`value-chain`/`discovery-interview` diretamente — são fontes da Júlia/Bento).
 >
 > **Anti-forja (AD-5):** se o `sha256` do `flow` **não chegou**, **não invente** a fonte — proponha
-> só claims 🟡/🔴. Um 🟢 sem fonte válida degrada a 🟡 (`unresolved-source`) — o toolkit valida a
-> resolução, você só propõe.
+> só claims 🟡/🔴. Um 🟢 proposto com fonte inválida degrada a 🟡 — `missing-source` (sem `source`
+> ou sha vazio), `malformed-source` (sha mal-formado) ou `unresolved-source` (sha bem-formado que
+> não resolve a manifesto) — o toolkit valida a resolução, você só propõe.
 
 ## 2. Roteiro de padronização completo (roteiro do método ativo)
 
@@ -56,7 +57,9 @@ Padronize o processo percorrendo:
 1. **Identifique as atividades/tarefas a documentar** — percorra o `flow` de Júlia e selecione as
    atividades/tarefas significativas, **ancorando cada POP nos IDs estáveis `A…`/`T…`** da
    hierarquia de Miguel (ex.: `A1.1.1.1` — *Avaliar fit*). **Critério de parada:** cubra o que o
-   `flow` modela (não a árvore inteira de Miguel — só o que foi modelado).
+   `flow` modela (não a árvore inteira de Miguel — só o que foi modelado). Se um ID que você quer
+   ancorar **não aparece** no `flow` commitado (typo/divergência entre flow e hierarchy), **não** o
+   marque 🟢 — trate como 🟡 (inferido) ou 🔴 (gap); a validação cross-artefato profunda é **2.5**.
 2. **Para cada atividade/tarefa, estruture um POP completo** com a seção mínima (FR-12):
    **objetivo**, **escopo**, **responsável**, **passos numerados**, **insumos/saídas** e a
    **referência ao ID da hierarquia** (ex.: *ref: A1.1.1.1*). *(Estrutura mínima autorada aqui —
@@ -65,7 +68,8 @@ Padronize o processo percorrendo:
    Júlia no `flow`; os **gaps** declarados pelo Miguel na `hierarchy` (níveis 🔴); e
    **recomendações** de melhoria. Cada recomendação é um claim **🟡** cujo `reasoning` cita o
    nó/elemento do `flow`/`hierarchy` que a motiva. O diagnóstico **cita a contagem do que
-   consolidou** (ex.: *"N gargalos, M gaps, K recomendações"*).
+   consolidou** (ex.: *"N gargalos, M gaps, K recomendações"*) — se uma categoria for vazia
+   (ex.: nenhum gargalo no `flow`), cite **"0"** explicitamente (não omita a categoria).
 4. **Marque cada afirmação** com confiança honesta (🟢/🟡/🔴) e emita os claims por elemento (§4).
 
 ## 3. Produz os POPs + o diagnóstico consolidado
@@ -129,7 +133,7 @@ adapte ao processo real):
        {
          "statement": "O SLA de resposta é indeterminado",
          "level": "🔴",
-         "reasoning": "Gap declarado — medida não determinada na descoberta, sem inventar valor"
+         "reasoning": "Gap declarado — medida não determinada na descoberta, sem inventar valor (SLA: <?>)"
        }
      ]
    }
@@ -142,7 +146,8 @@ adapte ao processo real):
    - **🟡 (inferido):** passo/ferramenta/responsável estimado **ou recomendação** (análise
      inferencial/prescritiva). **Não inclua `source`.**
    - **🔴 (gap):** passo/medida não determinado. **Não inclua `source`** e **não fabrique** um
-     valor concreto — represente o gap e declare-o no `reasoning`.
+     valor concreto — represente o gap com o placeholder **`<?>`** e declare-o no `reasoning`
+     (ex.: *"SLA de resposta: `<?>` — não determinado na descoberta"*).
    - **Recomendações com evidência (FR-13):** cada recomendação é um claim 🟡 cujo `reasoning`
      cita o nó do `flow`/`hierarchy` que a motiva.
 

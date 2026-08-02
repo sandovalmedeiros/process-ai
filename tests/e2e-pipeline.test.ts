@@ -17,6 +17,9 @@
  *    **(2.3: Júlia profunda — flow com content = BPMN 2.0 XML + 🟡 fluxo inferido + 🔴 passo
  *    indeterminado + gargalo 🟡 com evidência; a contagem permanece 7 — artifactType flow
  *    inalterado, profundidade no conteúdo (Decision #1))**;
+ *    **(2.4: Zanoni profundo — pop com content = POPs (ref A1.1.1.1) + diagnóstico consolidado
+ *    (FR-13) + 🟢 sourcing flow + 🟡 recomendação + 🔴 gap; a contagem permanece 7 — artifactType
+ *    pop inalterado, profundidade no conteúdo (Decision #1))**;
  *  - resume subsequente não duplica estado nem cria órfãos.
  *
  * Drive via `dispatch(parseArgs(...), adapter, root)` — determinístico, sem LLM (o teste
@@ -230,7 +233,7 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
     await propose(adapter, tmp, {
       artifactType: 'pop',
       content:
-        '# POP — Qualificação de lead (ref: A1.1.1.1)\nObjetivo: qualificar. Passos: 1. Avaliar fit. 2. Documentar.\n\n# Diagnóstico consolidado\n- Gargalo: handoff sem sistema integrador (🟡).\n- Gap: SLA não determinado (🔴).\n- Recomendação: integrar o CRM (🟡).',
+        '# POP — Qualificação de lead (ref: A1.1.1.1)\nObjetivo: qualificar. Passos: 1. Avaliar fit. 2. Documentar.\n\n# Diagnóstico consolidado\n- Gargalo: handoff sem sistema integrador (🟡).\n- Gap: SLA não determinado — <?> (🔴).\n- Recomendação: integrar o CRM (🟡).\n- Contagem: 1 gargalo, 1 gap, 1 recomendação.',
       claims: [
         {
           statement: 'O passo 1 do POP (A1.1.1.1) deriva do fluxo de Júlia',
@@ -246,7 +249,7 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
         {
           statement: 'O SLA de resposta é indeterminado',
           level: '🔴',
-          reasoning: 'Gap declarado — medida não determinada, sem inventar valor',
+          reasoning: 'Gap declarado — medida não determinada, sem inventar valor (SLA: <?>)',
         },
       ],
     });
