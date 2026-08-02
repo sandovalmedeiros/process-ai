@@ -12,6 +12,8 @@
  *    deixa de ter a nota de "zeros honestos" (AC6);
  *  - 6 artefatos commitados (sipoc, value-chain, hierarchy, flow, pop, summary-report);
  *    **(2.1: +discovery-interview → 7 artefatos; Bento agora pode 🟢 sourcing a entrevista)**;
+ *    **(2.2: Miguel profundo — hierarchy com árvore completa (5 níveis, IDs estáveis, pai/filho)
+ *    + 🔴 de gap de nível; a contagem permanece 7 — nenhum artifactType novo)**;
  *  - resume subsequente não duplica estado nem cria órfãos.
  *
  * Drive via `dispatch(parseArgs(...), adapter, root)` — determinístico, sem LLM (o teste
@@ -127,20 +129,28 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
       ],
     });
 
-    // ---- Miguel (mapping): hierarchy com 🟢 sourcing value-chain (resolve) + 🟢 com sha
-    //      inexistente (degrada a 🟡, unresolved-source) + 🟡 inferido. (Bento já 🟢 em 2.1.) ----
+    // ---- Miguel (2.2) profundo (mapping): hierarchy com árvore completa (5 níveis, IDs
+    //      estáveis, pai/filho explícito) + 🟢 sourcing value-chain (resolve) + 🟢 com sha
+    //      inexistente (degrada a 🟡, unresolved-source) + 🟡 inferido + 🔴 gap de nível.
+    //      (Bento já 🟢 em 2.1; Miguel continua a cadeia sourcing value-chain.) ----
     await runJson(['gate', '--id', 'gate-2', '--decision', 'approved'], adapter, tmp);
     await runJson(['stage', '--to', 'mapping'], adapter, tmp);
 
     const hierarchy = await propose(adapter, tmp, {
       artifactType: 'hierarchy',
-      content: '# Hierarquia\nMacro → E2E → Subprocesso → Atividade → Tarefa',
+      content:
+        '# Hierarquia — Vendas\n' +
+        '## M1. Vendas (Macroprocesso) — pai: cadeia de valor\n' +
+        '### E1.1. Lead-to-Close (Processo End-to-End) — pai: M1\n' +
+        '#### S1.1.1. Qualificação (Subprocesso) — pai: E1.1\n' +
+        '- A1.1.1.1. Avaliar fit (Atividade) — pai: S1.1.1\n' +
+        '  - T1.1.1.1.1. Aplicar critério BANT (Tarefa) — pai: A1.1.1.1',
       claims: [
         {
-          statement: 'Decompõe-se em Lead→Qualificação→Proposta→Fechamento',
+          statement: 'O macroprocesso M1 (Vendas) se decompõe em E1.1 (Lead-to-Close)',
           level: '🟢',
           source: { artifactType: 'value-chain', sha256: valueChain.sha256 },
-          reasoning: 'Diretamente derivado da Cadeia de Valor commitada por Bento',
+          reasoning: 'Decomposição derivada nominalmente da Cadeia de Valor commitada por Bento',
         },
         {
           statement: 'Claim com fonte inexistente (deve degradar)',
@@ -148,7 +158,8 @@ test('E2E: pipeline com rascunhos + claims + provenance cruzada ponta-a-ponta', 
           source: { artifactType: 'value-chain', sha256: NONEXISTENT_SHA },
           reasoning: 'sha256 não resolve a manifesto → degrada a 🟡 (unresolved-source)',
         },
-        { statement: 'A Qualificação tem 3 subprocessos', level: '🟡', reasoning: 'Decomposição inferida — não confirmada' },
+        { statement: 'O subprocesso S1.1.1 (Qualificação) tem 3 atividades', level: '🟡', reasoning: 'Decomposição inferida — não confirmada nominalmente na cadeia' },
+        { statement: 'A tarefa T1.1.1.1.1 não está confirmada', level: '🔴', reasoning: 'Nível de Tarefa é gap — não determinado na descoberta' },
       ],
     });
 

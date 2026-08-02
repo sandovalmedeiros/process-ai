@@ -86,10 +86,12 @@ A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 | `gate-3` | `modeling` | **Júlia** | fluxo simples (não BPMN XML) | `flow` |
 | `gate-4` | `standardization` | **Zanoni** | POP-rascunho | `pop` |
 
-> **Epic 2 em curso.** Bento (2.1) é **profundo**: entrevista persistida + SIPOC + cadeia
-> completos, com 🟢 sustentados pela entrevista. Miguel/Júlia/Zanoni profundos vêm nas
-> 2.2–2.4; BPMN 2.0 XML, gargalos, diagnóstico e gates ricos também são Epic 2; method-packs
-> (loader/schema/pack) são Epic 3.
+> **Epic 2 em curso.** Bento (2.1) e Miguel (2.2) são **profundos**: Bento entrega entrevista
+> persistida + SIPOC + cadeia completos (🟢 sustentados pela entrevista); Miguel entrega a
+> hierarquia **completa e rastreável** (5 níveis Macro→Tarefa, com pai/filho explícito e IDs
+> estáveis, 🟢 sourceiando a `value-chain`). Júlia/Zanoni profundos vêm nas 2.3/2.4; BPMN 2.0 XML,
+> gargalos, diagnóstico e gates ricos também são Epic 2; method-packs (loader/schema/pack) são
+> Epic 3.
 
 Para cada especialista, em ordem:
 

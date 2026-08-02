@@ -61,7 +61,7 @@ development_status:
   # ===== Epic 2: Documentação Completa e Honesta do Processo =====
   epic-2: in-progress
   2-1-bento-entrevista-sipoc-cadeia-valor: done
-  2-2-miguel-hierarquia-completa: backlog
+  2-2-miguel-hierarquia-completa: review
   2-3-julia-bpmn-xml-gargalos: backlog
   2-4-zanoni-pops-diagnostico: backlog
   2-5-confianca-verificavel-rastreabilidade-relatorio: backlog
