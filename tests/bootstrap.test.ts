@@ -74,15 +74,15 @@ test('AC5: bootstrap é idempotente — 2× no mesmo alvo => estado final idênt
   }
 });
 
-test('AC5: bootstrap não escreve nada fora de .claude/ no alvo', () => {
+test('AC5: bootstrap não escreve nada fora de .claude/ e .process-ai/ no alvo', () => {
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'pa-scope-'));
   try {
     runBootstrap(tmp);
-    const entries = readdirSync(tmp);
+    const entries = readdirSync(tmp).sort();
     assert.deepEqual(
       entries,
-      ['.claude'],
-      'o único conteúdo criado no alvo deve ser .claude/ (nada fora dele)',
+      ['.claude', '.process-ai'],
+      'o conteúdo criado no alvo deve ser só .claude/ (skills) + .process-ai/ (config installer-managed)',
     );
   } finally {
     rmSync(tmp, { recursive: true, force: true });

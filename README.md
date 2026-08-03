@@ -35,16 +35,24 @@ O **process-ai** resolve isso herdando o **rigor do Reversa** (confiança 🟢�
 ```bash
 # Pré-requisito: Node.js ≥ 24 LTS
 cd meu-projeto
-npm install process-ai
-
-# O postinstall copia as skills para .claude/skills/ automaticamente.
-# Se precisar reinstalar as skills manualmente:
-npx process-ai-bootstrap
+npx process-ai
 ```
 
-**Por que o bootstrap?** O Claude Code (engine v1) descobre slash-commands pelos arquivos em `.claude/skills/` do projeto. O `npm install` baixa o pacote para `node_modules/`, mas as skills precisam estar **fisicamente** em `.claude/skills/process-ai/SKILL.md`. O bootstrap faz essa cópia. Em engines futuros (Codex, Cursor, Gemini CLI), cada adapter fará o equivalente.
+`npx process-ai` instala o framework no diretório atual:
 
-Após a instalação, o slash-command `/process-ai` está disponível no Claude Code dentro do projeto.
+- copia as skills (Déa + 4 especialistas) para `.claude/skills/`;
+- cria `.process-ai/config` (installer-managed, regenerado a cada install) e `.process-ai/config.user` (seus overrides — nunca sobrescritos pelo installer).
+
+A instalação é **idempotente** — pode ser re-rodeada sem efeito colateral. Para instalar como dependência de projeto, `npm install process-ai` executa o mesmo install no `postinstall`.
+
+```bash
+npx process-ai                      # install no diretório atual
+npx process-ai install --target .   # forma explícita
+```
+
+**Por que instalar?** O Claude Code (engine v1) descobre slash-commands pelos arquivos em `.claude/skills/` do projeto. O `npx process-ai` coloca as skills **fisicamente** em `.claude/skills/process-ai/SKILL.md` e faz o scaffolding do config. Em engines futuros (Codex, Cursor, Gemini CLI), cada adapter fará o equivalente.
+
+Após a instalação, o slash-command `/process-ai` está disponível no Claude Code dentro do projeto (aceite o diálogo de workspace trust).
 
 ---
 

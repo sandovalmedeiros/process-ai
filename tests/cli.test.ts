@@ -30,11 +30,26 @@ function checkpointPath(root: string): string {
 
 // ---- parseArgs (puro, sem IO) ----
 
-test('parseArgs: help / --help / -h / vazio → {kind:"help"}', () => {
+test('parseArgs: help / --help / -h → {kind:"help"}', () => {
   assert.equal(parseArgs(['help']).kind, 'help');
   assert.equal(parseArgs(['--help']).kind, 'help');
   assert.equal(parseArgs(['-h']).kind, 'help');
-  assert.equal(parseArgs([]).kind, 'help');
+});
+
+test('parseArgs: argv vazio → {kind:"install"} (bare `npx process-ai` = install no cwd)', () => {
+  const c = parseArgs([]) as Extract<ParsedCommand, { kind: 'install' }>;
+  assert.equal(c.kind, 'install');
+  assert.equal(c.target, undefined);
+});
+
+test('parseArgs: install [--target <dir>] (forma explícita; --target opcional)', () => {
+  const space = parseArgs(['install', '--target', '/tmp/x']) as Extract<ParsedCommand, { kind: 'install' }>;
+  assert.equal(space.kind, 'install');
+  assert.equal(space.target, '/tmp/x');
+  const eq = parseArgs(['install', '--target=/tmp/y']) as Extract<ParsedCommand, { kind: 'install' }>;
+  assert.equal(eq.target, '/tmp/y');
+  const bare = parseArgs(['install']) as Extract<ParsedCommand, { kind: 'install' }>;
+  assert.equal(bare.target, undefined);
 });
 
 test('parseArgs: propose --payload <path>', () => {
@@ -102,9 +117,30 @@ test('parseArgs: flag duplicada → erro', () => {
   assert.throws(() => parseArgs(['gate', '--id', 'gate-0', '--id', 'gate-1', '--decision', 'approved']), /duplicad/i);
 });
 
-test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status)', () => {
+test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status) + install', () => {
   for (const sub of ['propose', 'gate', 'stage', 'resume', 'report', 'status']) {
     assert.ok(HELP.includes(sub), `HELP deve listar o subcomando ${sub}`);
+  }
+  assert.ok(HELP.includes('install'), 'HELP deve mencionar install (entry do usuário)');
+});
+
+// ---- dispatch install (integração: dispatcher → runInstall) ----
+
+test('dispatch install: instala skills + .process-ai/config no target; output é o resumo', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cli-install-'));
+  try {
+    const adapter = new ClaudeCodeAdapter({ cwd: tmp });
+    const result = await dispatch({ kind: 'install', target: tmp }, adapter, tmp);
+    assert.equal(result.ok, true);
+    assert.match(result.output, /process-ai instalado/);
+    assert.ok(
+      (await fs.stat(path.join(tmp, '.claude', 'skills', 'process-ai', 'SKILL.md'))).isFile(),
+      'install deve criar .claude/skills/process-ai/SKILL.md',
+    );
+    const cfg = await fs.readFile(path.join(tmp, '.process-ai', 'config'), 'utf8');
+    assert.match(cfg, /active_pack\s*=\s*"bpmn-sipoc"/);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
   }
 });
 

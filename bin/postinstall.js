@@ -2,67 +2,57 @@
 /**
  * bin/postinstall.js — Script pós-instalação (JS puro, sem TS).
  *
- * Copia as skills do pacote para .claude/skills/ no PROJETO DO CONSUMIDOR
- * (INIT_CWD), ativando o slash-command /process-ai no Claude Code (engine v1).
+ * Rodado pelo npm após `npm install process-ai`. Delega o install ao CLI
+ * compilado (dist/bin/process-ai.js install), que é o ÚNICO caminho de install
+ * (runInstall) — o mesmo código de `npx process-ai` e `process-ai-bootstrap`.
+ * Encerra a duplicação do `cp -r` próprio que divergia do adapter (retro AI-2).
  *
  * JS PURO porque Node.js 24+ bloqueia type-stripping de .ts dentro de
- * node_modules/ (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING).
+ * node_modules/ (ERR_UNSUPPORTED_NODE_MODULES_TYPE_STRIPPING). O CLI em dist/
+ * é JS puro compilado pelo `npm run build` (prepublishOnly).
  *
  * Hardening (code review Epic 3 / 3.4):
- *  - lê INIT_CWD (npm seta para o diretório do consumidor durante install) em vez
- *    de cwd (que sob npm é node_modules/process-ai/ — copiava skills para dentro
- *    do pacote, nunca para o projeto do usuário).
- *  - sinaliza falhas em stderr em vez de engoli-las silenciosamente (.catch vazio).
+ *  - INIT_CWD = diretório do consumidor (npm seta durante install); fallback cwd.
+ *  - fail-soft: NÃO bloqueia `npm install`, mas SINALIZA falhas em stderr
+ *    (antes o catch era vazio — hardening).
  */
-import { cp, mkdir, stat } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const MODULE_DIR = fileURLToPath(import.meta.url).replace(/\\/g, '/').replace(/\/bin\/postinstall\.js$/, '');
-const SOURCE_SKILLS = join(MODULE_DIR, 'skills');
-// INIT_CWD = diretório de onde o usuário rodou `npm install` (o projeto consumidor).
+const CLI = join(MODULE_DIR, 'dist', 'bin', 'process-ai.js');
+// INIT_CWD = diretório de onde o usuário rodou `npm install` (projeto consumidor).
 // Fallback para cwd quando ausente (ex.: `node bin/postinstall.js` manualmente).
 const CWD = process.env.INIT_CWD ? resolve(process.env.INIT_CWD) : resolve('.');
 
-const SKILL_DIR_PATTERN = /^process-ai(-.+)?$/;
-
-async function install() {
-  // Verifica que skills/ existe no pacote
-  try {
-    const st = await stat(SOURCE_SKILLS);
-    if (!st.isDirectory()) {
-      console.warn('[process-ai] skills/ não é um diretório no pacote — /process-ai não será registrado.');
-      return;
-    }
-  } catch {
-    console.warn('[process-ai] skills/ ausente no pacote — /process-ai não será registrado.');
-    return;
-  }
-
-  const targetSkillsDir = join(CWD, '.claude', 'skills');
-  await mkdir(targetSkillsDir, { recursive: true });
-
-  const { readdir } = await import('node:fs/promises');
-  const entries = await readdir(SOURCE_SKILLS, { withFileTypes: true });
-
-  let copied = 0;
-  for (const entry of entries) {
-    if (!entry.isDirectory() || !SKILL_DIR_PATTERN.test(entry.name)) continue;
-    const src = join(SOURCE_SKILLS, entry.name);
-    const dst = join(targetSkillsDir, entry.name);
-    await cp(src, dst, { recursive: true, force: true });
-    copied++;
-  }
-
-  if (copied > 0) {
-    console.log(`[process-ai] ${copied} skill(s) instalada(s) em ${targetSkillsDir} — /process-ai disponível.`);
-  } else {
-    console.warn(`[process-ai] nenhuma skill process-ai* encontrada em ${SOURCE_SKILLS}.`);
-  }
+// Guarda: dist/bin/process-ai.js tem que existir (prepublishOnly builda). Se o
+// tarball foi publicado sem build, falha cedo com mensagem acionável em vez de
+// ENOENT opaco do spawn.
+let cliStat;
+try {
+  cliStat = statSync(CLI);
+} catch {
+  console.error(`[process-ai] postinstall: CLI compilado ausente (${CLI}).`);
+  console.error('[process-ai] O pacote foi publicado sem build (dist/). Rode `npm run build` antes de publicar.');
+  console.error('[process-ai] /process-ai NÃO foi registrado. Copie skills/ manualmente para .claude/skills/ se necessário.');
+  process.exit(0); // fail-soft: não bloqueia npm install
+}
+if (!cliStat.isFile()) {
+  console.error(`[process-ai] postinstall: ${CLI} não é um arquivo (inesperado). /process-ai não registrado.`);
+  process.exit(0);
 }
 
-install().catch((err) => {
-  // fail-soft: não bloqueia `npm install`, mas SINALIZA (hardening — antes o catch era vazio).
-  console.error(`[process-ai] postinstall falhou ao copiar skills: ${err instanceof Error ? err.message : String(err)}`);
-  console.error('[process-ai] /process-ai pode não estar disponível. Copie skills/ manualmente para .claude/skills/ se necessário.');
+// Delega ao CLI compilado: `node dist/bin/process-ai.js install --target <CWD>`.
+// stdio 'inherit' mostra o resumo do install (skills + config) no output do npm.
+const r = spawnSync(process.execPath, [CLI, 'install', '--target', CWD], {
+  cwd: CWD,
+  stdio: 'inherit',
 });
+
+if (r.status !== 0) {
+  console.error(`[process-ai] postinstall: install falhou (exit ${r.status}). /process-ai pode não estar disponível.`);
+  console.error('[process-ai] Copie skills/ manualmente para .claude/skills/, ou rode `npx process-ai` no projeto.');
+  // fail-soft: não bloqueia npm install com exit não-zero.
+}

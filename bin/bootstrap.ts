@@ -19,6 +19,7 @@ import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { ClaudeCodeAdapter } from '../toolkit/adapters/claude-code/adapter.ts';
 import type { EngineAdapter } from '../toolkit/src/engine-adapter.ts';
+import { runInstall, formatInstallSummary } from '../toolkit/src/install.ts';
 
 export interface BootstrapOptions {
   target: string;
@@ -165,21 +166,11 @@ export async function main(options: BootstrapOptions): Promise<void> {
   // EngineAdapter daqui em diante.
   const adapter: EngineAdapter = new ClaudeCodeAdapter();
 
-  await adapter.installSkills(target);
-  await adapter.registerSlashCommands(target);
-
-  const skillPath = path.join(target, '.claude', 'skills', 'process-ai', 'SKILL.md');
-  process.stdout.write(
-    [
-      `✓ process-ai registrado no projeto-alvo: ${target}`,
-      `  Skill instalada: ${skillPath}`,
-      `  Slash command disponível: /process-ai`,
-      ``,
-      `⚠  Workspace trust: abra o projeto-alvo no Claude Code e aceite o diálogo`,
-      `   de workspace trust para que a skill de projeto seja carregada.`,
-      ``,
-    ].join('\n'),
-  );
+  // Install consolidado (skills + config installer-managed em .process-ai/).
+  // Reusa runInstall — MESMO caminho de `process-ai install` e do postinstall,
+  // encerrando a duplicação bootstrap-vs-postinstall (retro Epic 3, AI-2).
+  const result = await runInstall(adapter, target);
+  process.stdout.write(formatInstallSummary(result));
 }
 
 // Entry-point guard: só executa quando invocado diretamente como CLI

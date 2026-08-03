@@ -44,12 +44,14 @@ import {
   resume,
 } from '../toolkit/src/checkpoint.ts';
 import { reportConfidence, formatConfidenceReport } from '../toolkit/src/report.ts';
+import { runInstall, formatInstallSummary } from '../toolkit/src/install.ts';
 
 // ---- Tipos ----
 
 /** Comando parseado (discriminado por `kind`). */
 export type ParsedCommand =
   | { kind: 'help' }
+  | { kind: 'install'; target?: string }
   | { kind: 'propose'; payloadPath: string }
   | { kind: 'gate'; id: string; decision: string }
   | { kind: 'stage'; to: string }
@@ -76,7 +78,9 @@ const VALID_DECISIONS: ReadonlySet<string> = new Set([
 export const HELP = `process-ai — canal de runtime do framework (orquestrado pela skill Déa)
 
 Uso:
-  process-ai <subcomando> [flags]
+  process-ai                              # instala no diretório atual (skills + .process-ai/config)
+  process-ai install [--target <dir>]     # instalação explícita
+  process-ai <subcomando> [flags]         # canal de runtime (orquestrado pela skill Déa)
   process-ai --help | -h
 
 Subcomandos (o agente invoca via Bash; TODA escrita passa pelo toolkit):
@@ -196,7 +200,9 @@ function rejectArgs(args: string[], sub: string): void {
  * (ex.: `process.argv.slice(2)`). Lança erros acionáveis em pt-BR.
  */
 export function parseArgs(argv: string[]): ParsedCommand {
-  if (argv.length === 0) return { kind: 'help' };
+  // Bare invocation (`npx process-ai`) = install no cwd (espelho BMAD: o installer
+  // é o entry default). Subcomandos abaixo são o canal de runtime da skill Déa.
+  if (argv.length === 0) return { kind: 'install' };
 
   const sub = argv[0];
   const rest = argv.slice(1);
@@ -232,6 +238,12 @@ export function parseArgs(argv: string[]): ParsedCommand {
     case 'status':
       rejectArgs(rest, 'status');
       return { kind: 'status' };
+    case 'install': {
+      // --target opcional (default = cwd, resolvido no dispatch). install NÃO é
+      // invocado pela skill (é entry do usuário) — fora da lista de subcomandos runtime.
+      const flags = parseFlags(rest, ['target'], 'install');
+      return { kind: 'install', target: flags.get('--target') };
+    }
     default:
       throw new Error(`Subcomando desconhecido: "${sub}".\n\n${HELP}`);
   }
@@ -293,6 +305,14 @@ export async function dispatch(
   switch (cmd.kind) {
     case 'help':
       return { ok: true, output: HELP };
+
+    case 'install': {
+      // Bare `process-ai` ou `process-ai install [--target]` → install no projeto-alvo.
+      // target default = root (cwd); runInstall orquestra skills + config installer-managed.
+      const target = path.resolve(cmd.target ?? root);
+      const result = await runInstall(adapter, target);
+      return { ok: true, output: formatInstallSummary(result) };
+    }
 
     case 'propose': {
       const payload = await readPayload(cmd.payloadPath);
