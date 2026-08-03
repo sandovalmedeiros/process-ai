@@ -19,6 +19,7 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
+import { readConfig } from './pack-loader.ts';
 
 // ---- Tipos (T1) ----
 
@@ -63,6 +64,8 @@ export interface CheckpointState {
 export interface ResumeResult {
   state: CheckpointState;
   orphans: QuarantinedArtifact[];
+  /** Avisos de compatibilidade de pack (AD-2 / 3.2 AC3/AC4) — advisory; v1 não bloqueia. */
+  packCompatibilityWarnings?: string[];
 }
 
 /** Artefato enviado à quarentena. */
@@ -427,6 +430,16 @@ export async function resume(root: string): Promise<ResumeResult> {
   const knownShas = new Set(state.artifacts.map((a) => a.sha256));
   const orphans: QuarantinedArtifact[] = [];
 
+  // 6) Pack ativo para checagem de compatibilidade (AD-2 / 3.2 AC3/AC4, advisory v1).
+  let activePackId: string | undefined;
+  try {
+    const config = await readConfig(root);
+    activePackId = config.activePack?.id;
+  } catch {
+    // Falha de leitura da config não quebra o resume — advisory only.
+  }
+  const packWarnings: string[] = [];
+
   try {
     const manifestFiles = await fs.readdir(manifestsDir);
     for (const file of manifestFiles) {
@@ -435,11 +448,20 @@ export async function resume(root: string): Promise<ResumeResult> {
       try {
         const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf8')) as {
           sha256: string;
+          pack_id?: string;
+          artifactType?: string;
         };
         if (!knownShas.has(manifest.sha256)) {
           // 4) Quarentena
           const result = await quarantineArtifact(root, manifest.sha256, manifestPath);
           orphans.push(result);
+        }
+        // 6) Compatibilidade de pack: artefato com pack ≠ ativo → aviso (v1: warn).
+        if (activePackId && manifest.pack_id && manifest.pack_id !== activePackId) {
+          packWarnings.push(
+            `Artefato ${manifest.artifactType ?? '?'}/${manifest.sha256.slice(0, 8)} ` +
+            `commitado com pack "${manifest.pack_id}" difere do pack ativo "${activePackId}".`,
+          );
         }
       } catch {
         // arquivo de manifesto corrompido ou ilegível — quarentena também
@@ -458,7 +480,11 @@ export async function resume(root: string): Promise<ResumeResult> {
     // manifests/ não existe → sem órfãos
   }
 
-  return { state, orphans };
+  return {
+    state,
+    orphans,
+    ...(packWarnings.length > 0 ? { packCompatibilityWarnings: packWarnings } : {}),
+  };
 }
 
 /**

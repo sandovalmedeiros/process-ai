@@ -14,7 +14,7 @@ import {
   PackError,
 } from '../toolkit/src/pack-loader.ts';
 import type { MethodPack } from '../toolkit/src/pack-loader.ts';
-import { commit } from '../toolkit/src/commit.ts';
+import { commit, CommitError } from '../toolkit/src/commit.ts';
 import type { ProposePayload } from '../toolkit/src/engine-adapter.ts';
 
 // ---- T1: validatePackToml ----
@@ -77,6 +77,135 @@ version = "1.0.0"
 artifact_types = ["sipoc"]
 `;
   assert.throws(() => validatePackToml(toml), PackError);
+});
+
+// ---- T1 hardening (code review Epic 3 / 3.2) ----
+
+test('pack.toml com [pipeline] SECTION (não key=value) → PackError (AD-2)', () => {
+  // Antes: só `pipeline = ...` era pego; `[pipeline]` como tabela passava despercebido.
+  const toml = `
+[pack]
+name = "x"
+version = "1.0.0"
+artifact_types = ["sipoc"]
+
+[pipeline]
+stages = ["a", "b"]
+`;
+  assert.throws(() => validatePackToml(toml), (e: Error) => e instanceof PackError && /pipeline/.test(e.message));
+});
+
+test('pack.toml com chave dotted proibida (pipeline.stages) → PackError', () => {
+  const toml = `
+pipeline.stages = ["a"]
+
+[pack]
+name = "x"
+version = "1.0.0"
+artifact_types = ["sipoc"]
+`;
+  assert.throws(() => validatePackToml(toml), PackError);
+});
+
+test('pack.toml artifact_types multi-linha (forma canônica TOML) → parse OK', () => {
+  // Antes: parser line-oriented virava [] silenciosamente.
+  const toml = `
+[pack]
+name = "x"
+version = "1.0.0"
+artifact_types = [
+  "sipoc",
+  "flow",
+]
+`;
+  const m = validatePackToml(toml);
+  assert.deepEqual(m.artifactTypes, ['sipoc', 'flow']);
+});
+
+test('pack.toml com seção [other] NÃO sobrescreve [pack] (inPack reset)', () => {
+  // Antes: inPack nunca era resetado → name em [metadata] sobrescrevia pack.name.
+  const toml = `
+[pack]
+name = "good-pack"
+version = "1.0.0"
+artifact_types = ["sipoc"]
+
+[metadata]
+name = "overrider"
+`;
+  const m = validatePackToml(toml);
+  assert.equal(m.name, 'good-pack', 'name de [pack] não pode ser sobrescrito por outra seção');
+});
+
+test('pack.toml com chave duplicada → PackError', () => {
+  const toml = `
+[pack]
+name = "first"
+name = "second"
+version = "1.0.0"
+artifact_types = ["sipoc"]
+`;
+  assert.throws(() => validatePackToml(toml), PackError);
+});
+
+// ---- T2 hardening (code review Epic 3 / 3.2) ----
+
+test('validatePackSchemas: $ref substring (sipoc-extra) → inválido (match exato)', () => {
+  // Antes: includes('sipoc') deixava "https://process-ai/schemas/sipoc-extra/v1" passar.
+  const pack: MethodPack = {
+    manifest: { name: 't', version: '1.0.0', description: '', artifactTypes: ['sipoc'] },
+    schemas: { sipoc: { allOf: [{ '$ref': 'https://process-ai/schemas/sipoc-extra/v1' }] } },
+    prompts: {},
+    glossary: '',
+  };
+  const r = validatePackSchemas(pack);
+  assert.equal(r.valid, false);
+  assert.ok(r.errors.some((e) => e.includes('exatamente')));
+});
+
+test('validatePackSchemas: allOf vazio → inválido', () => {
+  const pack: MethodPack = {
+    manifest: { name: 't', version: '1.0.0', description: '', artifactTypes: ['sipoc'] },
+    schemas: { sipoc: { allOf: [] } },
+    prompts: {},
+    glossary: '',
+  };
+  const r = validatePackSchemas(pack);
+  assert.equal(r.valid, false);
+  assert.ok(r.errors.some((e) => e.includes('allOf') || e.includes('$ref')));
+});
+
+test('validatePackSchemas: pack redeclara campo do núcleo (body) → inválido (AD-2)', () => {
+  const pack: MethodPack = {
+    manifest: { name: 't', version: '1.0.0', description: '', artifactTypes: ['sipoc'] },
+    schemas: {
+      sipoc: {
+        allOf: [
+          { '$ref': 'https://process-ai/schemas/sipoc/v1' },
+          { properties: { body: { type: 'string', minLength: 999 } } },
+        ],
+      },
+    },
+    prompts: {},
+    glossary: '',
+  };
+  const r = validatePackSchemas(pack);
+  assert.equal(r.valid, false);
+  assert.ok(r.errors.some((e) => e.includes('body') && e.includes('núcleo')));
+});
+
+test('validatePackSchemas: schema para tipo fora de artifact_types → inválido (cross-check)', () => {
+  const pack: MethodPack = {
+    manifest: { name: 't', version: '1.0.0', description: '', artifactTypes: ['sipoc'] },
+    schemas: {
+      flow: { allOf: [{ '$ref': 'https://process-ai/schemas/flow/v1' }] },
+    },
+    prompts: {},
+    glossary: '',
+  };
+  const r = validatePackSchemas(pack);
+  assert.equal(r.valid, false);
+  assert.ok(r.errors.some((e) => e.includes('artifact_types')));
 });
 
 // ---- T2: validatePackSchemas ----
@@ -193,23 +322,43 @@ pack_version = "1.0.0"
 
 // ---- T4: Integração commit + pack_id ----
 
-test('commit com pack ativo → manifesto inclui pack_id + pack_version', async () => {
+test('commit com pack ativo → carrega pack + estampa pack_id/version truthfully', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-pkcmt-'));
   try {
-    // Configura pack ativo
+    // Cria um pack REAL em <root>/method-packs/<id>/ (commit agora carrega+valida).
+    const packDir = path.join(tmp, 'method-packs', 'bpmn-sipoc');
+    await fs.mkdir(path.join(packDir, 'schemas'), { recursive: true });
+    await fs.writeFile(path.join(packDir, 'pack.toml'), `
+[pack]
+name = "bpmn-sipoc"
+version = "1.0.0"
+description = "Pack de teste"
+artifact_types = ["sipoc"]
+`.trim() + '\n', 'utf8');
+    await fs.writeFile(
+      path.join(packDir, 'schemas', 'sipoc.schema.json'),
+      JSON.stringify({
+        allOf: [
+          { '$ref': 'https://process-ai/schemas/sipoc/v1' },
+          { properties: { industry: { type: 'string' } } },
+        ],
+      }),
+      'utf8',
+    );
+
+    // Config declara o pack ativo (versão corresponde ao pack real → sem warn).
     await fs.mkdir(path.join(tmp, '.process-ai'), { recursive: true });
     await fs.writeFile(path.join(tmp, '.process-ai', 'config'), `
 active_pack = "bpmn-sipoc"
-pack_version = "2.3.1"
+pack_version = "1.0.0"
 `, 'utf8');
 
     const payload: ProposePayload = {
       artifactType: 'sipoc',
-      content: { body: '# SIPOC com pack' },
+      content: { body: '# SIPOC com pack', industry: 'servicos' },
     };
     const result = await commit(payload, { root: tmp });
 
-    // Ler o manifesto gerado (manifestPath é relativo ao root)
     const mp = result.manifestPath.replace(/\\/g, '/');
     const manifestAbsPath = mp.startsWith('.process-ai/')
       ? path.join(tmp, mp)
@@ -218,9 +367,33 @@ pack_version = "2.3.1"
     const manifest = JSON.parse(manifestRaw);
 
     assert.equal(manifest.pack_id, 'bpmn-sipoc');
-    assert.equal(manifest.pack_version, '2.3.1');
+    assert.equal(manifest.pack_version, '1.0.0'); // truthful (do pack carregado, não da config)
     assert.equal(manifest.artifactType, 'sipoc');
     assert.ok(manifest.sha256);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('commit com active_pack inexistente → CommitError, sem ghost pack_id (abort-before-write)', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-ghost-'));
+  try {
+    await fs.mkdir(path.join(tmp, '.process-ai'), { recursive: true });
+    await fs.writeFile(path.join(tmp, '.process-ai', 'config'), `
+active_pack = "pack-fantasma"
+`, 'utf8');
+
+    const payload: ProposePayload = {
+      artifactType: 'sipoc',
+      content: { body: '# nunca commitado' },
+    };
+    // Antes: commit estampava pack_id="pack-fantasma" sem validar (ghost). Agora: CommitError.
+    await assert.rejects(() => commit(payload, { root: tmp }), CommitError);
+
+    // Zero side-effects: nenhum artefato escrito.
+    const outDir = path.join(tmp, '_process-ai_output');
+    const exists = await fs.stat(outDir).then(() => true).catch(() => false);
+    assert.equal(exists, false, 'abort-before-write: nenhum artefato escrito');
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

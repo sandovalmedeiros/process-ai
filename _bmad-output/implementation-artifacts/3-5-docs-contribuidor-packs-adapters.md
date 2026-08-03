@@ -4,7 +4,7 @@ baseline_commit: 181eaff
 
 # Story 3.5: Documentação de contribuidor (packs + adapters)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -40,3 +40,10 @@ Claude Code (deepseek-v4-pro)
 ## Change Log
 
 - 2026-08-02: Documentação de contribuidor criada. Épico 3 fechado.
+
+### Review Findings
+
+_Code review adversarial (3 camadas) — 2026-08-03._
+
+- [x] [Review][Patch] `docs/method-packs.md` instrui `require('./toolkit/src/pack-loader.ts')` — quebrado em dois pontos: projeto é ESM (`"type": "module"`, `require` indisponível) e o caminho `.ts` não resolve fora do repo. Undermina o AC2 ("docs de method-pack") [docs/method-packs.md:80-83]
+- [x] [Review][Patch] `docs/toolkit.md` conta de testes stale: diz "241", atual é 249 [docs/toolkit.md:62]

@@ -4,7 +4,7 @@ baseline_commit: 181eaff
 
 # Story 3.1: Schema-núcleo toolkit-owned e versionado
 
-Status: review
+Status: done
 
 ## Story
 
@@ -211,3 +211,12 @@ N/A — execução limpa, sem halt. Ajustes de backward-compat aplicados (AC4).
 ## Change Log
 
 - 2026-08-02: Implementação da story 3.1 — schema-núcleo toolkit-owned com 7 schemas versionados + validador integrado no commit. Backward-compat total (AC4). 224/224 testes, typecheck limpo, AD-3 verde. Base para 3.2 (method-pack loader).
+
+### Review Findings
+
+_Code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor) — 2026-08-03. Baseline: commit `add6852`._
+
+- [x] [Review][Decision→Defer] **Validador `validateContent` é near-no-op vs AC1/AC2/AC3 + AD-2** — RESOLVIDO 2026-08-03: **manter v1 leniente** (respeita AC4 backward-compat). Enforcement estrito (rejeitar não-objetos, ativar `required`, fechar `additionalProperties`, rejeitar objetos exóticos) → **DEFERIDO** para uma story dedicada (registrado em `deferred-work.md`). A correção da JSDoc/header falsos e o guard de `TypeError` viram patches abaixo.
+- [x] [Review][Patch] `validateContent` lança `TypeError` em `artifactType` não-string (null/undefined) — quebra o contrato "nunca lança" [toolkit/src/schema-core.ts:206]
+- [x] [Review][Patch] `validateContent` aceita objetos exóticos (Date, boxed String) → canonicalização sem sentido [toolkit/src/schema-core.ts:226-277] *(acoplado à decisão acima)*
+- [x] [Review][Patch] Corrigir JSDoc/header que afirmam `additionalProperties: false` + `required` (falso vs código) [toolkit/src/schema-core.ts:12,192-193]

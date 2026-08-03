@@ -75,11 +75,12 @@ O loader carrega prompts presentes; especialistas sem prompt no pack usam o prom
 
 ## Validação
 
-Rode o loader para validar seu pack:
+Rode o loader para validar seu pack (ESM — o projeto usa `"type": "module"`, então `require` não existe):
 ```bash
-node -e "
-  const { loadPack } = require('./toolkit/src/pack-loader.ts');
-  loadPack('./method-packs/meu-pack').then(p => console.log('OK:', p.manifest.name));
+node --input-type=module -e "
+  const { loadPack } = await import('./toolkit/src/pack-loader.ts');
+  const pack = await loadPack('./method-packs/meu-pack');
+  console.log('OK:', pack.manifest.name);
 "
 ```
 

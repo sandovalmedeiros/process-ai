@@ -4,7 +4,7 @@ baseline_commit: 181eaff
 
 # Story 3.2: Method-pack system — loader + validador
 
-Status: review
+Status: done
 
 ## Story
 
@@ -140,3 +140,19 @@ so that **terceiros possam criar packs sem tocar o core, e o framework prove que
 ### File List
 
 ## Change Log
+
+### Review Findings
+
+_Code review adversarial (3 camadas) — 2026-08-03. Baseline: commit `add6852`. NOTA: o Dev Agent Record / File List desta story estavam em branco (`{{agent_model_name_version}}`) — confiou-se no código, não no registro._
+
+- [x] [Review][Decision→Patch] **Story 3.2 substancialmente incompleta** — RESOLVIDO 2026-08-03: **completar agora**. Implementar (a) merge schema-núcleo+pack no path do `validateContent` (AC2); (b) `checkpoint.ts`: expor `activePack` + validar compatibilidade pack ativo vs artefatos no `resume` (AC3/AC4); (c) wiring de `loadPack` no commit runtime (validar pack declarado antes de carimbar `pack_id`). + patches de hardening do loader abaixo.
+- [x] [Review][Patch] Campos proibidos como **seção TOML** (`[pipeline]`/`[roles]`/`[gates]`/`[stages]`/`[engine]`) e chaves dotted (`pipeline.stages = …`) passam despercebidos — só `key=value` é rejeitado [toolkit/src/pack-loader.ts:88-107] (AD-2 / AC1)
+- [x] [Review][Patch] Parser TOML **nunca reseta `inPack`** numa nova seção → campos após `[other]` sobrescrevem campos de `[pack]` (name/version) [toolkit/src/pack-loader.ts:93-96]
+- [x] [Review][Patch] Arrays `artifact_types` multi-linha (forma canônica TOML) viram `[]` silenciosamente → erro enganoso ("é obrigatório e não pode ser vazio") [toolkit/src/pack-loader.ts:132-149]
+- [x] [Review][Patch] `pack_version` fabricada `"0.0.0"` quando omitida → corrompe provenance sem aviso [toolkit/src/pack-loader.ts:379-381]
+- [x] [Review][Patch] `commit()` re-lança `PackError` (não `CommitError`) em falha de leitura da config — quebra o contrato de erro do commit [toolkit/src/commit.ts:452]
+- [x] [Review][Patch] `loadPack` re-lança erros não-ENOENT como `NodeJS.ErrnoException` cru (quebra contrato `PackError`) [toolkit/src/pack-loader.ts:294-330]
+- [x] [Review][Patch] `validatePackSchemas` com lacunas de enforcement: só compara `type` (minimum/enum/format/pattern redefinidos passam); bloco "required conflict" é código morto (corpo vazio, l.250-264); `allOf:[]`/`allOf:[null]` passam; `$ref` é match de substring (`expectedId` computado mas morto); schemas do pack não cruzados com `artifact_types` do pack.toml [toolkit/src/pack-loader.ts:206-264,294-309]
+- [x] [Review][Patch] `commit()` carimba `pack_id`/`pack_version` de pack jamais carregado/validado (ghost pack; ex.: `active_pack="bpm-sipoc"` typo) [toolkit/src/commit.ts:452-454] *(acoplado à decisão de escopo acima)*
+- [x] [Review][Patch] `readConfig` roda antes de `acquireLock` (race de config entre commits concorrentes) [toolkit/src/commit.ts:452 vs 484]
+- [x] [Review][Patch] Parser TOML menor: chaves aspadadas (`"name"=`) ignoradas, whitespace interno em itens de `artifact_types`, chaves duplicadas (last-wins), `name=""` gera 2 erros redundantes [toolkit/src/pack-loader.ts]

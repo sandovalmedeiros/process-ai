@@ -31,7 +31,7 @@ import {
 } from './confidence.ts';
 import type { ValidatedClaim } from './confidence.ts';
 import { validateContent } from './schema-core.ts';
-import { readConfig } from './pack-loader.ts';
+import { readConfig, loadPack, PackError } from './pack-loader.ts';
 
 // ---- Windows reserved names (P10 — code review patch) ----
 
@@ -420,9 +420,39 @@ export async function commit(
   // 1) VALIDAÇÃO (zero IO) — AC6
   validatePayload(payload);
 
+  // 1.3) CONFIG + PACK (IO — AD-2 / 3.2) — carrega o pack ativo, se declarado em
+  // .process-ai/config. Roda ANTES da validação de schema para que validateContent
+  // valide contra o schema MERGEADO (núcleo + pack). Abort-before-write: se o pack
+  // declarado não existe/falha ao carregar → CommitError, nada é escrito (nenhum
+  // ghost pack_id). Race LOW: config é advisory; as escritas reais são protegidas
+  // pelo lock adquirido mais abaixo.
+  let packSchemas: Record<string, unknown> | undefined;
+  let packId: string | undefined;
+  let packVersion: string | undefined;
+  try {
+    const config = await readConfig(root);
+    if (config.activePack) {
+      const packDir = path.join(root, 'method-packs', config.activePack.id);
+      const loaded = await loadPack(packDir);
+      packSchemas = loaded.schemas;
+      packId = loaded.manifest.name; // truthful (do pack carregado, não da config)
+      packVersion = loaded.manifest.version;
+      if (config.activePack.version && config.activePack.version !== loaded.manifest.version) {
+        console.warn(
+          `[process-ai] AVISO: .process-ai/config declara pack_version="${config.activePack.version}" ` +
+          `mas o pack "${packId}" em method-packs/${config.activePack.id}/ é versão "${loaded.manifest.version}". Estampando a versão real.`,
+        );
+      }
+    }
+  } catch (e) {
+    // readConfig/loadPack → PackError; traduz no boundary para CommitError
+    // (contrato: toda falha de commit é CommitError).
+    throw e instanceof PackError ? new CommitError(e.message) : e;
+  }
+
   // 1.5) VALIDAÇÃO DE SCHEMA (zero IO — AD-2, 3.1). Abort-before-write:
-  // content fora do schema-núcleo → CommitError, zero side-effects.
-  const schemaResult = validateContent(payload.artifactType, payload.content);
+  // content fora do schema-núcleo (ou do schema mergeado, se pack ativo) → CommitError.
+  const schemaResult = validateContent(payload.artifactType, payload.content, packSchemas);
   if (!schemaResult.valid) {
     throw new CommitError(
       `artifactType "${payload.artifactType}": content inválido — ${schemaResult.errors.join('; ')}.`,
@@ -448,10 +478,7 @@ export async function commit(
   // 3) SANITIZAÇÃO do artifactType (zero IO) — AC3
   const artifactType = sanitizeArtifactType(payload.artifactType);
 
-  // 3.2) CONFIG (IO — lê .process-ai/config para pack_id ativo) — AD-2 / 3.2
-  const config = await readConfig(root);
-  const packId = config.activePack?.id;
-  const packVersion = config.activePack?.version;
+  // (3.2 CONFIG + pack_id movidos para antes da validação de schema — passo 1.3 acima.)
 
   // 1.4) BUILD LEDGER ENTRIES (zero IO — após sha256 para claimId determinístico) — AD-5 / AC3
   const ledgerEntries =

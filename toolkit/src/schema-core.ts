@@ -189,17 +189,40 @@ export const VALID_ARTIFACT_TYPES: readonly string[] = Object.keys(SCHEMAS);
  * Valida `content` contra o schema-núcleo do `artifactType` (AD-2).
  *
  * Função PURA — zero IO. Validação manual (sem `ajv`) para manter AD-3.
- * Schemas v1 são planos: `type: 'object'`, `required` array, `properties` com
- * tipos primitivos, `additionalProperties: false`.
+ *
+ * POSTURA v1 (leniente — AC4 backward-compat): aceita strings, números, arrays
+ * e objetos; rejeita apenas `null`/`undefined`, `artifactType` não-string, e
+ * campos conhecidos com tipo errado. `required` está desativado (comentado nos
+ * schemas) e `additionalProperties` é `true` (shape NÃO fechado). Enforcement
+ * estrito (rejeitar não-objetos, ativar required, fechar additionalProperties,
+ * rejeitar objetos exóticos) → DEFERIDO para uma story dedicada (ver
+ * `deferred-work.md`, code review Epic 3 / 3-1).
  *
  * @param artifactType - Tipo do artefato (deve estar em VALID_ARTIFACT_TYPES).
  * @param content - Conteúdo proposto pelo agente.
+ * @param packSchemas - (opcional, 3.2) schemas aditivos de um method-pack ativo:
+ *   artifactType → JSON Schema parcial do pack. Quando presente, os campos que o
+ *   pack adiciona ao schema-núcleo também são validados (merge AD-2). Objeto
+ *   simples (não o tipo `MethodPack`) para evitar dependência circular.
  * @returns SchemaValidationResult com erros em pt-BR.
  */
 export function validateContent(
   artifactType: string,
   content: unknown,
+  packSchemas?: Record<string, unknown>,
 ): SchemaValidationResult {
+  // 0) artifactType deve ser string — guard de contrato (a função "nunca lança").
+  //    Commit-side callers são protegidos por validatePayload, mas a API é
+  //    exportada e um consumer de biblioteca pode passar null/undefined.
+  if (typeof artifactType !== 'string') {
+    return {
+      valid: false,
+      errors: [
+        `artifactType deve ser string, recebeu ${artifactType === null ? 'null' : typeof artifactType}.`,
+      ],
+    };
+  }
+
   // 1) artifactType conhecido? (case-insensitive — sanitizeArtifactType roda depois).
   //    v1: artifactTypes desconhecidos são aceitos (backward-compat AC4).
   //    Validação estrita de vocabulário → 3.2 (method-pack loader).
@@ -234,7 +257,14 @@ export function validateContent(
   // Validar tipos dos campos conhecidos (properties) — best-effort.
   // Se um campo conhecido está presente, seu tipo deve estar correto.
   // Campos desconhecidos são aceitos (additionalProperties: true no v1).
-  const properties = schema['properties'] as Record<string, Record<string, unknown>> | undefined;
+  //
+  // MERGE AD-2 / 3.2: quando um method-pack ativo adiciona propriedades ao tipo,
+  // elas são mergeadas nas properties validadas (best-effort, mesma postura v1).
+  const coreProps = schema['properties'] as Record<string, Record<string, unknown>> | undefined;
+  const packSchema = packSchemas?.[normalized] as Record<string, unknown> | undefined;
+  const packProps = packSchema?.['properties'] as Record<string, Record<string, unknown>> | undefined;
+  const properties: Record<string, Record<string, unknown>> | undefined =
+    coreProps || packProps ? { ...(coreProps ?? {}), ...(packProps ?? {}) } : undefined;
   if (properties) {
     for (const [field, fieldSchema] of Object.entries(properties)) {
       if (!(field in obj) || obj[field] === undefined || obj[field] === null) continue; // campo ausente → ok

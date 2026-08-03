@@ -7,21 +7,21 @@
     "node": ">=24.0.0"
   },
   "bin": {
-    "process-ai": "bin/process-ai.ts",
-    "process-ai-bootstrap": "bin/bootstrap.ts"
+    "process-ai": "dist/bin/process-ai.js",
+    "process-ai-bootstrap": "dist/bin/bootstrap.js"
   },
-  "main": "toolkit/src/commit.ts",
+  "main": "dist/toolkit/src/commit.js",
   "files": [
+    "dist/",
     "bin/postinstall.js",
-    "bin/",
-    "toolkit/",
     "skills/",
     "method-packs/",
-    "templates/",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepublishOnly": "npm run build",
     "postinstall": "node bin/postinstall.js",
     "dev": "node bin/bootstrap.ts",
     "test": "node --test tests/*.test.ts",
@@ -48,8 +48,5 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.6.0"
-  },
-  "dependencies": {
-    "process-ai": "^0.2.0"
   }
 }

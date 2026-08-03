@@ -67,11 +67,38 @@ export class PackError extends Error {
 
 // ---- T1: Parser de pack.toml ----
 
+/** Remove aspas externas (simples ou duplas) de um escalar/chave TOML. */
+function unquote(v: string): string {
+  return v.replace(/^["'](.*)["']$/, '$1');
+}
+
 /**
- * Parse e valida pack.toml (TOML mínimo — só seção [pack] com valores planos).
+ * True se `name` (chave, nome de seção ou 1º segmento dotted) é toolkit-owned.
+ * Pega: `pipeline`, `pipeline.stages` (1º segmento), `[pipeline]`, `[pipeline.x]`.
+ */
+function isForbiddenName(name: string): boolean {
+  const clean = unquote(name).trim();
+  if (FORBIDDEN_PACK_FIELDS.has(clean)) return true;
+  const dot = clean.indexOf('.');
+  if (dot > 0) {
+    const firstSeg = clean.slice(0, dot).trim();
+    if (FORBIDDEN_PACK_FIELDS.has(firstSeg)) return true;
+  }
+  return false;
+}
+
+/**
+ * Parse e valida pack.toml (TOML mínimo — seção [pack] + arrays inline/multi-linha).
  *
  * v1: parser TOML mínimo. Se a complexidade crescer, usar `smol-toml` (npm)
  * quebraria AD-3 — reavaliar com adapter de parse injetável.
+ *
+ * Hardening (code review Epic 3 / 3.2):
+ *  - seções/tabelas proibidas ([pipeline], [roles]...) e chaves dotted (pipeline.stages)
+ *    são rejeitadas, não só a forma `key = value` (AD-2 / AC1).
+ *  - `inPack` é resetado ao trocar de seção (campos de [other] não sobrescrevem [pack]).
+ *  - arrays `artifact_types` multi-linha (forma canônica TOML) são suportados.
+ *  - chaves duplicadas e chaves aspadas são detectadas.
  */
 export function validatePackToml(raw: string): PackManifest {
   const errors: string[] = [];
@@ -79,44 +106,102 @@ export function validatePackToml(raw: string): PackManifest {
   let version = '';
   let description = '';
   const artifactTypes: string[] = [];
+  const seenKeys = new Set<string>();
 
   let inPack = false;
+  let inArray = false;
+  let arrayKey = '';
+  let arrayBuf = '';
+
+  /** Parse do conteúdo de um array (inline ou multi-linha acumulado) para artifact_types. */
+  const parseArtifactArray = (arrayRaw: string) => {
+    const inner = arrayRaw.replace(/^\[/, '').replace(/\][,;\s]*$/, '').trim();
+    if (inner.length === 0) return; // array vazio → erro genérico capturado no fim
+    const items = inner.split(',').map((s) => unquote(s.trim()));
+    for (const item of items) {
+      const clean = item.trim();
+      if (clean.length === 0) continue; // trailing comma
+      if (!(clean.toLowerCase() in SCHEMAS)) {
+        errors.push(
+          `artifact_type "${clean}" não está no vocabulário do schema-núcleo. ` +
+          `Esperado um de: ${Object.keys(SCHEMAS).join(', ')}.`,
+        );
+      }
+      artifactTypes.push(clean);
+    }
+  };
+
   for (const line of raw.split('\n')) {
     const trimmed = line.trim();
     if (trimmed.length === 0 || trimmed.startsWith('#')) continue;
 
-    if (trimmed === '[pack]') {
-      inPack = true;
-      continue;
-    }
-    // Se outra seção começar, para de parsear [pack].
-    if (trimmed.startsWith('[') && trimmed.endsWith(']') && inPack) {
-      // v1: ignora outras seções.
-      continue;
-    }
-    if (!inPack) {
-      // Linha fora de [pack] — pode ser campo proibido no nível raiz.
-      const eq = trimmed.indexOf('=');
-      if (eq >= 0) {
-        const key = trimmed.slice(0, eq).trim();
-        if (FORBIDDEN_PACK_FIELDS.has(key)) {
-          errors.push(`Campo proibido no pack.toml: "${key}" é toolkit-owned (AD-2).`);
-        }
+    // Continuação de array multi-linha
+    if (inArray) {
+      arrayBuf += '\n' + trimmed;
+      if (trimmed.includes(']')) {
+        inArray = false;
+        if (arrayKey === 'artifact_types') parseArtifactArray(arrayBuf);
       }
+      continue;
+    }
+
+    // Header de seção [section] ou [a.b]
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      const sectionName = trimmed.slice(1, -1).trim();
+      if (isForbiddenName(sectionName)) {
+        errors.push(`Seção proibida no pack.toml: "[${sectionName}]" é toolkit-owned (AD-2).`);
+      }
+      inPack = sectionName === 'pack'; // reset ao trocar de seção (hardening)
       continue;
     }
 
     const eq = trimmed.indexOf('=');
     if (eq < 0) continue;
-    const key = trimmed.slice(0, eq).trim();
+    const rawKey = trimmed.slice(0, eq).trim();
+    const key = unquote(rawKey);
+    if (key !== rawKey) {
+      errors.push(`Chave aspada ("${rawKey}") não suportada no pack.toml — use ${key}.`);
+    }
     const rawVal = trimmed.slice(eq + 1).trim();
-    // Remove aspas (simples ou duplas).
-    const val = rawVal.replace(/^["'](.*)["']$/, '$1');
+
+    // Chave duplicada (TOML spec proíbe; antes era last-wins silencioso)
+    const dupKey = (inPack ? 'pack.' : 'root.') + key;
+    if (seenKeys.has(dupKey)) {
+      errors.push(`Chave duplicada no pack.toml: "${key}" (seção ${inPack ? '[pack]' : 'raiz'}).`);
+    }
+    seenKeys.add(dupKey);
+
+    // Campo proibido (toolkit-owned) — detectado em QUALQUER contexto e tipo de valor
+    // (raiz, [pack], escalar OU array). Antes só `key=value` escalar era pego e o
+    // branch de array fazia continue antes da checagem (pipeline.stages=[..] passava).
+    if (isForbiddenName(key)) {
+      errors.push(`Campo proibido no pack.toml: "${key}" é toolkit-owned (AD-2).`);
+    }
+
+    // Início de array multi-linha: value começa com '[' mas não fecha na linha
+    if (rawVal.startsWith('[') && !rawVal.includes(']')) {
+      inArray = true;
+      arrayKey = key;
+      arrayBuf = rawVal;
+      continue;
+    }
+
+    // Array inline [a, b]
+    if (rawVal.startsWith('[') && rawVal.endsWith(']')) {
+      if (key === 'artifact_types') parseArtifactArray(rawVal);
+      continue;
+    }
+
+    // Escalar
+    const val = unquote(rawVal);
+    if (!inPack) {
+      continue; // root: outras chaves (não-proibidas) são ignoradas
+    }
 
     switch (key) {
       case 'name':
         name = val;
-        if (!KEBAB_RE.test(name)) {
+        if (name && !KEBAB_RE.test(name)) {
           errors.push(`pack.name "${name}" inválido — deve ser kebab-case.`);
         }
         break;
@@ -129,36 +214,22 @@ export function validatePackToml(raw: string): PackManifest {
       case 'description':
         description = val;
         break;
-      case 'artifact_types': {
-        // Suporta array inline TOML: ["a", "b"]
-        const arrMatch = rawVal.match(/^\[(.*)\]$/);
-        if (arrMatch) {
-          const items = arrMatch[1].split(',').map((s) => s.trim().replace(/^["'](.*)["']$/, '$1'));
-          for (const item of items) {
-            if (item.length > 0) {
-              if (!(item.toLowerCase() in SCHEMAS)) {
-                errors.push(
-                  `artifact_type "${item}" não está no vocabulário do schema-núcleo. ` +
-                  `Esperado um de: ${Object.keys(SCHEMAS).join(', ')}.`,
-                );
-              }
-              artifactTypes.push(item);
-            }
-          }
-        }
+      case 'artifact_types':
+        errors.push('pack.artifact_types deve ser um array TOML (ex.: ["sipoc", "flow"]).');
         break;
-      }
       default:
-        if (FORBIDDEN_PACK_FIELDS.has(key)) {
-          errors.push(`Campo proibido no pack.toml: "${key}" é toolkit-owned (AD-2).`);
-        }
-        // Campos desconhecidos são ignorados (extensibilidade futura).
+      // Campos desconhecidos (não-proibidos) são ignorados (extensibilidade futura).
     }
   }
 
+  if (inArray) {
+    errors.push('pack.toml: array não fechado — "]" ausente.');
+  }
   if (!name) errors.push('pack.name é obrigatório.');
   if (!version) errors.push('pack.version é obrigatória.');
-  if (artifactTypes.length === 0) errors.push('pack.artifact_types é obrigatório e não pode ser vazio.');
+  if (artifactTypes.length === 0) {
+    errors.push('pack.artifact_types é obrigatório e não pode ser vazio.');
+  }
 
   if (errors.length > 0) {
     throw new PackError(`pack.toml inválido: ${errors.join('; ')}`);
@@ -182,6 +253,7 @@ export function validatePackToml(raw: string): PackManifest {
  */
 export function validatePackSchemas(pack: MethodPack): PackValidationResult {
   const errors: string[] = [];
+  const declaredTypes = new Set(pack.manifest.artifactTypes.map((t) => t.toLowerCase()));
 
   for (const [artifactType, packSchema] of Object.entries(pack.schemas)) {
     const normType = artifactType.toLowerCase();
@@ -194,6 +266,14 @@ export function validatePackSchemas(pack: MethodPack): PackValidationResult {
       continue;
     }
 
+    // Cross-check (hardening): o tipo do schema deve estar declarado em artifact_types.
+    if (!declaredTypes.has(normType)) {
+      errors.push(
+        `Schema de pack para "${artifactType}": tipo não listado em pack.toml artifact_types ` +
+        `(${pack.manifest.artifactTypes.join(', ')}).`,
+      );
+    }
+
     // Validar que packSchema é um objeto
     if (typeof packSchema !== 'object' || packSchema === null || Array.isArray(packSchema)) {
       errors.push(`Schema de pack para "${artifactType}": deve ser um objeto JSON Schema.`);
@@ -202,66 +282,66 @@ export function validatePackSchemas(pack: MethodPack): PackValidationResult {
 
     const ps = packSchema as Record<string, unknown>;
 
-    // Verificar allOf ou $ref
+    // refTarget obrigatório e válido — allOf:[] / allOf:[null] / sem $ref → rejeita.
     const allOf = ps['allOf'] as unknown[] | undefined;
     const ref = ps['$ref'] as string | undefined;
-
-    if (!allOf && !ref) {
+    let refTarget: string | undefined;
+    if (typeof ref === 'string') {
+      refTarget = ref;
+    } else if (Array.isArray(allOf) && allOf.length > 0) {
+      const first = allOf[0];
+      if (first !== null && typeof first === 'object'
+        && typeof (first as Record<string, unknown>)['$ref'] === 'string') {
+        refTarget = (first as Record<string, unknown>)['$ref'] as string;
+      }
+    }
+    if (refTarget === undefined) {
       errors.push(
-        `Schema de pack para "${artifactType}": deve usar allOf ou $ref para referenciar o schema-núcleo.`,
+        `Schema de pack para "${artifactType}": deve referenciar o schema-núcleo via allOf[0].$ref ` +
+        `ou $ref raiz válido (allOf vazio/nulo não referencia nada).`,
       );
       continue;
     }
 
-    // Verificar que referencia o schema-núcleo correto
-    const refTarget = ref ?? (allOf && allOf.length > 0 &&
-      typeof allOf[0] === 'object' && allOf[0] !== null &&
-      (allOf[0] as Record<string, unknown>)['$ref']);
-
-    if (typeof refTarget === 'string') {
-      const expectedId = `https://process-ai/schemas/${normType}/v1`;
-      if (!refTarget.includes(normType)) {
-        errors.push(
-          `Schema de pack para "${artifactType}": $ref "${refTarget}" deve referenciar "${expectedId}".`,
-        );
-      }
+    // $ref EXATO contra o $id versionado do schema-núcleo (antes era substring match).
+    const expectedId = `https://process-ai/schemas/${normType}/v1`;
+    if (refTarget !== expectedId) {
+      errors.push(
+        `Schema de pack para "${artifactType}": $ref "${refTarget}" deve ser exatamente "${expectedId}".`,
+      );
     }
 
-    // Verificar que pack NÃO redefine campos do núcleo
-    const packProps = ps['properties'] as Record<string, unknown> | undefined;
+    // AD-2 aditivo (estrito): pack SÓ adiciona properties — jamais redeclara campo do núcleo.
+    // Coleta properties declaradas pelo pack em top-level E em cada elemento de allOf
+    // (packs reais usam allOf[1].properties; alguns podem usar top-level).
+    const packFieldNames = new Set<string>();
+    const topLevelProps = ps['properties'];
+    if (topLevelProps && typeof topLevelProps === 'object') {
+      for (const f of Object.keys(topLevelProps as Record<string, unknown>)) packFieldNames.add(f);
+    }
+    if (Array.isArray(allOf)) {
+      for (const el of allOf) {
+        if (el && typeof el === 'object') {
+          const elProps = (el as Record<string, unknown>)['properties'];
+          if (elProps && typeof elProps === 'object') {
+            for (const f of Object.keys(elProps as Record<string, unknown>)) packFieldNames.add(f);
+          }
+        }
+      }
+    }
     const coreProps = coreSchema['properties'] as Record<string, Record<string, unknown>> | undefined;
-
-    if (packProps && coreProps) {
-      for (const [field, packFieldSchema] of Object.entries(packProps)) {
+    if (coreProps) {
+      for (const field of packFieldNames) {
         if (field in coreProps) {
-          const coreType = coreProps[field]?.['type'];
-          const packType = (packFieldSchema as Record<string, unknown>)?.['type'];
-          if (coreType !== undefined && packType !== undefined && coreType !== packType) {
-            errors.push(
-              `Schema de pack para "${artifactType}": conflito no campo "${field}" — ` +
-              `núcleo define type: "${coreType}", pack define type: "${packType}". ` +
-              `Packs não podem redefinir campos do schema-núcleo (AD-2).`,
-            );
-          }
+          errors.push(
+            `Schema de pack para "${artifactType}": campo "${field}" pertence ao schema-núcleo — ` +
+            `packs não podem redefinir campos do núcleo (AD-2).`,
+          );
         }
       }
     }
-
-    // Verificar que pack não declara required que conflita
-    const packRequired = ps['required'] as string[] | undefined;
-    if (Array.isArray(packRequired) && packRequired.length > 0) {
-      // v1: warn apenas — packs podem adicionar required para campos NOVOS.
-      // Conflito com required do núcleo seria removendo campo obrigatório.
-      const coreRequired = coreSchema['required'] as string[] | undefined;
-      if (Array.isArray(coreRequired)) {
-        for (const field of coreRequired) {
-          if (!packRequired.includes(field)) {
-            // O pack não lista o campo obrigatório do núcleo — ok, o merge preserva.
-            // Só seria erro se o pack explicitamente removesse.
-          }
-        }
-      }
-    }
+    // Nota: `required` do núcleo é vazio no v1 (todos comentados p/ AC4), então não há
+    // required-núcleo a ser redefinido. Packs podem adicionar `required` para campos NOVOS.
   }
 
   return errors.length === 0 ? { valid: true, errors: [] } : { valid: false, errors };
@@ -295,7 +375,9 @@ export async function loadPack(packDir: string): Promise<MethodPack> {
     const entries = await fs.readdir(schemasDir);
     for (const entry of entries) {
       if (!entry.endsWith('.schema.json')) continue;
-      const artifactType = entry.replace('.schema.json', '');
+      // Lowercase do artifactType (chave de lookup) — consistente com SCHEMAS e
+      // validatePackSchemas (hardening: 'Sipoc.schema.json' → key 'sipoc').
+      const artifactType = entry.slice(0, -'.schema.json'.length).toLowerCase();
       const raw = await fs.readFile(path.join(schemasDir, entry), 'utf8');
       try {
         schemas[artifactType] = JSON.parse(raw);
@@ -304,7 +386,10 @@ export async function loadPack(packDir: string): Promise<MethodPack> {
       }
     }
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    if (e instanceof PackError) throw e;
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new PackError(`Erro ao ler schemas/ do pack: ${(e as Error).message}`);
+    }
     // schemas/ não existe → ok (opcional).
   }
 
@@ -315,11 +400,13 @@ export async function loadPack(packDir: string): Promise<MethodPack> {
     const entries = await fs.readdir(promptsDir);
     for (const entry of entries) {
       if (!entry.endsWith('.md')) continue;
-      const specialist = entry.replace('.md', '');
+      const specialist = entry.slice(0, -'.md'.length);
       prompts[specialist] = await fs.readFile(path.join(promptsDir, entry), 'utf8');
     }
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new PackError(`Erro ao ler prompts/ do pack: ${(e as Error).message}`);
+    }
   }
 
   // 4) Ler glossary.md (opcional)
@@ -327,7 +414,9 @@ export async function loadPack(packDir: string): Promise<MethodPack> {
   try {
     glossary = await fs.readFile(path.join(packDir, 'glossary.md'), 'utf8');
   } catch (e) {
-    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') throw e;
+    if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw new PackError(`Erro ao ler glossary.md do pack: ${(e as Error).message}`);
+    }
   }
 
   const pack: MethodPack = { manifest, schemas, prompts, glossary };
@@ -377,7 +466,10 @@ export async function readConfig(root: string): Promise<SessionConfig> {
   }
 
   if (activePackId) {
-    return { activePack: { id: activePackId, version: activePackVersion || '0.0.0' } };
+    // Não fabricamos "0.0.0" quando pack_version ausente (hardening — antes
+    // corrompia provenance silenciosamente). Retorna string vazia; commit usa
+    // a versão do pack carregado (truthful) e warn se a config divergir.
+    return { activePack: { id: activePackId, version: activePackVersion } };
   }
   return {};
 }

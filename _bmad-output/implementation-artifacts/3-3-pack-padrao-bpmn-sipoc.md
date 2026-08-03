@@ -4,7 +4,7 @@ baseline_commit: 181eaff
 
 # Story 3.3: Pack padrão BPMN+SIPOC como method-pack
 
-Status: review
+Status: done
 
 ## Story
 
@@ -41,3 +41,7 @@ Claude Code (deepseek-v4-pro)
 ## Change Log
 
 - 2026-08-02: Pack padrão BPMN+SIPOC criado. 240 testes, typecheck limpo.
+
+### Review Findings
+
+_Code review adversarial (3 camadas) — 2026-08-03. **Sem achados.** O pack `bpmn-sipoc` está em conformidade com AC1–AC5: `pack.toml` válido, 3 schemas aditivos com `allOf[0].$ref` correto ao schema-núcleo, 4 prompts de especialista (bento/miguel/julia/zanoni), glossary presente; `loadPack` + `validatePackSchemas` passam (teste tests/pack-loader.test.ts:253-278)._

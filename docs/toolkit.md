@@ -59,7 +59,7 @@ Para adicionar um novo artifactType:
 ## Testes
 
 ```bash
-npm test                    # Todos os testes (241)
+npm test                    # Roda todos os testes (node:test)
 node --test tests/commit.test.ts   # Teste específico
 ```
 
