@@ -41,6 +41,9 @@ Ao receber `/process-ai`, **antes de qualquer coisa**:
    - **Há sessão em andamento** (checkpoint com estágio além do inicial, ex.:
      `discovery`, `mapping`, etc.): **retome dali**. Informe o usuário do estágio
      atual e dos gates já registrados, e continue na próxima etapa pendente.
+     - **Se o gate mais recente do estágio for `rejected`**, pergunte ao usuário se
+       deseja **reabrir o especialista** (continuar) ou **manter a sessão parada** —
+       não prossiga automaticamente após um `rejected`.
    - **Não há sessão** (estado inicial `init`): comece uma sessão nova no passo a
      seguir.
 3. Para iniciar uma sessão nova, avance o estágio para `scope`:
@@ -71,7 +74,8 @@ Só prossseguir para a pipeline após o Gate 0 aprovado.
 
 ## 3. Pipeline — especialistas + gates (AC3)
 
-A pipeline é **fixa** no v1: 4 especialistas, cada um precedido por um gate básico.
+A pipeline é **fixa** no v1: 4 especialistas, cada um com um **gate de saída**
+(após concluir e commitar — bloqueia o avanço até aprovação).
 A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 
 > **Especialistas são skills** (`process-ai-bento`, `process-ai-miguel`,
@@ -97,8 +101,17 @@ A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 
 Para cada especialista, em ordem:
 > **Gate 0** (escopo) é executado separadamente na §2 — **antes** de qualquer
-> especialista. Os gates 1–4 abaixo ocorrem **após** cada especialista concluir
-> e commitar seus artefatos, e **bloqueiam** o próximo até aprovação (FR-4 full).
+> especialista. Os gates 1–4 abaixo são os **gates de saída** de cada estágio:
+> ocorrem **após** o especialista concluir e commitar seus artefatos, e **bloqueiam**
+> o avanço até aprovação (FR-4 full). O estágio é avançado **antes** de o especialista
+> trabalhar (entrada no estágio) e só **avança para o próximo** após o gate de saída
+> aprovado.
+
+> **Entrada no primeiro estágio:** antes de conduzir o Bento, avance o estágio para
+> `discovery`: `process-ai stage --to discovery`. (As entradas dos estágios seguintes
+> ocorrem no passo 5, após o gate anterior aprovado.) Assim o `process-ai report`
+> exibido em cada gate mostra o estágio **correto**, e o resume reconhece em qual
+> estágio a sessão parou.
 
 **Etapa completa por especialista (repita para Bento→Miguel→Júlia→Zanoni):**
 
@@ -120,15 +133,21 @@ Para cada especialista, em ordem:
    - **Zanoni** (último) → ao fim, retorna à Déa para o encerramento.
 
 3. **Gate informativo (2.6 — FR-4 full):** **antes** de registrar a decisão do gate,
-   execute `process-ai report` (via Bash) e capture a saída markdown. O relatório
-   (2.5) contém seções `### 🟢 Confiança Alta`, `### 🟡 Confiança Média` e
-   `### 🔴 Gaps Declarados` com `claimId`, `statement`, `reasoning`, `degradationReason`
-   e `excerptStatus` de cada afirmação. Apresente ao usuário em linguagem simples:
+   execute `process-ai report` (via Bash) e capture a saída markdown. **Se o comando
+   falhar** (saída non-zero ou stderr), informe o erro ao usuário e **não prossiga** —
+   não invente dados. O relatório (2.5) tem uma seção por nível de confiança — começando
+   com `### 🟢` (Confiança Alta), `### 🟡` (Confiança Média) e `### 🔴` (Gaps Declarados)
+   — com `claimId`, `statement`, `reasoning`, `degradationReason` e `excerptStatus` de
+   cada afirmação, mais um **breakdown por artefato** (`### Breakdown por Artefato`).
+   Apresente ao usuário em linguagem simples:
 
    - *"O [especialista] concluiu. Antes de prosseguir para [próximo especialista], aqui está o que temos:"*
+   - **Comece pela contagem** (do cabeçalho do relatório): ex.: *"Temos 3 🟢, 2 🟡 e 1 🔴."*
+   - **Apresente o breakdown por artefato** (seção `### Breakdown por Artefato`): quantos 🟢/🟡/🔴 em cada artefato commitado nesta etapa.
    - Liste os 🟢 com 1-liner (ex.: *"✅ Fornecedores A e B confirmados na entrevista"*)
    - Destaque os 🟡 com a fundamentação (ex.: *"⚠️ Cliente típico é PME — inferido do contexto, sem fonte direta. Fundamentação: inferido do perfil dos clientes atuais."*)
    - Destaque os 🔴 com ação sugerida (ex.: *"🔴 Não sabemos o SLA da entrega — precisamos perguntar ao time de logística."*)
+   - **Seção de nível ausente = zero itens daquele nível.** Se, por exemplo, não houver seção `### 🔴`, diga explicitamente: *"Nenhum gap 🔴 declarado nesta etapa."* Nunca apresente itens que não existam no relatório (NFR-1).
    - Se for o **primeiro especialista** (Bento, antes de Miguel), o relatório reflete **apenas** o que Bento produziu.
    - Se o relatório vier **zerado** (zero claims), diga honestamente: *"Nenhuma afirmação com marcador registrada ainda — isto é esperado se o especialista não emitiu claims."*
 
@@ -139,12 +158,17 @@ Para cada especialista, em ordem:
    - **Ajustar** → `process-ai gate --id gate-<N> --decision changes-requested`
      (**reabra o especialista atual** para ajustar o artefato; após re-commit,
      repita os passos 3–4 — gate informativo atualizado + nova decisão).
+     > **Loop e histórico:** o checkpoint registra a decisão do gate por `gateId`
+     > (última decisão vence — uma `changes-requested` anterior é sobrescrita por um
+     > `approved` posterior). Se após algumas iterações não houver convergência,
+     > considere mudar para `rejected`/encerrar em vez de iterar indefinidamente.
    - **Parar** → `process-ai gate --id gate-<N> --decision rejected`
      (encerre o fluxo — **não** avance o estágio nem inicie o próximo especialista;
      informe o usuário de que a sessão pode ser retomada via `process-ai resume`).
 
-5. **Se aprovado, avance o estágio:**
-   `process-ai stage --to <estágio>` (`discovery` → `mapping` → `modeling` → `standardization`).
+5. **Se aprovado, avance para o próximo estágio** (entrada do próximo especialista):
+   `process-ai stage --to <próximo>` (`discovery` → `mapping` → `modeling` → `standardization`).
+   Após o gate-4 (Zanoni) aprovado, vá para a §4 (encerramento).
    > O avanço de estágio **só ocorre** após `--decision approved`. Se `changes-requested`
    > ou `rejected`, o estágio **não avança** — o especialista atual é reaberto ou o
    > fluxo é encerrado.
@@ -162,6 +186,9 @@ Ao fim da pipeline (após o Gate 4 aprovado):
    - Execute `process-ai status` (via Bash) e capture o JSON — ele contém
      `artifacts[]` (lista de artefatos commitados com `sha256`+`artifactType`)
      e `stage` atual.
+   - **Se qualquer um dos dois falhar** (saída non-zero/stderr), informe o erro ao
+     usuário e **não redija a narrativa** — nunca invente dados que não venham
+     desses dois comandos.
 
 2. **Redija o resumo narrativo de encerramento** (a Déa escreve, em markdown pt-BR).
    O resumo deve conter as seções abaixo. Use os dados do `status` (artefatos) e
@@ -182,8 +209,9 @@ Ao fim da pipeline (após o Gate 4 aprovado):
         fornecedores + cadeia de valor com 4 elos. 8 afirmações (6 🟢 confirmadas
         na entrevista, 1 🟡 inferida, 1 🔴 gap)."*
 
-   c. **Próximos passos acionáveis:** leia os itens 🔴 do relatório (seção
-      `### 🔴 Gaps Declarados`) e sugira **ações concretas** para cada gap.
+   c. **Próximos passos acionáveis:** leia os itens 🔴 do relatório (seção que
+      começa com `### 🔴`) e sugira **ações concretas** para cada gap. (Se a seção
+      `### 🔴` estiver ausente, não há gaps — use o fallback "zero 🔴" abaixo.)
       - Exemplo concreto: *"🔴 'Não sabemos o SLA da entrega' → **Ação sugerida:**
         Validar o prazo de entrega com o time de logística (João, coordenador)."*
       - Se **zero 🔴**: sugira *"Validar o modelo com um segundo par de olhos
@@ -191,7 +219,7 @@ Ao fim da pipeline (após o Gate 4 aprovado):
       - **Nunca** genérico como "revise o processo" ou "melhore a documentação" —
         sempre específico e atrelado a um gap ou artefato concreto.
 
-   d. **Resumo das decisões dos gates:** 1-liner por gate (gate-1 a gate-4) com a
+   d. **Resumo das decisões dos gates:** 1-liner por gate (gate-0 a gate-4) com a
       decisão registrada (`approved` / `changes-requested` / `rejected`).
 
 3. **Embuta o relatório de confiança:** sob o título `## Relatório de Confiança`,
@@ -202,16 +230,28 @@ Ao fim da pipeline (após o Gate 4 aprovado):
 4. **Commit o entregável final:**
    - Monte o payload com a **ferramenta de escrita de arquivos (Write), NÃO um
      heredoc de Bash** — evita escaping de aspas/backticks/newlines do shell.
+     Escreva o arquivo em **`./summary-report.json`** (raiz do projeto-alvo) —
+     **nunca** em `_process-ai_output/` ou `.process-ai/` (AD-1: sem escrita direta
+     nas pastas protegidas).
    - Shape esperado: `{ "artifactType": "summary-report", "content": "<markdown
-     escapado em JSON>" }`. Em `content`, escape aspas como `\"` e newlines como
-     `\n`. O conteúdo é o **resumo narrativo (passo 2) + relatório verbatim
-     (passo 3)** concatenados, com o relatório sob `## Relatório de Confiança`.
+     escapado em JSON>" }`. Em `content`, escape **aspas como `\"`, backslashes
+     como `\\` e newlines como `\n`**. ⚠️ O relatório verbatim (passo 3) **já contém
+     backslashes** (o toolkit escapa markdown: `\*`, `\(`, `\|`, …) — se você não
+     dobrar os backslashes (`\\`), o JSON fica inválido e o `propose` aborta com
+     "Payload inválido (JSON malformado)", e o entregável final não commita. O
+     conteúdo é o **resumo narrativo (passo 2) + relatório verbatim (passo 3)**
+     concatenados, com o relatório sob `## Relatório de Confiança`.
    - Execute `process-ai propose --payload summary-report.json`.
-   - Após confirmar o commit, **remova o `summary-report.json` temporário** do
-     diretório do projeto (ele vive fora das pastas protegidas e não deve persistir).
+   - **Remova o `summary-report.json` temporário** do diretório do projeto — tanto
+     em caso de sucesso quanto de **falha** do `propose` (ele vive fora das pastas
+     protegidas e não deve persistir; em caso de falha, corrija o payload e tente
+     novamente).
 
 5. **Finalize:** avance o estágio final para `summary`:
    `process-ai stage --to summary`.
+   > Se este avanço falhar, o `summary-report` já estará commitado (passo 4), mas o
+   > `checkpoint.stage` não será `summary` — informe o usuário e avance novamente
+   > (`process-ai stage --to summary`) ao retomar, antes de encerrar.
 
 > **A sessão não termina sem esse entregável commitado.** O `summary-report` é o
 > artefato que prova o ciclo completo — narrativa + confiança + próximos passos.

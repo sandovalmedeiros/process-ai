@@ -336,6 +336,38 @@ test('AC1/2.5: excerpt-status mismatch quando trecho NÃO casa', async () => {
   }
 });
 
+test('AC1/2.5 (F6): excerpt-status verified mesmo com CRLF(artefato) vs LF(excerpt) — canonicalização', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-rep-excr-'));
+  try {
+    const sourceSha = 'e'.repeat(64);
+    // Artefato-fonte salvo com CRLF (Windows); excerpt no ledger com LF.
+    const content = 'O processo tem 3 etapas:\r\nprospecção, qualificação e fechamento.';
+    const outputDir = path.join(tmp, '_process-ai_output', 'sipoc');
+    await fs.mkdir(outputDir, { recursive: true });
+    const artifactPath = path.join(outputDir, `${sourceSha}.md`);
+    await fs.writeFile(artifactPath, content, 'utf8');
+    const relPath = path.relative(tmp, artifactPath).split(path.sep).join('/');
+    await createManifest(tmp, 'sipoc', sourceSha, relPath);
+
+    await writeLedger(tmp, [
+      {
+        claimId: 'vc-x-0', artifactType: 'value-chain', artifactSha256: 'x',
+        proposed: '🟢', validated: '🟢',
+        source: { artifactType: 'sipoc', sha256: sourceSha, excerpt: '3 etapas:\nprospecção, qualificação' },
+        statement: 'Vendas tem 3 etapas',
+        reasoning: 'Trecho com LF contra artefato CRLF',
+        validatedAt: '2026-08-01T00:00:00.000Z',
+      },
+    ]);
+
+    const report = await reportConfidence(tmp);
+    // Sem canonicalização: includes falharia (CRLF ≠ LF) → falso 'mismatch'.
+    assert.equal(report.itemsByLevel['🟢'][0].excerptStatus, 'verified');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('AC1/2.5: excerpt-status no-excerpt quando source sem excerpt', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-rep-exn-'));
   try {
@@ -398,6 +430,33 @@ test('AC3/2.5: orphanList lista manifestos órfãos (não só count)', async () 
       assert.ok(o.quarantinePath.includes('quarantine/'));
       assert.ok(o.quarantinePath.endsWith('.json'));
     }
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AC3/2.5 (F3-followup): orphan sha256 com backtick é escapado no markdown', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-rep-orphq-'));
+  try {
+    const quarantineDir = metaPath(tmp, 'quarantine');
+    await fs.mkdir(quarantineDir, { recursive: true });
+    // Nome "malicioso" com backtick: listOrphans NÃO valida hex64 no filename, então
+    // o sha vira "ev`il". Sem escapeMd no sha (gap deixado pelo F3), o backtick fecharia
+    // o code-span prematuro e quebraria a estrutura do relatório embutido verbatim
+    // (parity com os demais campos sha escapados pelo F3). Backtick é char válido em
+    // filename tanto no Windows quanto no POSIX.
+    const bt = '`';
+    const badSha = `ev${bt}il`;
+    await fs.writeFile(path.join(quarantineDir, `${badSha}.json`), '{}', 'utf8');
+
+    const report = await reportConfidence(tmp);
+    assert.equal(report.orphans, 1);
+    const md = formatConfidenceReport(report);
+    assert.ok(md.includes('Manifestos Órfãos'), 'seção de órfãos renderizada');
+    // Pina no code-span do SHA (único campo seguido de `…`): antes do fix F3 o backtick
+    // do sha era cru (`ev`il…`) → `ev\`il…` (com backslash) ausente. O quarantinePath,
+    // também escapado, termina em `.json` (não `…`) — por isso o sufixo `…` desambigua.
+    assert.ok(md.includes(`ev\\${bt}il…`), 'backtick do orphan sha escapado (\\`)');
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

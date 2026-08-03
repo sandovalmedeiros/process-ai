@@ -4,7 +4,7 @@ baseline_commit: 181eaff
 
 # Story 2.6: Gates completos + resumo final rico (Déa)
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -203,7 +203,7 @@ N/A — execução limpa, sem halt.
 
 ✅ **T3 (Testes):** 7 novos testes em `tests/skill.test.ts` (15 total): gate informativo com `process-ai report`, 3 caminhos de decisão, destaque 🟡/🔴, resumo por etapa, próximos passos acionáveis, proibição de genérico, contrato markdown verbatim, e remoção de "rascunho".
 
-✅ **T4 (Critério implícito):** 208/208 testes passando, `tsc --noEmit` limpo, AD-3 verde, E2E conductor + pipeline verdes. **Nenhum arquivo em `toolkit/src/` ou `bin/` modificado** (skill-layer only).
+✅ **T4 (Critério implícito):** 249/249 testes passando (número corrigido na code review 2026-08-03), `tsc --noEmit` limpo, AD-3 verde, E2E conductor + pipeline verdes. **Nenhum arquivo em `toolkit/src/` ou `bin/` modificado** (skill-layer only).
 
 ### File List
 
@@ -212,4 +212,25 @@ N/A — execução limpa, sem halt.
 
 ## Change Log
 
-- 2026-08-02: Implementação completa da story 2.6 — gates informativos com contagem+lista 🟡/🔴 (FR-4 full) + resumo final narrativo rico com próximos passos acionáveis (FR-5 full). Primeira story puramente skill-layer (zero mudanças no toolkit/core). 208/208 testes, typecheck limpo, AD-3 verde.
+- 2026-08-02: Implementação completa da story 2.6 — gates informativos com contagem+lista 🟡/🔴 (FR-4 full) + resumo final narrativo rico com próximos passos acionáveis (FR-5 full). Primeira story puramente skill-layer (zero mudanças no toolkit/core). Suite verde, typecheck limpo, AD-3 verde.
+- 2026-08-03: Code review adversarial (3 camadas: Blind + Edge + Auditor). 1 decision-needed resolvido + 13 patches aplicados em `skills/process-ai/SKILL.md` e `tests/skill.test.ts`. 2 High (escaping JSON quebrava o commit do summary-report; testes de aceitação falso-positivos sem escopo de seção), 2 Medium (modelo de avanço de estágio pós-reordenação; gate informativo sem breakdown por artifactType/contagem/níveis vazios), 7 Low (AD-1 path do temp, error-handling, loop changes-requested, gate-0 no resumo, leak em falha, resume após rejected, gaps de teste AC4/AC5). Suite 249/249, typecheck limpo, AD-3 verde. Story → done.
+
+## Review Findings (code review 2026-08-03)
+
+Revisão adversarial em 3 camadas (Blind Hunter + Edge Case Hunter + Acceptance Auditor). Suite verde (244/244, typecheck limpo, AD-3 verde, E2E verde); claim "skill-layer only / sem mudança em toolkit/bin" **verificado verdadeiro** para o escopo da 2.6. Achados abaixo.
+
+### Patch
+
+- [x] [Review][Patch] **(MED — resolvido via opção 1)** Modelo de avanço de estágio — adicionar `stage --to discovery` ao **entrar na §3** (antes do Bento); o passo 5 já avança ao estágio do próximo especialista após cada gate aprovado. Ajustar a tabela §3 para "gate de saída". Resolve: Bento trabalhando em `scope`, estágio stale no gate, e `discovery` pulado. [skills/process-ai/SKILL.md:82-87, 98-150]
+- [x] [Review][Patch] **(HIGH)** Escaping JSON incompleto quebra o commit do `summary-report` — `escapeMd` (toolkit/src/report.ts:162) insere backslashes literais (`\*`, `\(`, `\|`, `\#`…) em todo campo; §4 passo 4 manda escapar só `"`→`\"` e `\n`, **não** `\`→`\\` → JSON inválido → `readPayload` (bin/process-ai.ts:264) lança "Payload inválido (JSON malformado)" → `propose` aborta → entregável final (AC6) não commita. Trigger quase certo (qualquer claim com `(`/`*`/`|`). Fix mínimo: adicionar "backslashes como `\\`" à instrução de escaping. [skills/process-ai/SKILL.md:205-208]
+- [x] [Review][Patch] **(HIGH)** Testes de aceitação 2.6 são falso-positivos (regex sem escopo de seção) — toda asserção roda `.test(content)` sobre o **arquivo inteiro**; os nomes alegam "§3" e "antes de", mas nada escopia à seção nem checa ordem → passam no conteúdo pré-diff (substrings já existiam em §2/§4/lista de comandos); AC1 fica sem cobertura real. Fix: extrair o span §3 (entre `## 3.` e `## 4.`) e asserir dentro dele; para o teste de ordem, `content.indexOf('process-ai report') < content.indexOf('process-ai gate')`. [tests/skill.test.ts:102-124, 166-173]
+- [x] [Review][Patch] **(MED)** Gate informativo não apresenta o **breakdown por artifactType** nem a **contagem** explícita — AC1 pede literalmente "a contagem e a lista de itens 🟡 e 🔴 (breakdown por artifactType + itemsByLevel)", mas §3 passo 3 só lista itens. O dado existe no relatório (`### Breakdown por Artefato`, report.ts:577-588). Fix: instruir a abrir com a contagem ("3 🟢, 2 🟡, 1 🔴") e citar o breakdown por artifactType. [skills/process-ai/SKILL.md:122-134]
+- [x] [Review][Patch] **(MED)** §3 assume que as 3 seções de nível sempre existem e cita headers incorretos — `report.ts:594` omite níveis vazios (`if (items.length === 0) continue`); os headers reais são `### 🟢 Confiança Alta (verificada) (N)` (report.ts:600), não os "limpos" citados. Só o caso total-zero é tratado (parcial-vazio, o mais comum, não é). Fix: hedge "se uma seção de nível estiver ausente, há zero itens daquele nível — diga-o"; corrigir os headers citados (ou dizer "começando com `### 🟢`/`### 🟡`/`### 🔴`"). [skills/process-ai/SKILL.md:122-126, 185-186; toolkit/src/report.ts:592-600]
+- [x] [Review][Patch] **(LOW)** Caminho do `summary-report.json` não fixado → risco de violar AD-1 (Write dentro de `_process-ai_output/`). Fix: pinar "escreva em `./summary-report.json` (raiz do projeto-alvo), **nunca** em `_process-ai_output/` ou `.process-ai/`". [skills/process-ai/SKILL.md:202-211]
+- [x] [Review][Patch] **(LOW)** Sem branch de erro quando `process-ai report`/`status` saem non-zero ou emitem stderr. Fix: "se o comando falhar, informe o erro ao usuário e não prossiga com a narrativa (não invente dados)". [skills/process-ai/SKILL.md:122-123, 158-164]
+- [x] [Review][Patch] **(LOW)** Loop `changes-requested` sem guarda de terminação; `applyIntent` é last-write-wins (checkpoint.ts) — a decisão anterior do gate é sobrescrita, perdendo histórico. Fix: documentar o comportamento last-write-wins + nota "após vários ajustes sem convergir, considere `rejected`/encerrar". [skills/process-ai/SKILL.md:139-141]
+- [x] [Review][Patch] **(LOW)** §4 "resumo das decisões dos gates" exclui o gate-0 (escopo) — diz "gate-1 a gate-4". Fix: incluir gate-0. [skills/process-ai/SKILL.md:194-195]
+- [x] [Review][Patch] **(LOW)** `summary-report.json` temporário vaza se `propose` falhar; falha de `stage --to summary` deixa estado inconsistente (artefato commitado, estágio não). Fix: "remova o temp **mesmo se** propose falhar"; nota de recuperação para o stage final. [skills/process-ai/SKILL.md:209-214]
+- [x] [Review][Patch] **(LOW)** `rejected`→`resume` sem regra de recuperação documentada (§1 resume não reconhece que o último gate foi `rejected`). Fix: adicionar regra de resume — "se o gate mais recente do estágio for `rejected`, perguntar se reabre o especialista ou mantém a sessão parada". [skills/process-ai/SKILL.md:40-43 vs 142-144]
+- [x] [Review][Patch] **(LOW)** Gaps de teste: AC4 (linguagem de bloqueio do gate) e AC5 (zero-honesto / nunca-inflar 🟢) corretos no texto mas sem asserção. Fix: adicionar asserts (com escopo de seção, ver finding HIGH dos testes). [tests/skill.test.ts]
+- [x] [Review][Patch] **(LOW)** Contagem de testes incorreta nas Completion Notes/Change Log — relata 208/208; real é 244/244 (sem regressão). Fix: atualizar o número. [2-6-gates-completos-resumo-final.md:206, 215]

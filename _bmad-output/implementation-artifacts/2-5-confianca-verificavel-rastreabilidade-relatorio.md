@@ -4,7 +4,7 @@ baseline_commit: 181eaff
 
 # Story 2.5: Confiança verificável + rastreabilidade bidirecional + relatório consolidado
 
-Status: review
+Status: done
 
 <!-- Note: Validation is optional. Run validate-create-story for quality check before dev-story. -->
 
@@ -172,3 +172,26 @@ N/A — execução limpa, sem halt.
 ## Change Log
 
 - 2026-08-02: Implementação completa da story 2.5 — confiança verificável (excerpt), rastreabilidade bidirecional (reverse-index), relatório consolidado rico (breakdown + items + orphans listados), persistência statement/reasoning no ledger. 201/201 testes, typecheck limpo, AD-3 verde.
+- 2026-08-03: Code review adversarial (Blind Hunter + Edge Case Hunter + Acceptance Auditor) — AC1–AC5 PASS; **6 patches aplicados** (F1 [Med] leaf-symlink+scope guard no `computeExcerptStatus` fecha paridade `:63`; F2 `escapeMd` strip `\n`/`\r`; F3 `escapeMd` em `source.*`/`shortSha`; F4 strip BOM UTF-8; F5 dedupe key degenerado; F6 canonicalização CRLF→LF no excerpt + 2 testes). 243/243 testes, typecheck limpo, AD-3 verde. 4 defers → `deferred-work.md`.
+- 2026-08-03 (re-review): Pass adversarial sobre os patches F1–F6 — todos verificados corretos, sem regressões. **1 follow-up patch** (F3-incompleto: orphan `sha256` no rendering de quarentena ficou sem `escapeMd` — o campo sha mais reachável, pois `listOrphans` deriva o sha de `readdir`+`slice` sem validar hex64, diferente dos shas do ledger) + 1 teste de regressão **não-vacuo** (verificado empiricamente: falha contra código unfixed, passa fixed). 244/244 testes, typecheck limpo, AD-3 verde. 2 itens Low → `deferred-work.md` (Tipos `artifactType` pré-existente; BOM write-path asymmetry amarrado ao defer F7).
+
+### Review Findings
+
+Code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `181eaff`, commit `add6852`; escopo dos 4 arquivos da File List). Acceptance Auditor PASS (AC1–AC5 + critério implícito; 241/241 testes, typecheck limpo, AD-3 verde). Itens abaixo são reais, porém defense-in-depth/hardening/edge — **nenhum AC rejeitado**.
+
+**Discrepâncias completion-notes vs realidade (alto signal):**
+- deferred-work `:63` (leaf-symlink parity nos leitores) — declarado fechado (linha 163), mas `computeExcerptStatus` lê o manifesto **sem** leaf-symlink guard (Patch F1).
+- deferred-work `:65` (escape markdown) — declarado fechado, mas `escapeMd` não cobre `\n`/`\r` nem `source.*`/`shortSha` (Patches F2, F3).
+- deferred-work `:44` (write-path corrupt-line dedupe) — spec corpo marca MUST (linhas 109-119); completion notes omitem; write-path não fechado (Defer F7).
+
+- [x] [Review][Patch] Canonicalizar CRLF→LF antes do `includes` (resolvido de [Decision]: opção 1 escolhida em review 2026-08-03) — AD-6 "bytes canônicos" interpretado como bytes normalizados. `verifyExcerpt` (`confidence.ts:361`) e `computeExcerptStatus` (`report.ts:378`); +2 testes (CRLF-artefato × LF-excerpt → `verified`, evita falso 🟡). [toolkit/src/confidence.ts:361, toolkit/src/report.ts:378]
+- [x] [Review][Patch] [Med] `computeExcerptStatus` constrói path do manifesto de campos de ledger NÃO-validados (sem isHex64/isKebab/isWithinScope) E lê sem leaf-symlink guard — reachável via claim 🟢 degradado a 🟡 `malformed-source` que persiste `source` malformado (`confidence.ts:520`) ou via ledger editado manualmente; quebra paridade prometida em `:63`. [toolkit/src/report.ts:333-345]
+- [x] [Review][Patch] `escapeMd` não stripa `\n`/`\r` — `statement`/`reasoning` do agente com quebra de linha corrompem a estrutura de lista do relatório embutido verbatim no `summary-report` (contrato duro); alta reachability (input benigno). [toolkit/src/report.ts:151-155, 568-570]
+- [x] [Review][Patch] `escapeMd` não aplicado a `source.artifactType`/`source.sha256` (srcRef) nem ao `shortSha` no breakdown/reverse-index — breakout de code-span / interpolação não-escapada (consistência com os demais campos). [toolkit/src/report.ts:548, 573, 593]
+- [x] [Review][Patch] (re-review) F3-incompleto: `escapeMd` também não aplicado ao `sha256` do órfão no rendering de quarentena (`report.ts:640`) — o ÚNICO campo sha reachável sem validação hex64, pois `listOrphans` deriva o sha de `fs.readdir(quarantine/)`+`slice(0,-5)` (filename arbitrário), não do ledger; um filename `ev\`il.json` plantado em `quarantine/` fecha o code-span prematuro e quebra a estrutura do relatório embutido verbatim. Fix: `\`${escapeMd(o.sha256.slice(0,8))}…\``; +1 teste de regressão não-vacuo (assinatura pinada ao code-span do sha via sufixo `…` — desambigua do `quarantinePath` também escapado; verificado: falha contra unfixed). [toolkit/src/report.ts:640]
+- [x] [Review][Patch] `scanLedger` dropa a primeira entry quando o ledger começa com BOM UTF-8 (edição externa Windows) — `JSON.parse('﻿...')` lança → `continue` silencioso → sub-contagem. [toolkit/src/report.ts:226, 234-241]
+- [x] [Review][Patch] Linhas corrompidas do ledger colidem na chave de dedupe `'::'` (campos vazios) → última ocorrência substitui anterior → sub-contagem de totalClaims em ledger corrompido. [toolkit/src/report.ts:246-249, 272]
+- [x] [Review][Defer] deferred-work `:44` (write-path corrupt-line dedupe window) não fechado; spec corpo (linhas 109-119) marca MUST, completion notes omitem; read-path dedupe (`:64`) compensa. [toolkit/src/confidence.ts:408-419] — deferred, pre-existing
+- [x] [Review][Defer] `appendConfidenceLedger` update-on-change ignora deltas em `statement`/`reasoning` (replace-trigger checa só validated/degradationReason) → texto stale; inalcançável via fluxo single-propose normal. [toolkit/src/confidence.ts:431-435] — deferred, pre-existing
+- [x] [Review][Defer] Zero-width chars (U+200B/200C/200D/FE0E) passam `isNonEmptyString` mas falham `includes` → falso `excerpt-mismatch` (conservador); hardening consistente com `:71`. [toolkit/src/confidence.ts:151-153, 361] — deferred, pre-existing
+- [x] [Review][Defer] Reverse-index `split('::')` trunca sha256 se `source.artifactType` contém `::` (só via ledger editado; kebab-validado no write-path) → prefixo SHA errado na renderização. [toolkit/src/report.ts:591] — deferred, pre-existing

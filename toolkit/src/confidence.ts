@@ -358,7 +358,11 @@ async function verifyExcerpt(root: string, manifestPath: string, excerpt: string
   } catch {
     return false;
   }
-  return content.includes(excerpt);
+  // F6 (review 2.5): canonicaliza line-endings (CRLF/CR → LF) antes do substring
+  // match — AD-6 "bytes canônicos" interpretado como bytes normalizados; evita falso
+  // excerpt-mismatch quando artefato (CRLF, Windows) e excerpt (LF) divergem.
+  const canon = (s: string) => s.replace(/\r\n?/g, '\n');
+  return canon(content).includes(canon(excerpt));
 }
 
 // ---- T3: Ledger de confiança ----

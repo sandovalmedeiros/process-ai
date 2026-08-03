@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-01
-last_updated: 2026-08-02
+last_updated: 2026-08-03
 project: process-ai
 project_key: NOKEY
 tracking_system: file-system
@@ -64,8 +64,9 @@ development_status:
   2-2-miguel-hierarquia-completa: done
   2-3-julia-bpmn-xml-gargalos: done
   2-4-zanoni-pops-diagnostico: done
-  2-5-confianca-verificavel-rastreabilidade-relatorio: review
-  2-6-gates-completos-resumo-final: review
+  2-5-confianca-verificavel-rastreabilidade-relatorio: done
+  2-6-gates-completos-resumo-final: done
+  # 2-6 → done em 2026-08-03 (code review aprovada; 13 patches aplicados, 249/249 testes)
   2-7-wedge-vendas-pme-validacao: review
   epic-2-retrospective: optional
 

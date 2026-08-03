@@ -940,6 +940,30 @@ test('AC1/2.5: 🟢 com excerpt que CASA no artefato-fonte → 🟢 mantido', as
   }
 });
 
+test('AC1/2.5 (F6): excerpt com divergência CRLF(artefato) vs LF(excerpt) → 🟢 (canonicalização de line-endings)', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-exc-crlf-'));
+  try {
+    // Artefato-fonte salvo com CRLF (Windows); excerpt copiado com LF.
+    const content = 'O processo de vendas tem 3 etapas:\r\nprospecção, qualificação e fechamento.';
+    const sourceSha = sha256(canonicalize({ data: 'excerpt-crlf' }));
+    await createArtifactWithManifest(root, 'sipoc', sourceSha, content);
+
+    const claims: Claim[] = [{
+      statement: 'Vendas tem 3 etapas',
+      level: '🟢',
+      source: { artifactType: 'sipoc', sha256: sourceSha, excerpt: '3 etapas:\nprospecção, qualificação' },
+      reasoning: 'Trecho com LF contra artefato CRLF',
+    }];
+
+    const result = await validateClaims(claims, root);
+    // Sem canonicalização, o includes falharia (CRLF ≠ LF) → falso 🟡 excerpt-mismatch.
+    assert.equal(result[0].validated, '🟢');
+    assert.equal(result[0].degradationReason, undefined);
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test('AC1/2.5: 🟢 com excerpt que NÃO casa → 🟡 + excerpt-mismatch', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'conf-exc-mis-'));
   try {

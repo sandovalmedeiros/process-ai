@@ -97,77 +97,119 @@ test('Fonte única de verdade: installSkills copia a skill-fonte byte-a-byte par
   }
 });
 
+// ---- helper: extrai o texto da seção `## N.` até a próxima heading `^## ` ----
+
+/** Retorna a heading `## <n>.` + corpo até a próxima heading de nível 2 (`^## `). */
+function skillSection(md: string, n: number): string {
+  const startMatch = new RegExp(`^## ${n}\\.`, 'm').exec(md);
+  if (!startMatch) return '';
+  const lines = md.slice(startMatch.index).split('\n');
+  const body: string[] = [lines[0]];
+  for (let i = 1; i < lines.length; i++) {
+    if (/^## /.test(lines[i])) break; // próxima heading de nível 2
+    body.push(lines[i]);
+  }
+  return body.join('\n');
+}
+
 // ---- 2.6: Gates informativos (AC1, AC4) ----
 
-test('AC1/2.6: §3 menciona `process-ai report` antes de `process-ai gate` (gate informativo)', async () => {
-  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
-  // O relatório deve ser citado na seção de pipeline (§3) — não só no encerramento (§4).
-  // A §3 agora instrui a executar `process-ai report` para apresentar 🟡/🔴 ao usuário.
+test('AC1/2.6: §3 menciona `process-ai report` ANTES de `process-ai gate` (gate informativo)', async () => {
+  const sec3 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 3);
+  assert.ok(sec3.length > 0, '§3 deve existir no SKILL.md');
+  assert.ok(/process-ai report/.test(sec3), '§3 deve referenciar `process-ai report` no gate informativo');
+  assert.ok(/process-ai gate/.test(sec3), '§3 deve referenciar `process-ai gate`');
+  // Ordering: o gate informativo roda `report` ANTES de registrar a decisão via `gate`.
   assert.ok(
-    /process-ai report/.test(content),
-    '§3 deve referenciar `process-ai report` para o gate informativo',
+    sec3.indexOf('process-ai report') < sec3.indexOf('process-ai gate'),
+    '§3 deve citar `process-ai report` antes de `process-ai gate`',
   );
 });
 
 test('AC1/2.6: §3 menciona os 3 caminhos de decisão do gate (approved / changes-requested / rejected)', async () => {
-  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
-  assert.ok(/changes-requested/.test(content), '§3 deve mencionar `changes-requested` (reabrir especialista)');
-  assert.ok(/--decision rejected/.test(content), '§3 deve mencionar `--decision rejected` (encerrar fluxo)');
-  assert.ok(/--decision approved/.test(content), '§3 deve mencionar `--decision approved` (avançar)');
+  const sec3 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 3);
+  assert.ok(/changes-requested/.test(sec3), '§3 deve mencionar `changes-requested` (reabrir especialista)');
+  assert.ok(/--decision rejected/.test(sec3), '§3 deve mencionar `--decision rejected` (encerrar fluxo)');
+  assert.ok(/--decision approved/.test(sec3), '§3 deve mencionar `--decision approved` (avançar)');
 });
 
 test('AC1/2.6: §3 instrui a destacar 🟡 e 🔴 proativamente (honestidade NFR-1)', async () => {
-  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
-  // O gate informativo deve mencionar a apresentação de 🟡/🔴 ao usuário.
-  assert.ok(/🟡/.test(content), '§3 deve mencionar 🟡 (inferidos) no gate informativo');
-  assert.ok(/🔴/.test(content), '§3 deve mencionar 🔴 (gaps) no gate informativo');
+  const sec3 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 3);
+  assert.ok(/🟡/.test(sec3), '§3 deve mencionar 🟡 (inferidos) no gate informativo');
+  assert.ok(/🔴/.test(sec3), '§3 deve mencionar 🔴 (gaps) no gate informativo');
+});
+
+test('AC1/2.6: §3 apresenta contagem + breakdown por artefato (FR-4 full)', async () => {
+  const sec3 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 3);
+  assert.ok(/breakdown por artefato/i.test(sec3), '§3 deve instruir o breakdown por artifactType no gate');
+});
+
+test('AC4/2.6: §3 explicita bloqueio — estágio só avança após approved; changes-requested reabre especialista', async () => {
+  const sec3 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 3);
+  assert.ok(/n[aã]o avança/.test(sec3), '§3 deve dizer que o estágio NÃO avança sem approved');
+  assert.ok(/reabr[ai]|reabre|reabrir/.test(sec3), '§3 deve instruir changes-requested → reabrir especialista atual');
+});
+
+test('AC5/2.6: §3 trata zero honesto (não infla quando não há claims)', async () => {
+  const sec3 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 3);
+  assert.ok(/zerado|zero claims|nenhuma afirma/i.test(sec3), '§3 deve tratar o caso de zero claims (zero honesto)');
 });
 
 // ---- 2.6: Resumo final rico (AC2, AC3) ----
 
 test('AC2/2.6: §4 menciona resumo narrativo por etapa + próximos passos acionáveis', async () => {
-  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
+  const sec4 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 4);
   assert.ok(
-    /pr[oó]ximos?\s*passos/i.test(content),
+    /\bpr[oó]ximos?\s+passos\b/i.test(sec4),
     '§4 deve mencionar próximos passos acionáveis',
   );
   assert.ok(
-    /por etapa|1 parágrafo por estágio|discovery.*mapping.*modeling.*standardization/s.test(content),
+    /por etapa|1 parágrafo por estágio|discovery.*mapping.*modeling.*standardization/s.test(sec4),
     '§4 deve instruir resumo narrativo por etapa (discovery→mapping→modeling→standardization)',
   );
 });
 
 test('AC2/2.6: §4 sugere ações concretas atreladas a gaps (nunca genérico)', async () => {
-  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
-  // Deve instruir a Déa a ler os 🔴 e sugerir ações — e proibir genérico.
+  const sec4 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 4);
   assert.ok(
-    /a[çc][ãa]o sugerida|a[çc][õo]es?\s*concretas/i.test(content),
+    /a[çc][ãa]o sugerida|a[çc][õo]es\s+concretas/i.test(sec4),
     '§4 deve instruir ações sugeridas concretas',
   );
   assert.ok(
-    /nunca\b.*\bgen[ée]rico|não\s+gen[ée]rico|evite\s+gen[ée]rico/i.test(content),
+    /nunca\b.*\bgen[ée]rico|n[aã]o\s+gen[ée]rico|evite\s+gen[ée]rico/i.test(sec4),
     '§4 deve proibir recomendações genéricas',
   );
 });
 
+test('AC2/2.6: §4 inclui o gate-0 no resumo das decisões dos gates', async () => {
+  const sec4 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 4);
+  assert.ok(/gate-0/.test(sec4), '§4 deve incluir gate-0 (escopo) no resumo das decisões dos gates');
+});
+
 test('AC3/2.6: contrato markdown preservado — `process-ai report` verbatim no `summary-report`', async () => {
-  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
-  assert.ok(/summary-report/.test(content), '§4 deve referenciar artifactType summary-report');
-  assert.ok(/process-ai propose/.test(content), '§4 deve instruir propose do summary-report');
-  // O relatório deve ser embutido verbatim (contrato duro).
+  const sec4 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 4);
+  assert.ok(/summary-report/.test(sec4), '§4 deve referenciar artifactType summary-report');
+  assert.ok(/process-ai propose/.test(sec4), '§4 deve instruir propose do summary-report');
   assert.ok(
-    /verbatim|não reescreva|não resuma|não reformate|íntegro|contrato duro/i.test(content),
+    /verbatim|n[aã]o reescreva|n[aã]o resuma|n[aã]o reformate|[ií]ntegro|contrato duro/i.test(sec4),
     '§4 deve instruir a Déa a NÃO reescrever o relatório (verbatim)',
+  );
+});
+
+test('AC3/2.6: §4 instrui escaping JSON completo (inclui backslashes, não só aspas/newlines)', async () => {
+  const sec4 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 4);
+  assert.ok(
+    /backslash/i.test(sec4),
+    '§4 deve instruir escaping de backslashes (\\\\) no JSON — o relatório verbatim já contém backslashes do escapeMd',
   );
 });
 
 // ---- 2.6: deferred-work.md:96 — "rascunho" removido ----
 
 test('deferred-work.md:96: §3 não contém "rascunho" (especialistas são profundos desde 2.1–2.4)', async () => {
-  const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
-  // O stale "produz o rascunho" foi substituído por "produz o artefato".
+  const sec3 = skillSection(await fs.readFile(SOURCE_SKILL_MD, 'utf8'), 3);
   assert.ok(
-    !/rascunho/.test(content),
-    'SKILL.md não deve mais conter "rascunho" — todos os especialistas são profundos (2.1–2.4)',
+    !/rascunho/.test(sec3),
+    '§3 não deve conter "rascunho" — todos os especialistas são profundos (2.1–2.4)',
   );
 });

@@ -105,6 +105,11 @@ const QUARANTINE_DIR = 'quarantine';
 /** Marcadores canônicos (espelha confidence.ts). */
 const LEVELS: readonly ConfidenceLevel[] = ['🟢', '🟡', '🔴'];
 
+/** SHA-256 canônico: 64 hex lowercase (espelha confidence.ts — F1/review 2.5). */
+const HEX64 = /^[0-9a-f]{64}$/;
+/** artifactType canônico: kebab-case restrito (espelha confidence.ts — F1/review 2.5). */
+const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
 // ---- Erro acionável ----
 
 export class ReportError extends Error {
@@ -147,11 +152,14 @@ function sourceKey(artifactType: string, sha256: string): string {
   return `${artifactType}::${sha256}`;
 }
 
-/** Escapa texto para markdown inline (deferred-work.md:65). */
+/** Escapa texto para markdown inline (deferred-work.md:65; F2/review 2.5). */
 function escapeMd(s: string): string {
-  // Só escapa caracteres com significado especial inline em markdown.
+  // Strip newlines primeiro: `\n`/`\r` em texto do agente (statement/reasoning)
+  // quebrariam a estrutura de lista do relatório embutido verbatim no summary-report.
+  // Depois escapa caracteres com significado especial inline em markdown.
   // `-` e `.` são seguros inline (só especiais como prefixo de linha: listas).
-  return s.replace(/[\\\`\*\_\{\}\[\]\(\)\#\+\!\|]/g, '\\$&');
+  const noNL = s.replace(/[\r\n]+/g, ' ');
+  return noNL.replace(/[\\\`\*\_\{\}\[\]\(\)\#\+\!\|]/g, '\\$&');
 }
 
 // ---- T2 (2.5): Leitura do ledger com scan completo ----
@@ -227,6 +235,9 @@ async function scanLedger(root: string): Promise<LedgerScan> {
   } catch {
     return { counts, total, entries, reverseIndex };
   }
+  // F4 (review 2.5): strip BOM UTF-8 líder (editor Windows re-salvando o ledger) —
+  // JSON.parse lança em '﻿{...}' e a primeira entry seria dropada silenciosamente.
+  if (raw.charCodeAt(0) === 0xfeff) raw = raw.slice(1);
 
   // Dedupe-on-read (deferred-work.md:64): chave (claimId, artifactSha256).
   const seen = new Map<string, number>(); // key → index in entries
@@ -270,7 +281,11 @@ async function scanLedger(root: string): Promise<LedgerScan> {
     }
 
     const key = `${entry.claimId}::${entry.artifactSha256}`;
-    const existingIdx = seen.get(key);
+    // F5 (review 2.5): só dedupa quando a chave é bem-formada (ambos campos não-
+    // vazios). Entries corrompidas sem identidade colidiriam em '::' e a última
+    // substituiria a anterior (sub-contagem); não-indexadas, cada uma conta como si.
+    const wellFormedKey = entry.claimId.length > 0 && entry.artifactSha256.length > 0;
+    const existingIdx = wellFormedKey ? seen.get(key) : undefined;
     if (existingIdx !== undefined) {
       // Dedupe: última ocorrência vence (substitui entrada anterior).
       const oldEntry = entries[existingIdx];
@@ -289,7 +304,7 @@ async function scanLedger(root: string): Promise<LedgerScan> {
       }
       entries[existingIdx] = entry;
     } else {
-      seen.set(key, entries.length);
+      if (wellFormedKey) seen.set(key, entries.length);
       entries.push(entry);
     }
 
@@ -330,11 +345,28 @@ async function computeExcerptStatus(
     return 'no-excerpt';
   }
 
-  const manifestPath = metaPath(
-    root,
-    MANIFESTS_SUBDIR,
-    `${entry.source.artifactType}-${entry.source.sha256}.json`,
-  );
+  // F1 (review 2.5): defense-in-depth parity com validateClaims. Os campos do ledger
+  // não são validados no write-path para claims degradados (buildLedgerEntries persiste
+  // `source` mesmo em malformed-source), e ledger editado manualmente pode injetar
+  // valores arbitrários. Validar hex64+kebab + containment antes de construir o path do
+  // manifesto e aplicar leaf-symlink guard antes de ler (parity com manifestExists/
+  // scanLedger — fecha deferred-work.md:63 no lado leitura).
+  const srcType = entry.source.artifactType;
+  const srcSha = entry.source.sha256;
+  if (!HEX64.test(srcSha) || !KEBAB.test(srcType)) {
+    return 'source-missing';
+  }
+  const manifestsDir = metaPath(root, MANIFESTS_SUBDIR);
+  const manifestPath = path.join(manifestsDir, `${srcType}-${srcSha}.json`);
+  if (!isWithinScope(manifestPath, manifestsDir)) {
+    return 'source-missing';
+  }
+  try {
+    const st = await fs.lstat(manifestPath);
+    if (!st.isFile()) return 'source-missing';
+  } catch {
+    return 'source-missing';
+  }
 
   // Resolve manifesto
   let manifestRaw: string;
@@ -375,7 +407,11 @@ async function computeExcerptStatus(
     return 'source-missing';
   }
 
-  return content.includes(entry.source.excerpt) ? 'verified' : 'mismatch';
+  // F6 (review 2.5): canonicaliza line-endings (CRLF/CR → LF) antes do substring
+  // match — AD-6 "bytes canônicos" como bytes normalizados; evita falso mismatch
+  // quando artefato (CRLF, Windows) e excerpt (LF) divergem (degradação 🟢→🟡).
+  const canon = (s: string) => s.replace(/\r\n?/g, '\n');
+  return canon(content).includes(canon(entry.source.excerpt)) ? 'verified' : 'mismatch';
 }
 
 // ---- T2 (2.5): Contagem de órfãos estendida ----
@@ -546,7 +582,7 @@ export function formatConfidenceReport(report: ConfidenceReport): string {
     for (const b of report.breakdown) {
       const shortSha = b.sha256.slice(0, 8);
       lines.push(
-        `| \`${shortSha}…\` | ${escapeMd(b.artifactType)} | ${b.counts['🟢']} | ${b.counts['🟡']} | ${b.counts['🔴']} |`,
+        `| \`${escapeMd(shortSha)}…\` | ${escapeMd(b.artifactType)} | ${b.counts['🟢']} | ${b.counts['🟡']} | ${b.counts['🔴']} |`,
       );
     }
     lines.push('');
@@ -570,7 +606,7 @@ export function formatConfidenceReport(report: ConfidenceReport): string {
         lines.push(`  - *Fundamentação:* ${escapeMd(item.reasoning)}`);
       }
       if (item.source) {
-        const srcRef = `\`${item.source.artifactType}\` (\`${item.source.sha256.slice(0, 8)}…\`)`;
+        const srcRef = `\`${escapeMd(item.source.artifactType)}\` (\`${escapeMd(item.source.sha256.slice(0, 8))}…\`)`;
         lines.push(`  - *Fonte:* ${srcRef}`);
       }
       if (item.degradationReason) {
@@ -590,7 +626,7 @@ export function formatConfidenceReport(report: ConfidenceReport): string {
       const claimIds = report.reverseIndex[key];
       const [artifactType, sha256] = key.split('::');
       lines.push(
-        `- **${escapeMd(artifactType)}** (\`${sha256.slice(0, 8)}…\`): ${claimIds.map((c) => `\`${escapeMd(c)}\``).join(', ')}`,
+        `- **${escapeMd(artifactType)}** (\`${escapeMd(sha256.slice(0, 8))}…\`): ${claimIds.map((c) => `\`${escapeMd(c)}\``).join(', ')}`,
       );
     }
     lines.push('');
@@ -601,7 +637,7 @@ export function formatConfidenceReport(report: ConfidenceReport): string {
     lines.push('### Manifestos Órfãos em Quarentena');
     lines.push('');
     for (const o of report.orphanList) {
-      lines.push(`- \`${o.sha256.slice(0, 8)}…\` → \`${escapeMd(o.quarantinePath)}\``);
+      lines.push(`- \`${escapeMd(o.sha256.slice(0, 8))}…\` → \`${escapeMd(o.quarantinePath)}\``);
     }
     lines.push('');
   }
