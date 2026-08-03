@@ -4,7 +4,7 @@ baseline_commit: 181eaff
 
 # Story 2.7: Wedge Vendas/PME — validar a pipeline ponta-a-ponta
 
-Status: review
+Status: done
 
 ## Story
 
@@ -170,7 +170,7 @@ N/A — execução limpa, sem halt.
 
 ✅ **T4 (Contador de turnos):** Contador inline: 21 comandos CLI (≤30, NFR-7 proxy). 1 comando = 1 turno simulado.
 
-✅ **T5 (Regressão total):** 208/208 testes passando, `tsc --noEmit` limpo, AD-3 verde. Nenhum arquivo `toolkit/src/` ou `bin/` modificado.
+✅ **T5 (Regressão total):** 249/249 testes passando, `tsc --noEmit` limpo, AD-3 verde. Nenhum arquivo `toolkit/src/` ou `bin/` modificado.
 
 ### File List
 
@@ -178,4 +178,24 @@ N/A — execução limpa, sem halt.
 
 ## Change Log
 
-- 2026-08-02: Implementação completa da story 2.7 — validação do wedge Vendas/PME ponta-a-ponta com fixture realista, calibração automatizada de 🟢 (100% verified, meta ≥85%), contador de turnos (21/30). Épico 2 fechado. 208/208 testes, typecheck limpo, AD-3 verde.
+- 2026-08-02: Implementação completa da story 2.7 — validação do wedge Vendas/PME ponta-a-ponta com fixture realista, calibração automatizada de 🟢 (100% verified, meta ≥85%), contador de turnos (21/30). Épico 2 fechado. 249/249 testes, typecheck limpo, AD-3 verde.
+
+### Review Findings
+
+Code review (2026-08-03): 3 camadas adversariais em paralelo (Blind Hunter + Edge Case Hunter + Acceptance Auditor), diff `181eaff..HEAD -- tests/e2e-pipeline.test.ts` (656 linhas). Resultado: **0 high · 3 medium · 5 low (patch) · 2 defer · 10 dismissed**. AC1/AC2/AC3/AC5: PASS. AC4: 2 gaps (P1, P2).
+
+**Patch (dev action):**
+- [x] [Review][Patch] [AC4] BPMN do fixture sem lanes — `FLOW_CONTENT` tem 2 `exclusiveGateway` mas 0 `<bpmn:lane>`/`<laneSet>`; AC4 exige "gateways + lanes (vendedor, cliente)". Adicionar `laneSet` com as 2 lanes e alocar os nós. [tests/e2e-pipeline.test.ts:198]
+- [x] [Review][Patch] [AC4/T1] Claim 🟢 "M1 raiz" degrada silenciosamente a 🟡 — excerpt `'Prospecção — Captação de leads'` NÃO casa com `VALUE_CHAIN` (`'**Prospecção** — Captação...'`, markdown bold); `verifyExcerpt` degrada a 🟡 no commit, o claim sai do `greenEntries` e o teste não percebe. Excerpt pretendido 🟢 vira 🟡. Fix: tornar o excerpt substring real (ex.: `'**Prospecção** — Captação de leads'` ou `'Captação de leads via marketing digital'`). [tests/e2e-pipeline.test.ts:372]
+- [x] [Review][Patch] Calibração pode passar vacuamente — se todos os source-lookups falham (deriva de convenção de path/manifesto), `totalWithExcerpt===0` pula o assert de ratio e `excerptMismatch===0` passa (0===0); a regressão que a calibração deveria pegar (lookup quebrou) é tolerada silenciosamente. Fix: `assert.ok(totalWithExcerpt > 0)` + `assert.equal(excerptSourceMissing, 0)`. [tests/e2e-pipeline.test.ts:557]
+- [x] [Review][Patch] Calibração diz "espelha verifyExcerpt" mas omite a canon CRLF→LF (`canon = s => s.replace(/\r\n?/g, '\n')`) que `verifyExcerpt`/`computeExcerptStatus` aplicam nos dois lados; divergência CRLF/LF contaria mismatch falso. Fix: aplicar `canon` nos dois lados ou corrigir o comentário mentiroso. [tests/e2e-pipeline.test.ts:535]
+- [x] [Review][Patch] [AC1] Gates só checam IDs/contagem, não `decision === 'approved'` (AC1 exige "5 gates approved"). Fix: `assert.ok(cp.gates.every(g => g.decision === 'approved'))`. [tests/e2e-pipeline.test.ts:485]
+- [x] [Review][Patch] Parser do ledger no teste (split/filter/`JSON.parse`) é mais frágil que o `scanLedger` do toolkit — sem BOM-strip, sem try/catch por linha; BOM ou linha corrompida derrubam o teste inteiro numa condição que o toolkit sobrevive. Fix: strip de BOM + try/catch por linha (ou reusar `scanLedger`). [tests/e2e-pipeline.test.ts:491]
+- [x] [Review][Patch] Contador de turnos inconsistente — `resume` inicial é contado (`turn()` na :301) mas o re-resume final (:573) NÃO tem `turn()`; furo no "1 comando = 1 turno". Fix: `turn()` antes do re-resume. (Bound tighten opcional — é proxy estrutural documentado.) [tests/e2e-pipeline.test.ts:573]
+- [x] [Review][Patch] Dev notes/changelog dizem "249/249 testes" mas o real é 249/249. [2-7-wedge-vendas-pme-validacao.md:173]
+
+**Defer (pre-existing / cross-cutting):**
+- [x] [Review][Defer] Cleanup Windows `fs.rm(tmp,{recursive,force})` não tolera EPERM/EBUSY (AV/indexer) — pode mascarar o resultado real do teste; mesma classe do item já-deferido em `bootstrap.test.ts`. [tests/e2e-pipeline.test.ts:589] — deferred, pre-existing
+- [x] [Review][Defer] Convenção de path de manifesto `${artifactType}-${sha256}.json` duplicada em commit.ts/confidence.ts/report.ts + este teste; mudança de convenção quebra o teste (silenciosamente até o patch da calibração acima fechar a janela). O fix real (helper no toolkit) é cross-cutting, fora do escopo test-only da 2.7 (AD-3). [tests/e2e-pipeline.test.ts:536] — deferred, pre-existing
+
+**Dismissed (10):** calibração tautológica por design (spec AC2 Decision note — re-verifica só 🟢 sobreviventes); calibração checa existência do excerpt, não suporte semântico (spec — "consistência interna, não verdade semântica"); ratio ≥85% nunca é o gate decisivo (spec — "piso estrutural"); definição do denominador é escolha de design (spec não fixa); excerpts curtos (`'A1.1.2.1'`) — dentro do escopo de presence-check; asserts `withStatement`/`withReasoning` redundantes mas corretos (verificam 2.5 AC4); assert de `walCursor` testa idempotência legítima (não é defeito); `reportRes.output` embutido no summary (especulativo — sem assert em `summary.sha256` hoje); `_payloadCounter`/payloads em `os.tmpdir()` (ok sob isolamento `node:test`); value-chain usa "Proposta" no lugar de "Pós-venda" como 5º elo (escolha realista do wedge lead→fechamento).

@@ -200,6 +200,25 @@ const FLOW_CONTENT =
   '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" ' +
   'id="Definitions_vendas" targetNamespace="http://process-ai/flow/vendas">\n' +
   '  <bpmn:process id="Process_vendas" isExecutable="false">\n' +
+  '    <bpmn:laneSet id="LaneSet_vendas">\n' +
+  '      <bpmn:lane id="Lane_vendedor" name="Vendedor">\n' +
+  '        <bpmn:flowNodeRef>Start_captacao_lead</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>A1.1.1.2</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>A1.1.2.1</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>Gateway_qualificado</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>A1.1.3.1</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>A1.1.3.2</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>A1.1.4.1</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>Gateway_aprovado</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>A1.1.5.1</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>A1.1.5.2</bpmn:flowNodeRef>\n' +
+  '      </bpmn:lane>\n' +
+  '      <bpmn:lane id="Lane_cliente" name="Cliente">\n' +
+  '        <bpmn:flowNodeRef>End_cliente_fechado</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>End_lead_descartado</bpmn:flowNodeRef>\n' +
+  '        <bpmn:flowNodeRef>End_proposta_recusada</bpmn:flowNodeRef>\n' +
+  '      </bpmn:lane>\n' +
+  '    </bpmn:laneSet>\n' +
   '    <bpmn:startEvent id="Start_captacao_lead" name="Lead captado"/>\n' +
   '    <bpmn:task id="A1.1.1.2" name="Registrar no CRM (HubSpot)"/>\n' +
   '    <bpmn:task id="A1.1.2.1" name="Contato inicial (até 24h)"/>\n' +
@@ -369,7 +388,7 @@ test('E2E (2.7): pipeline Vendas/PME com fixture realista + calibração + conta
         {
           statement: 'M1 (Vendas) é o macroprocesso raiz, derivado da Cadeia de Valor',
           level: '🟢',
-          source: { artifactType: 'value-chain', sha256: valueChain.sha256, excerpt: 'Prospecção — Captação de leads' },
+          source: { artifactType: 'value-chain', sha256: valueChain.sha256, excerpt: '**Prospecção** — Captação de leads' },
           reasoning: 'M1 corresponde nominalmente ao primeiro elo da value-chain',
         },
         {
@@ -484,18 +503,28 @@ test('E2E (2.7): pipeline Vendas/PME com fixture realista + calibração + conta
 
     const gateIds = cp.gates.map((g) => g.gateId).sort();
     assert.deepEqual(gateIds, ['gate-0', 'gate-1', 'gate-2', 'gate-3', 'gate-4']);
+    assert.ok(cp.gates.every((g) => g.decision === 'approved'), 'todos os 5 gates com decision=approved (AC1)');
     assert.equal(cp.stage, 'summary');
 
     // ---- Ledger: não-vazio, 🟢🟡🔴, provenance cruzada, degradação ----
-    const ledgerRaw = await fs.readFile(ledgerPath(tmp), 'utf8');
-    const entries = ledgerRaw
-      .split('\n')
-      .filter((l) => l.length > 0)
-      .map((l) => JSON.parse(l) as {
-        validated: string; degradationReason?: string;
-        source?: { sha256: string; artifactType?: string; excerpt?: string };
-        statement?: string; reasoning?: string;
-      });
+    // Leitura do ledger espelhando o scanLedger do toolkit (report.ts): strip de BOM UTF-8
+    // líder + tolerância a linhas corrompidas (skip em vez de crashar o teste inteiro).
+    let ledgerRaw = await fs.readFile(ledgerPath(tmp), 'utf8');
+    if (ledgerRaw.charCodeAt(0) === 0xfeff) ledgerRaw = ledgerRaw.slice(1);
+    type LedgerEntry = {
+      validated: string; degradationReason?: string;
+      source?: { sha256: string; artifactType?: string; excerpt?: string };
+      statement?: string; reasoning?: string;
+    };
+    const entries: LedgerEntry[] = [];
+    for (const line of ledgerRaw.split('\n')) {
+      if (line.length === 0) continue;
+      try {
+        entries.push(JSON.parse(line) as LedgerEntry);
+      } catch {
+        // linha corrompida — skip (parity com scanLedger do toolkit).
+      }
+    }
     const validated = entries.map((e) => e.validated);
     assert.ok(validated.length > 0, 'ledger não-vazio');
     assert.ok(validated.includes('🟢'), 'ao menos um 🟢 validado');
@@ -532,7 +561,9 @@ test('E2E (2.7): pipeline Vendas/PME com fixture realista + calibração + conta
       if (!e.source) { excerptSourceMissing++; continue; }
       if (!e.source.excerpt || e.source.excerpt.trim().length === 0) { excerptNoExcerpt++; continue; }
 
-      // Segunda verificação independente do excerpt (calibração — espelha verifyExcerpt).
+      // Segunda verificação independente do excerpt (calibração — espelha verifyExcerpt,
+      // incluindo a canon CRLF→LF de confidence.ts F6 / report.ts F6).
+      const canon = (s: string) => s.replace(/\r\n?/g, '\n');
       const manifestPath = path.join(tmp, '.process-ai', 'manifests',
         `${e.source.artifactType ?? 'unknown'}-${e.source.sha256}.json`);
       try {
@@ -543,7 +574,7 @@ test('E2E (2.7): pipeline Vendas/PME com fixture realista + calibração + conta
         }
         const artifactAbs = path.join(tmp, manifest.artifactPath);
         const content = await fs.readFile(artifactAbs, 'utf8');
-        if (content.includes(e.source.excerpt)) {
+        if (canon(content).includes(canon(e.source.excerpt))) {
           excerptVerified++;
         } else {
           excerptMismatch++;
@@ -554,13 +585,18 @@ test('E2E (2.7): pipeline Vendas/PME com fixture realista + calibração + conta
     }
 
     const totalWithExcerpt = excerptVerified + excerptMismatch;
-    if (totalWithExcerpt > 0) {
-      const ratio = excerptVerified / totalWithExcerpt;
-      assert.ok(
-        ratio >= 0.85,
-        `Calibração 🟢: ${excerptVerified}/${totalWithExcerpt} excerpts verificados = ${(ratio * 100).toFixed(0)}% (meta ≥85%)`,
-      );
-    }
+    // Fecha a janela vacuosa: antes, se todos os source-lookups falhassem (totalWithExcerpt===0)
+    // o ratio era pulado e o teste passava sem verificar nenhum excerpt.
+    assert.ok(totalWithExcerpt > 0,
+      `Calibração deve verificar ao menos 1 excerpt (${excerptVerified} verified, ${excerptMismatch} mismatch, ${excerptNoExcerpt} no-excerpt, ${excerptSourceMissing} source-missing)`);
+    const ratio = excerptVerified / totalWithExcerpt;
+    assert.ok(
+      ratio >= 0.85,
+      `Calibração 🟢: ${excerptVerified}/${totalWithExcerpt} excerpts verificados = ${(ratio * 100).toFixed(0)}% (meta ≥85%)`,
+    );
+    // Regression guard: 0 source-missing esperado no happy path (manifestos resolvem).
+    assert.equal(excerptSourceMissing, 0,
+      `0 source-missing na calibração — lookup de manifesto quebrou? (${excerptVerified} verified, ${excerptNoExcerpt} no-excerpt, ${excerptSourceMissing} source-missing)`);
     // Sanity: 0 mismatches esperados (verifyExcerpt do commit já garantiu; segunda verificação confirma).
     assert.equal(excerptMismatch, 0,
       `0 excerpt-mismatch na calibração (${excerptVerified} verified, ${excerptNoExcerpt} no-excerpt, ${excerptSourceMissing} source-missing)`);
@@ -570,6 +606,7 @@ test('E2E (2.7): pipeline Vendas/PME com fixture realista + calibração + conta
 
     // ---- Resume subsequente NÃO duplica estado nem cria órfãos ----
     const walCursorBefore = cp.walCursor;
+    turn(); // 1 comando = 1 turno (re-resume também conta — consistência com o resume inicial).
     const reResume = (await runJson(['resume'], adapter, tmp)) as {
       state: CheckpointState;
       orphans: unknown[];

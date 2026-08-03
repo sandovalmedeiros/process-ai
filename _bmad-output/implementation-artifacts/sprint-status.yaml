@@ -59,7 +59,7 @@ development_status:
   epic-1-retrospective: optional
 
   # ===== Epic 2: Documentação Completa e Honesta do Processo =====
-  epic-2: in-progress
+  epic-2: done
   2-1-bento-entrevista-sipoc-cadeia-valor: done
   2-2-miguel-hierarquia-completa: done
   2-3-julia-bpmn-xml-gargalos: done
@@ -67,7 +67,8 @@ development_status:
   2-5-confianca-verificavel-rastreabilidade-relatorio: done
   2-6-gates-completos-resumo-final: done
   # 2-6 → done em 2026-08-03 (code review aprovada; 13 patches aplicados, 249/249 testes)
-  2-7-wedge-vendas-pme-validacao: review
+  2-7-wedge-vendas-pme-validacao: done
+  # 2-7 → done em 2026-08-03 (code review aprovada; 8 patches aplicados, 249/249 testes)
   epic-2-retrospective: optional
 
   # ===== Epic 3: Method-Agnostic + Distribuição OSS =====
