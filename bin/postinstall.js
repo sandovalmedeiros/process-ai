@@ -51,8 +51,16 @@ const r = spawnSync(process.execPath, [CLI, 'install', '--target', CWD], {
   stdio: 'inherit',
 });
 
-if (r.status !== 0) {
-  console.error(`[process-ai] postinstall: install falhou (exit ${r.status}). /process-ai pode não estar disponível.`);
-  console.error('[process-ai] Copie skills/ manualmente para .claude/skills/, ou rode `npx process-ai` no projeto.');
+// fail-soft: distingue spawn-error / signal / exit-code p/ mensagem acionável
+// (antes: kill por signal ou spawn ENOENT printavam "exit null" — opaco).
+if (r.error) {
+  console.error(`[process-ai] postinstall: install não pôde iniciar — ${r.error.message}`);
+} else if (r.signal) {
+  console.error(`[process-ai] postinstall: install terminado por signal ${r.signal}.`);
+} else if (r.status !== 0) {
+  console.error(`[process-ai] postinstall: install falhou (exit ${r.status}).`);
+}
+if (r.error || r.signal || r.status !== 0) {
+  console.error('[process-ai] /process-ai pode não estar disponível. Copie skills/ manualmente para .claude/skills/, ou rode `npx process-ai` no projeto.');
   // fail-soft: não bloqueia npm install com exit não-zero.
 }

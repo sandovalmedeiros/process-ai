@@ -76,6 +76,19 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     const configUser = path.join(consumer, '.process-ai', 'config.user');
     assert.ok(existsSync(configUser), 'install deve criar .process-ai/config.user');
 
+    // 5b. caminho explícito `install --target` também funciona no CLI compilado
+    //     (cobertura do subcommand, não só bare — plano pedia testar ambos).
+    const explicit = spawnSync(NODE, [cli, 'install', '--target', consumer], {
+      encoding: 'utf8',
+      cwd: consumer,
+    });
+    assert.equal(
+      explicit.status,
+      0,
+      `process-ai install --target falhou: stdout=${explicit.stdout}\nstderr=${explicit.stderr}`,
+    );
+    assert.match(explicit.stdout, /process-ai instalado/);
+
     // 6. idempotente + config.user PRESERVADO em re-run (nunca tocado pelo installer)
     writeFileSync(configUser, '# override do usuario\nactive_pack = "custom"\n', 'utf8');
     const rerun = spawnSync(NODE, [cli], { encoding: 'utf8', cwd: consumer });

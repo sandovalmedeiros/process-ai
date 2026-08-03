@@ -24,11 +24,12 @@
  *    (falha de um especialista é avisada em stderr, não aborta o bootstrap).
  */
 
-import { promises as fs, statSync } from 'node:fs';
+import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { commit } from '../../src/commit.ts';
 import type { CommitResult, EngineAdapter, ProposePayload } from '../../src/engine-adapter.ts';
+import { findPackageRoot } from '../../src/install.ts';
 
 // Localização do módulo -> repo root (package root).
 // adapter.ts está em toolkit/adapters/claude-code/ (source) ou
@@ -40,29 +41,12 @@ const REPO_ROOT = path.resolve(MODULE_DIR, '..', '..', '..');
 
 /**
  * Diretório de skills-fonte no próprio framework (conteúdo-canônico, CORE).
- * Localizado por walk-up: procura o ancestral que contém
- * `skills/process-ai/SKILL.md`. Robusto ao offset `dist/` do build (o adapter
- * mora em <pkg>/dist/toolkit/... mas as skills vivem em <pkg>/skills — contagem
- * fixa de '..' quebrava no pacote publicado, bug latente desde 1.1 só detectado
- * pelo smoke de consumer-install). Fallback: REPO_ROOT/skills (comportamento
- * prévio em source mode).
+ * Localizado via package-root (findPackageRoot): bounded ao package e robusto a
+ * source vs dist. Se skills/ faltar (pacote quebrado), discoverSourceSkills falha
+ * loud com o path certo — o walk-up irrestrito anterior podia pegar skills/ alheio
+ * (fork/clone num ancestor) silenciosamente. Fallback: REPO_ROOT/skills (source).
  */
-const SOURCE_SKILLS_DIR: string = (() => {
-  let dir = MODULE_DIR;
-  for (let i = 0; i < 10; i++) {
-    try {
-      if (statSync(path.join(dir, 'skills', 'process-ai', 'SKILL.md')).isFile()) {
-        return path.join(dir, 'skills');
-      }
-    } catch {
-      // não neste nível — continua subindo
-    }
-    const parent = path.dirname(dir);
-    if (parent === dir) break; // raiz do filesystem
-    dir = parent;
-  }
-  return path.join(REPO_ROOT, 'skills'); // fallback (source mode)
-})();
+const SOURCE_SKILLS_DIR: string = path.join(findPackageRoot(MODULE_DIR) ?? REPO_ROOT, 'skills');
 
 /** Padrão de skills do framework: condutor `process-ai` + especialistas `process-ai-*`. */
 const SKILL_DIR_PATTERN = /^process-ai(-.+)?$/;

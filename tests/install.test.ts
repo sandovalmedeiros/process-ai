@@ -15,18 +15,49 @@ import { scaffoldConfig, runInstall, formatInstallSummary } from '../toolkit/src
 import { readConfig } from '../toolkit/src/pack-loader.ts';
 import { ClaudeCodeAdapter } from '../toolkit/adapters/claude-code/adapter.ts';
 
+const REPO_ROOT = path.resolve(import.meta.dirname, '..');
+
 // ---- scaffoldConfig ----
 
-test('scaffoldConfig: escreve .process-ai/config com cabeçalho read-only + chaves', async () => {
+test('scaffoldConfig: escreve .process-ai/config com cabeçalho read-only + chaves (opts explícitos)', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-scaffold-'));
   try {
-    const r = await scaffoldConfig(tmp);
+    const r = await scaffoldConfig(tmp, { activePack: 'bpmn-sipoc', packVersion: '1.0.0', processAiVersion: '0.2.1' });
     const cfg = await fs.readFile(r.configPath, 'utf8');
     assert.match(cfg, /Installer-managed/i);
     assert.match(cfg, /regenerado a cada install/i);
-    assert.match(cfg, /process_ai_version\s*=\s*"0\.0\.0"/);
+    assert.match(cfg, /process_ai_version\s*=\s*"0\.2\.1"/);
     assert.match(cfg, /active_pack\s*=\s*"bpmn-sipoc"/);
     assert.match(cfg, /pack_version\s*=\s*"1\.0\.0"/);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('F3: scaffoldConfig sem processAiVersion usa a versão real do package.json (não "0.0.0")', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-scaffold-ver-'));
+  try {
+    const r = await scaffoldConfig(tmp); // sem opts → default = FRAMEWORK_VERSION
+    const cfg = await fs.readFile(r.configPath, 'utf8');
+    const pkgVersion = JSON.parse(await fs.readFile(path.join(REPO_ROOT, 'package.json'), 'utf8')).version;
+    assert.match(
+      cfg,
+      new RegExp(`process_ai_version\\s*=\\s*"${pkgVersion.replace(/\./g, '\\.')}"`),
+      `config deve estampar a versão real (${pkgVersion}), não "0.0.0"`,
+    );
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('F8: scaffoldConfig ESCAPA valores TOML — newline/aspas não injetam chaves', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-scaffold-esc-'));
+  try {
+    // valor malicioso: tenta criar uma 2ª chave active_pack via newline
+    await scaffoldConfig(tmp, { activePack: 'evil\nactive_pack = "INJECTED"' });
+    const cfg = await fs.readFile(path.join(tmp, '.process-ai', 'config'), 'utf8');
+    const activePackLines = cfg.match(/^active_pack = /gm) ?? [];
+    assert.equal(activePackLines.length, 1, 'newline no valor não deve criar uma 2ª chave active_pack');
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

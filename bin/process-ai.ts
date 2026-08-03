@@ -44,7 +44,7 @@ import {
   resume,
 } from '../toolkit/src/checkpoint.ts';
 import { reportConfidence, formatConfidenceReport } from '../toolkit/src/report.ts';
-import { runInstall, formatInstallSummary } from '../toolkit/src/install.ts';
+import { runInstall, formatInstallSummary, findPackageRoot } from '../toolkit/src/install.ts';
 
 // ---- Tipos ----
 
@@ -123,6 +123,9 @@ function sameRealpath(a: string, b: string): boolean {
     return false;
   }
 }
+
+/** Package root do framework (guard de self-install do subcomando `install`). */
+const PACKAGE_ROOT = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
 
 /**
  * Parser de flags puro (sem IO): suporta `--flag valor` e `--flag=valor`.
@@ -310,6 +313,13 @@ export async function dispatch(
       // Bare `process-ai` ou `process-ai install [--target]` → install no projeto-alvo.
       // target default = root (cwd); runInstall orquestra skills + config installer-managed.
       const target = path.resolve(cmd.target ?? root);
+      // Guard de self-install (espelha bootstrap.ts): recusa instalar no próprio
+      // repo/package do framework — poluiria .process-ai/ + .claude/skills/ do source.
+      if (PACKAGE_ROOT && sameRealpath(target, PACKAGE_ROOT)) {
+        throw new Error(
+          `Recusado: --target aponta para o próprio repositório do framework (${PACKAGE_ROOT}). Aponte --target para outro diretório de projeto.`,
+        );
+      }
       const result = await runInstall(adapter, target);
       return { ok: true, output: formatInstallSummary(result) };
     }

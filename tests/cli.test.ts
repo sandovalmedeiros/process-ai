@@ -144,6 +144,14 @@ test('dispatch install: instala skills + .process-ai/config no target; output é
   }
 });
 
+test('F1: dispatch install recusa self-install no repo/package do framework (guard)', async () => {
+  const adapter = new ClaudeCodeAdapter({ cwd: REPO_ROOT });
+  await assert.rejects(
+    dispatch({ kind: 'install', target: REPO_ROOT }, adapter, REPO_ROOT),
+    /próprio repositório do framework/i,
+  );
+});
+
 // ---- dispatch (integration, adapter real com cwd=tmpdir) ----
 
 test('AC4: propose lê payload de arquivo → CommitResult com sha256/path; artefato em _process-ai_output/', async () => {

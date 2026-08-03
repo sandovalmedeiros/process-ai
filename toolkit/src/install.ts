@@ -25,9 +25,50 @@
  * Idempotente: re-run é seguro (config regenerado determinístico; config.user
  * preservado; installSkills já é idempotente por design).
  */
-import { promises as fs } from 'node:fs';
+import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { EngineAdapter } from './engine-adapter.ts';
+
+/**
+ * Encontra o package root do framework (dir com `package.json` name "process-ai")
+ * subindo a partir de `startDir`. Robusto a source vs dist (módulos moram em
+ * subdirs de profundidade variável) e BOUNDED ao package — não escala para
+ * node_modules/consumer se skills/ faltar (classe de bug do walk-up irrestrito).
+ * Síncrono; chamado no import-time. Retorna null se não achar.
+ */
+export function findPackageRoot(startDir: string): string | null {
+  let dir = startDir;
+  for (let i = 0; i < 12; i++) {
+    try {
+      const pkg = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
+      if (pkg?.name === 'process-ai') return dir;
+    } catch {
+      // sem package.json aqui (ou JSON inválido) — sobe
+    }
+    const parent = path.dirname(dir);
+    if (parent === dir) break; // raiz do filesystem
+    dir = parent;
+  }
+  return null;
+}
+
+/** Versão do framework (lida do package.json do próprio package). */
+const FRAMEWORK_VERSION: string = (() => {
+  const pkgRoot = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)));
+  if (!pkgRoot) return '0.0.0';
+  try {
+    return JSON.parse(readFileSync(path.join(pkgRoot, 'package.json'), 'utf8'))?.version ?? '0.0.0';
+  } catch {
+    return '0.0.0';
+  }
+})();
+
+/** Escapa valor pra TOML basic string (double-quoted): neutraliza `\`, `"`, CR/LF.
+ *  Previne corrupção/injeção de chaves via valores (readConfig é parser linha-a-linha). */
+function escapeTomlString(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]+/g, ' ');
+}
 
 // ---- scaffoldConfig ----
 
@@ -85,9 +126,9 @@ export async function scaffoldConfig(
   const configPath = path.join(dotDir, 'config');
   const configUserPath = path.join(dotDir, 'config.user');
 
-  const activePack = opts.activePack ?? 'bpmn-sipoc';
-  const packVersion = opts.packVersion ?? '1.0.0';
-  const processAiVersion = opts.processAiVersion ?? '0.0.0';
+  const activePack = escapeTomlString(opts.activePack ?? 'bpmn-sipoc');
+  const packVersion = escapeTomlString(opts.packVersion ?? '1.0.0');
+  const processAiVersion = escapeTomlString(opts.processAiVersion ?? FRAMEWORK_VERSION);
 
   // config: regenerado a cada install (installer-managed).
   const body =
