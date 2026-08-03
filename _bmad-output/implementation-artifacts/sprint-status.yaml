@@ -81,4 +81,31 @@ development_status:
   3-3-pack-padrao-bpmn-sipoc: done
   3-4-distribuicao-npm-bootstrap: done
   3-5-docs-contribuidor-packs-adapters: done
-  epic-3-retrospective: optional
+  epic-3-retrospective: done
+  # epic-3-retrospective -> done em 2026-08-03 (primeira retro do projeto; doc: epic-3-retro-2026-08-03.md)
+
+action_items:
+  - epic: 3
+    action: "Self-check gate antes de done — Dev Agent Record preenchido + ACs com evidência antes de marcar done"
+    owner: "Amelia"
+    status: open
+  - epic: 3
+    action: "Smoke test de consumer-install (npm pack -> install em temp -> process-ai --help)"
+    owner: "Amelia"
+    status: open
+  - epic: 3
+    action: "Enforcement estrito do schema-núcleo (story dedicada, decisão D1) — auditar payloads, ativar required, fechar additionalProperties"
+    owner: "Winston"
+    status: open
+  - epic: 3
+    action: "Triagem do hardening [Low] do deferred-work por arquivo-gatilho"
+    owner: "Mary"
+    status: open
+  - epic: 3
+    action: "Corrigir drift de docs (require para import ESM; contagem de testes stale) + teste leve de contagem"
+    owner: "Paige"
+    status: open
+  - epic: 3
+    action: "Claims de contract/doc validadas contra consumo (guards no estilo doesNotMatch)"
+    owner: "Winston"
+    status: open
