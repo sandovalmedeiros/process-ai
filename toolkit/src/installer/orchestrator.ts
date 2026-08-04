@@ -144,6 +144,7 @@ export class Installer {
    */
   async uninstall(req: UninstallRequest): Promise<InstallOutcome> {
     const targetDir = path.resolve(req.targetDir);
+    assertNotSelfInstall(targetDir);
     const state = await detectInstallationState(targetDir, getFrameworkVersion());
     const wasInstalled = state.kind !== 'clean';
 
@@ -187,7 +188,7 @@ export function formatOutcome(o: InstallOutcome): string {
     case 'repaired': {
       const skills = o.files && o.files.length > 0 ? `${o.files.length} skill(s)` : '(nenhuma)';
       const lines = [
-        `${o.outcome === 'installed' ? '✓' : '✓'} process-ai ${labelFor(o.outcome)} no projeto-alvo: ${o.targetDir}`,
+        `✓ process-ai ${labelFor(o.outcome)} no projeto-alvo: ${o.targetDir}`,
         `  Skills: ${skills}  ·  IDE: ${o.ide ?? '?'}  ·  Slash: /process-ai`,
         `  Config: .process-ai/config (+ config.user preservado)  ·  Manifest: .process-ai/install-manifest.toml`,
       ];

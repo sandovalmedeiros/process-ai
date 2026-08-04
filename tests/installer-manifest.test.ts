@@ -107,6 +107,9 @@ test('readManifest: tolerante a comentários e linhas em branco', async () => {
     );
     const got = await readManifest(dir);
     assert.equal(got?.install.install_type, 'update');
+    // a linha framework_version carrega um comentário inline (`# inline`) — provar
+    // que ele é descartado e o valor é exatamente "0.2.1" (round-trip correto).
+    assert.equal(got?.install.framework_version, '0.2.1');
     assert.equal(got?.files.length, 1);
   });
 });
@@ -167,6 +170,53 @@ test('computeIntegrity: arquivo sumiu → missing; editado → modified', async 
     await fs.writeFile(abs, 'editado', 'utf8');
     report = await computeIntegrity(dir, manifest);
     assert.ok(report.modified.includes(rel));
+  });
+});
+
+test('readManifest: entrada [[files]] parcial (sem sha256) → null (força re-install)', async () => {
+  await withTmp(async (dir) => {
+    const rel = path.join(dir, MANIFEST_REL_PATH);
+    await fs.mkdir(path.dirname(rel), { recursive: true });
+    await fs.writeFile(
+      rel,
+      [
+        '[install]',
+        'framework_version = "0.2.1"',
+        'installed_at = "2026-08-04T12:00:00.000Z"',
+        'install_type = "fresh"',
+        'ide = "claude-code"',
+        '[[files]]',
+        'path = ".claude/skills/process-ai/SKILL.md"',
+        // sha256 ausente — entrada truncada
+        '',
+      ].join('\n'),
+      'utf8',
+    );
+    assert.equal(await readManifest(dir), null);
+  });
+});
+
+test('readManifest: install_type inválido → null', async () => {
+  await withTmp(async (dir) => {
+    await writeManifest(dir, SAMPLE);
+    // sobrescreve só o install_type p/ um valor fora do enum
+    const rel = path.join(dir, MANIFEST_REL_PATH);
+    let raw = await fs.readFile(rel, 'utf8');
+    raw = raw.replace('install_type = "fresh"', 'install_type = "garbage"');
+    await fs.writeFile(rel, raw, 'utf8');
+    assert.equal(await readManifest(dir), null);
+  });
+});
+
+test('readManifest: sha256 não-hex → null', async () => {
+  await withTmp(async (dir) => {
+    const bad: Manifest = {
+      install: SAMPLE.install,
+      files: [{ path: '.claude/skills/process-ai/SKILL.md', sha256: 'z'.repeat(64) }],
+    };
+    await writeManifest(dir, bad);
+    // writeManifest escapa e preserva o valor; readManifest deve rejeitar (não-hex)
+    assert.equal(await readManifest(dir), null);
   });
 });
 

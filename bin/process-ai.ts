@@ -489,12 +489,21 @@ async function runInteractive(
 ): Promise<Extract<ParsedCommand, { kind: 'install' }>> {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const resolved = await gatherInstallOptions(rl, {
-      targetDir: cmd.target ?? root,
-      ide: cmd.ide ?? 'claude-code',
-      activePack: cmd.pack ?? 'bpmn-sipoc',
-      full: cmd.full ?? true,
-    });
+    let resolved;
+    try {
+      resolved = await gatherInstallOptions(rl, {
+        targetDir: cmd.target ?? root,
+        ide: cmd.ide ?? 'claude-code',
+        activePack: cmd.pack ?? 'bpmn-sipoc',
+        full: cmd.full ?? true,
+      });
+    } catch {
+      // EOF / stdin fechado (Ctrl+D, pipe cerrado) — rejeição do readline vira
+      // mensagem acionável em vez de stack cru.
+      throw new Error(
+        'Entrada interativa encerrada (EOF/stdin fechado). Rode `process-ai install --target <dir>` para instalar sem prompts.',
+      );
+    }
     return {
       kind: 'install',
       target: resolved.targetDir,

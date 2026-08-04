@@ -70,6 +70,56 @@ export async function sha256File(absPath: string): Promise<string> {
   return createHash('sha256').update(buf).digest('hex');
 }
 
+// ---- validação + parse de valor (hardening do parser) ----
+
+const VALID_INSTALL_TYPES: ReadonlySet<string> = new Set(['fresh', 'update', 'repair']);
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+
+/**
+ * Parse de um valor TOML (tudo após o `=`): basic string entre aspas (descasca,
+ * desescapa `\\`/`\"` — round-trip simétrico com `escapeTomlString` — e ignora
+ * comentário inline após a aspa de fechamento) ou valor sem aspas (strip do `#`
+ * inline). Robusto a comentários inline e valores com aspas/barra invertida.
+ */
+function parseTomlValue(raw: string): string {
+  const s = raw.trim();
+  if (!s.startsWith('"')) {
+    const hash = s.indexOf('#');
+    return (hash >= 0 ? s.slice(0, hash) : s).trim();
+  }
+  // basic string: escaneia até a aspa de fechamento, desescapando.
+  let i = 1;
+  let out = '';
+  let closed = false;
+  while (i < s.length) {
+    const c = s[i];
+    if (c === '\\' && i + 1 < s.length) {
+      const next = s[i + 1];
+      out +=
+        next === '\\'
+          ? '\\'
+          : next === '"'
+            ? '"'
+            : next === 'n'
+              ? '\n'
+              : next === 't'
+                ? '\t'
+                : next === 'r'
+                  ? '\r'
+                  : next;
+      i += 2;
+      continue;
+    }
+    if (c === '"') {
+      closed = true;
+      break;
+    }
+    out += c;
+    i++;
+  }
+  return closed ? out : s; // string não fechada → brute (validator rejeita)
+}
+
 // ---- readManifest (parser linha-a-linha) ----
 
 /**
@@ -82,19 +132,26 @@ export async function readManifest(targetDir: string): Promise<Manifest | null> 
   let raw: string;
   try {
     raw = await fs.readFile(abs, 'utf8');
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ENOENT') return null;
-    throw e;
+  } catch {
+    // ausente (ENOENT), sem permissão (EACCES), é diretório (EISDIR), etc. →
+    // trata como ausente para o caller re-instalar (em vez de stack cru).
+    return null;
   }
 
   const install: Partial<ManifestInstall> = {};
   const files: ManifestFile[] = [];
   let section: 'none' | 'install' | 'files' = 'none';
   let cur: Partial<ManifestFile> | null = null;
+  let malformed = false; // entrada [[files]] parcial (truncada/corrompida)
 
   const commitCurrent = (): void => {
-    if (section === 'files' && cur && cur.path && cur.sha256) {
-      files.push({ path: cur.path, sha256: cur.sha256 });
+    if (section === 'files' && cur) {
+      if (cur.path && cur.sha256) {
+        files.push({ path: cur.path, sha256: cur.sha256 });
+      } else if (cur.path || cur.sha256) {
+        // bloco [[files]] com apenas um dos campos → manifest truncado
+        malformed = true;
+      }
     }
     cur = null;
   };
@@ -124,11 +181,7 @@ export async function readManifest(targetDir: string): Promise<Manifest | null> 
     const eq = line.indexOf('=');
     if (eq === -1) continue;
     const key = line.slice(0, eq).trim();
-    let val = line.slice(eq + 1).trim();
-    // descasca aspas duplas (basic string TOML)
-    if (val.length >= 2 && val.startsWith('"') && val.endsWith('"')) {
-      val = val.slice(1, -1);
-    }
+    const val = parseTomlValue(line.slice(eq + 1));
 
     if (section === 'install') {
       if (
@@ -147,21 +200,27 @@ export async function readManifest(targetDir: string): Promise<Manifest | null> 
   }
   commitCurrent();
 
+  const installType = install.install_type;
   if (
+    malformed ||
     !install.framework_version ||
     !install.installed_at ||
-    !install.install_type ||
-    !install.ide
+    !installType ||
+    !install.ide ||
+    !VALID_INSTALL_TYPES.has(installType)
   ) {
-    // manifest presente mas incompleto/malformado — trata como ausente (reinstala)
+    // malformado/incompleto/entrada parcial/tipo inválido → força re-install
     return null;
+  }
+  for (const f of files) {
+    if (!SHA256_HEX.test(f.sha256)) return null; // hash malformado → força re-install
   }
 
   return {
     install: {
       framework_version: install.framework_version,
       installed_at: install.installed_at,
-      install_type: install.install_type as InstallType,
+      install_type: installType as InstallType, // validado em VALID_INSTALL_TYPES acima
       ide: install.ide,
       active_pack: install.active_pack ?? '',
     },
@@ -224,9 +283,11 @@ export async function computeIntegrity(
     } catch (e) {
       if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
         missing.push(f.path);
-        continue;
+      } else {
+        // presente mas ilegível (EACCES/EISDIR) → sinaliza modified p/ reparo
+        modified.push(f.path);
       }
-      throw e;
+      continue;
     }
     if (hash !== f.sha256) modified.push(f.path);
   }
