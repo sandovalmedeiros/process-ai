@@ -1,6 +1,6 @@
 {
   "name": "process-ai",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Framework method-agnóstico de mapeamento de processos ponta-a-ponta — equipe de agentes IA (Déa+Bento+Miguel+Júlia+Zanoni) que conduz o usuário por Q&A até documentar o processo completo (SIPOC→hierarquia→BPMN→POPs) com confiança 🟢🟡🔴 verificável e rastreabilidade bidirecional.",
   "type": "module",
   "engines": {
@@ -43,7 +43,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/process-ai/process-ai"
+    "url": "https://github.com/sandovalmedeiros/process-ai"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
