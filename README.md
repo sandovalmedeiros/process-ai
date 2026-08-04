@@ -6,7 +6,7 @@ Uma equipe de 5 agentes — Déa, Bento, Miguel, Júlia e Zanoni — conduz uma 
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-241%20passing-brightgreen)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-309%20passing-brightgreen)](./tests/)
 
 ---
 
@@ -38,19 +38,29 @@ cd meu-projeto
 npx process-ai
 ```
 
-`npx process-ai` instala o framework no diretório atual:
+`npx process-ai` instala o framework no diretório atual. Em **TTY** (terminal interativo) abre um prompt curto (diretório, method-pack, IDE); em **CI** (não-TTY) ou com flags, instala headless com defaults.
+
+O que o install faz:
 
 - copia as skills (Déa + 4 especialistas) para `.claude/skills/`;
-- cria `.process-ai/config` (installer-managed, regenerado a cada install) e `.process-ai/config.user` (seus overrides — nunca sobrescritos pelo installer).
+- cria `.process-ai/config` (installer-managed, regenerado a cada install) e `.process-ai/config.user` (seus overrides — nunca sobrescritos pelo installer);
+- escreve `.process-ai/install-manifest.toml` — o **manifest de instalação** (versão, IDE, pack ativo, e cada arquivo com seu SHA-256), que habilita `update`/`status` e a detecção de arquivos modificados.
 
 A instalação é **idempotente** — pode ser re-rodeada sem efeito colateral. Para instalar como dependência de projeto, `npm install process-ai` executa o mesmo install no `postinstall`.
 
 ```bash
-npx process-ai                      # install no diretório atual
-npx process-ai install --target .   # forma explícita
+npx process-ai                                       # install (interativo em TTY; headless em CI)
+npx process-ai install --target <dir>                # install explícito (headless)
+npx process-ai install --status                      # estado da instalação (não escreve)
+npx process-ai update   [--target <dir>]             # atualiza/repara instalação existente
+npx process-ai uninstall [--target <dir>] [--purge]  # remove skills + manifest
 ```
 
-**Por que instalar?** O Claude Code (engine v1) descobre slash-commands pelos arquivos em `.claude/skills/` do projeto. O `npx process-ai` coloca as skills **fisicamente** em `.claude/skills/process-ai/SKILL.md` e faz o scaffolding do config. Em engines futuros (Codex, Cursor, Gemini CLI), cada adapter fará o equivalente.
+Flags de install: `--target <dir>` (default: cwd), `--ide <id>` (v1: `claude-code`), `--pack <id>` (default: `bpmn-sipoc`), `--full` (instala tudo, não-interativo), `--status` (apenas relata estado).
+
+**Update** detecta a instalação prévia via manifest: re-instala se a versão mudou (`stale`) ou se algum arquivo foi editado (`modified`), fazendo **backup `.bak`** dos editados antes de sobrescrever. **Uninstall** remove skills + manifest mas **preserva** `.process-ai/config` e o estado de sessão; `--purge` remove todo o `.process-ai/`.
+
+**Por que instalar?** O Claude Code (engine v1) descobre slash-commands pelos arquivos em `.claude/skills/` do projeto. O `npx process-ai` coloca as skills **fisicamente** em `.claude/skills/process-ai/SKILL.md` e faz o scaffolding do config. Em engines futuros (Codex, Cursor, Gemini CLI), cada adapter fará o equivalente — a porta `IdeSetup` (ver [`docs/toolkit.md`](./docs/toolkit.md)) isola esse conhecimento.
 
 Após a instalação, o slash-command `/process-ai` está disponível no Claude Code dentro do projeto (aceite o diálogo de workspace trust).
 
@@ -164,7 +174,7 @@ Cada pack declara schemas **aditivos** (estendem o schema-núcleo sem redefinir)
 git clone https://github.com/sandovalmedeiros/process-ai.git
 cd process-ai
 npm install
-npm test          # 241 testes, 0 falhas
+npm test          # 309 testes, 0 falhas
 npm run typecheck # tsc --noEmit
 ```
 
@@ -178,7 +188,7 @@ process-ai/
 ├── skills/                 # Skills dos agentes
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1
-├── tests/                  # Testes determinísticos (241)
+├── tests/                  # Testes determinísticos (309)
 └── docs/                   # Documentação
 ```
 

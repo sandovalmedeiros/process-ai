@@ -23,7 +23,7 @@ Checkpoint é a **fonte da verdade**. Commit + checkpoint são **atômicos** (WA
 Formato on-disk do BPMN é **XML 2.0 toolkit-owned**. Render é derivação (nunca a fonte).
 
 ### AD-7 — Distribuição
-Pacote **npm**. Bootstrap usa o adapter para registrar skills/slash-commands.
+Pacote **npm**. O **installer** (`toolkit/src/installer/`) orquestra a instalação via porta `IdeSetup` (install/update/uninstall/status), escrevendo skills em `.claude/skills/` + `.process-ai/config` + `.process-ai/install-manifest.toml` (com integridade SHA-256). `IdeSetup` é o análogo **install-time** de `EngineAdapter` — cada IDE (v1: Claude Code, via `ClaudeCodeIdeSetup`) implementa seu layout sem o core conhecer a IDE concreta.
 
 ## Módulos
 
@@ -35,6 +35,8 @@ Pacote **npm**. Bootstrap usa o adapter para registrar skills/slash-commands.
 | `report.ts` | Relatório de confiança consolidado (FR-16) |
 | `schema-core.ts` | Schema-núcleo + validador (AD-2) |
 | `pack-loader.ts` | Loader de method-packs (FR-17) |
+| `ide-setup.ts` | **Porta install-time** (`IdeSetup`) — análoga a `EngineAdapter` para instalação multi-IDE |
+| `installer/` | Orquestrador de install/update/uninstall/status + manifest TOML com integridade SHA-256 |
 
 ## Pipeline de commit
 
@@ -63,4 +65,4 @@ npm test                    # Roda todos os testes (node:test)
 node --test tests/commit.test.ts   # Teste específico
 ```
 
-Testes são determinísticos, sem LLM. Usam `dispatch(parseArgs(...), adapter, root)` para simular a CLI.
+Testes são determinísticos, sem LLM. Usam `dispatch(parseArgs(...), adapter, root, installer)` para simular a CLI (commands de runtime pelo `adapter`; install/update/uninstall pelo `installer`).
