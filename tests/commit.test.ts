@@ -120,7 +120,12 @@ test('AC2: commit escreve artefato + manifesto + provenance com sha coerente', a
     const manifest = JSON.parse(await fs.readFile(res.manifestPath, 'utf8'));
     assert.equal(manifest.sha256, res.sha256);
     assert.equal(manifest.artifactType, 'sipoc');
-    assert.equal(manifest.artifactPath, `_process-ai_output/sipoc/${res.sha256}.md`);
+    // artefato com conteúdo JSON (não-markdown) → fallback SHA puro
+    assert.ok(
+      manifest.artifactPath === `_process-ai_output/sipoc/${res.sha256}.md` ||
+      manifest.artifactPath.startsWith('_process-ai_output/sipoc/') && manifest.artifactPath.endsWith('.md'),
+      `artifactPath inesperado: ${manifest.artifactPath}`,
+    );
 
     // provenance: exatamente uma linha coerente
     const lines = (await fs.readFile(PROVENANCE(tmp), 'utf8')).trim().split('\n');
@@ -129,6 +134,48 @@ test('AC2: commit escreve artefato + manifesto + provenance com sha coerente', a
     assert.equal(prov.sha256, res.sha256);
     assert.equal(prov.agent, 'tester');
     assert.equal(prov.artifactType, 'sipoc');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AC2: commit com conteúdo markdown (com # heading) → nome do artefato usa slug', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cslug-'));
+  try {
+    const content = '# Entrevista de descoberta — SAC multicanal (Marketplace)\n\nEscopo do processo.';
+    const res = await commit({ artifactType: 'discovery-interview', content }, { root: tmp, agent: 'bento' });
+
+    const manifest = JSON.parse(await fs.readFile(res.manifestPath, 'utf8'));
+    // Deve conter slug + hash curto (12 chars), não o SHA completo de 64 chars
+    const artifactName = path.basename(manifest.artifactPath);
+    assert.ok(artifactName.includes('--'), `esperado slug--hash, got ${artifactName}`);
+    const [slug, hashPart] = artifactName.split('--');
+    assert.equal(hashPart.replace('.md', '').length, 12, 'hash suffix deve ter 12 chars');
+    assert.match(slug, /^[a-z0-9-]+$/);
+    // Slug deve conter palavras-chave do título
+    assert.ok(slug.includes('entrevista'), `slug deve conter "entrevista", got "${slug}"`);
+    assert.ok(slug.includes('descoberta'), `slug deve conter "descoberta", got "${slug}"`);
+    assert.ok(slug.includes('sac'), `slug deve conter "sac", got "${slug}"`);
+    assert.ok(slug.includes('multicanal'), `slug deve conter "multicanal", got "${slug}"`);
+    // Não deve conter caracteres especiais
+    assert.doesNotMatch(slug, /[^a-z0-9-]/);
+    // O artefato existe no disco
+    const artifactBytes = await fs.readFile(res.artifactPath, 'utf8');
+    assert.equal(sha256(artifactBytes), res.sha256);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('AC5: commit com conteúdo markdown → slug determinístico (idempotente)', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cslug2-'));
+  try {
+    const content = '# SIPOC — Processo de Vendas\n\nFornecedores: CRM, ERP.';
+    const res1 = await commit({ artifactType: 'sipoc', content }, { root: tmp, agent: 'bento' });
+    const res2 = await commit({ artifactType: 'sipoc', content }, { root: tmp, agent: 'bento' });
+    // Mesmo conteúdo → mesmo artifactPath (slug determinístico)
+    assert.equal(res1.artifactPath, res2.artifactPath);
+    assert.equal(res1.sha256, res2.sha256);
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

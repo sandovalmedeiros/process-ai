@@ -368,6 +368,108 @@ async function appendProvenance(
   await fs.appendFile(provenancePath, provenanceLine(entry) + '\n', 'utf8');
 }
 
+// ---- Nomes de artefato legíveis (slug derivado do conteúdo) ----
+
+/** Mapa de transliteração: caracteres acentuados → ASCII. */
+const TRANSLIT: Record<string, string> = {
+  à: 'a', á: 'a', â: 'a', ã: 'a', ä: 'a', å: 'a', æ: 'ae',
+  è: 'e', é: 'e', ê: 'e', ë: 'e',
+  ì: 'i', í: 'i', î: 'i', ï: 'i',
+  ò: 'o', ó: 'o', ô: 'o', õ: 'o', ö: 'o', ø: 'o',
+  ù: 'u', ú: 'u', û: 'u', ü: 'u',
+  ñ: 'n', ç: 'c', ß: 'ss', ÿ: 'y',
+  œ: 'oe', þ: 'th', ð: 'd', đ: 'd', ħ: 'h', ł: 'l',
+  š: 's', ž: 'z',
+  // Maiúsculas
+  À: 'a', Á: 'a', Â: 'a', Ã: 'a', Ä: 'a', Å: 'a', Æ: 'ae',
+  È: 'e', É: 'e', Ê: 'e', Ë: 'e',
+  Ì: 'i', Í: 'i', Î: 'i', Ï: 'i',
+  Ò: 'o', Ó: 'o', Ô: 'o', Õ: 'o', Ö: 'o', Ø: 'o',
+  Ù: 'u', Ú: 'u', Û: 'u', Ü: 'u',
+  Ñ: 'n', Ç: 'c', Ÿ: 'y',
+  Œ: 'oe', Þ: 'th', Ð: 'd', Đ: 'd', Ħ: 'h', Ł: 'l',
+  Š: 's', Ž: 'z',
+};
+
+/** Comprimento máximo do slug (antes do hash). */
+const SLUG_MAX_LEN = 60;
+
+/**
+ * Slugify: converte texto arbitrário para `[a-z0-9]+(-[a-z0-9]+)*`.
+ *
+ * Pipeline: trim → transliterar acentos → lowercase → substituir não-alfanuméricos
+ * por `-` → colapsar hífens consecutivos → remover hífens das bordas.
+ * Retorna string vazia se o resultado não tiver caracteres alfanuméricos.
+ */
+function slugify(text: string): string {
+  let s = text.trim();
+  if (s.length === 0) return '';
+
+  // Transliteração caractere a caractere (evita regex com ranges Unicode complexos).
+  let out = '';
+  for (const ch of s) {
+    out += TRANSLIT[ch] ?? ch;
+  }
+  s = out;
+
+  s = s.toLowerCase();
+  // Substitui tudo que não for [a-z0-9] por hífen.
+  s = s.replace(/[^a-z0-9]+/g, '-');
+  // Remove hífens das bordas.
+  s = s.replace(/^-+/, '').replace(/-+$/, '');
+
+  return s;
+}
+
+/**
+ * Extrai o título do conteúdo markdown (primeiro heading `# ...`) ou,
+ * se não houver heading, a primeira linha não-vazia truncada.
+ * Retorna string vazia se não conseguir extrair nada útil.
+ */
+function extractTitle(content: unknown): string {
+  if (typeof content !== 'string') return '';
+  const lines = content.split(/\r?\n/);
+  // Procura o primeiro heading nível 1.
+  for (const line of lines) {
+    const m = /^#\s+(.+)$/.exec(line);
+    if (m) {
+      const title = m[1].trim();
+      if (title.length > 0) return title;
+    }
+  }
+  // Fallback: primeira linha não-vazia (até 80 chars).
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length > 0 && !trimmed.startsWith('#')) {
+      return trimmed.length <= 80 ? trimmed : trimmed.slice(0, 80);
+    }
+  }
+  return '';
+}
+
+/**
+ * Deriva um nome de arquivo legível para o artefato.
+ *
+ * Formato: `{slug}--{sha256_prefix12}{ext}` quando há título extraível;
+ * fallback para `{sha256}{ext}` (comportamento pré-v0.3.2) quando não há.
+ *
+ * Determinístico: mesmo conteúdo → mesmo slug → mesmo nome de arquivo
+ * (preserva idempotência AC5).
+ */
+function deriveArtifactName(content: unknown, digest: string, ext: string): string {
+  const title = extractTitle(content);
+  const slug = title ? slugify(title) : '';
+  if (!slug) return `${digest}${ext}`; // fallback
+
+  const truncated = slug.length > SLUG_MAX_LEN
+    ? slug.slice(0, slug.lastIndexOf('-', SLUG_MAX_LEN) > 0
+        ? slug.lastIndexOf('-', SLUG_MAX_LEN)
+        : SLUG_MAX_LEN)
+    : slug;
+  const shortHash = digest.slice(0, 12);
+  return `${truncated}--${shortHash}${ext}`;
+}
+
 // ---- commit: o orquestrador (AD-1) ----
 
 export interface CommitOptions {
@@ -401,7 +503,7 @@ export interface CommitOptions {
  * (🟢→🟡 por remoção concorrente) não ocorre (decisão code-review 1.4).
  *
  * Saídas (todas sob `root`):
- *  - artefato:   `_process-ai_output/<artifactType>/<sha256>.<ext>` (content-addressed)
+ *  - artefato:   `_process-ai_output/<artifactType>/<slug>--<hash>.md` (slug derivado do título)
  *  - manifesto:  `.process-ai/manifests/<artifactType>-<sha256>.json` ({ sha256, artifactType, artifactPath })
  *  - provenance: `.process-ai/provenance.jsonl` (append idempotente por (sha256, agent, artifactType))
  *  - checkpoint: `.process-ai/checkpoint.json` (atualizado atomicamente via WAL)
@@ -495,7 +597,8 @@ export async function commit(
 
   // 4) PATHS + ESCOPO (zero IO — defense-in-depth) — AC1/AC3
   // D1: manifesto com prefixo artifactType — evita colisão cross-type (mesmo sha, tipos diferentes).
-  const artifactPath = path.join(root, OUTPUT_DIR, artifactType, `${digest}${ext}`);
+  const artifactName = deriveArtifactName(payload.content, digest, ext);
+  const artifactPath = path.join(root, OUTPUT_DIR, artifactType, artifactName);
   const manifestPath = path.join(root, META_DIR, MANIFESTS_SUBDIR, `${artifactType}-${digest}.json`);
   const provenancePath = path.join(root, META_DIR, PROVENANCE_FILE);
   assertWithinScope(artifactPath, path.join(root, OUTPUT_DIR));
