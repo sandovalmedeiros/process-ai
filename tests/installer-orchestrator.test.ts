@@ -59,7 +59,11 @@ test('install em clean → outcome installed, manifest escrito, installType fres
     const manifest = await readManifest(dir);
     assert.equal(manifest?.install.install_type, 'fresh');
     assert.equal(manifest?.install.ide, 'fake-ide');
-    assert.equal(manifest?.files.length, 1);
+    // files inclui a fake skill + arquivos do method-pack copiado do framework
+    assert.ok(manifest && manifest.files.length >= 2, `esperado ≥2 arquivos no manifest (fake skill + packs), got ${manifest?.files.length}`);
+    // Deve haver pelo menos um arquivo de pack (method-packs/)
+    const packFiles = manifest?.files.filter((f) => f.path.startsWith('method-packs/')) ?? [];
+    assert.ok(packFiles.length >= 1, `esperado ≥1 arquivo em method-packs/, got ${packFiles.length}`);
   });
 });
 
@@ -100,15 +104,17 @@ test('update em modified → backup .bak + outcome repaired', async () => {
   });
 });
 
-test('uninstall remove skills + manifest, preserva config', async () => {
+test('uninstall remove skills + packs + manifest, preserva config', async () => {
   await withTmp(async (dir) => {
     const inst = new Installer(new FakeIdeSetup());
     await inst.install({ targetDir: dir, interactive: false });
     const outcome = await inst.uninstall({ targetDir: dir });
     assert.equal(outcome.outcome, 'uninstalled');
-    assert.equal(outcome.removed?.length, 1);
+    // removed inclui .fake (IDE) + method-packs (framework)
+    assert.ok(outcome.removed && outcome.removed.length >= 2, `esperado ≥2 removidos (.fake + method-packs), got ${outcome.removed?.length}`);
     // skills e manifest removidos
     assert.equal(await fs.stat(path.join(dir, '.fake')).then(() => true).catch(() => false), false);
+    assert.equal(await fs.stat(path.join(dir, 'method-packs')).then(() => true).catch(() => false), false);
     assert.equal(await fs.stat(path.join(dir, MANIFEST_REL_PATH)).then(() => true).catch(() => false), false);
     // config preservado
     assert.equal(await fs.stat(path.join(dir, '.process-ai/config')).then(() => true).catch(() => false), true);

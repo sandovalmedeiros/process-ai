@@ -140,7 +140,7 @@ test('runInstall: instala skills + .process-ai/config; idempotente (2x run)', as
   }
 });
 
-test('runInstall: não escreve nada fora de .claude/ e .process-ai/ no target', async () => {
+test('runInstall: não escreve nada fora de .claude/, .process-ai/ e method-packs/ no target', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-runinstall-scope-'));
   try {
     const adapter = new ClaudeCodeAdapter({ cwd: tmp });
@@ -148,8 +148,8 @@ test('runInstall: não escreve nada fora de .claude/ e .process-ai/ no target', 
     const top = (await fs.readdir(tmp)).sort();
     assert.deepEqual(
       top,
-      ['.claude', '.process-ai'],
-      `install só deve criar .claude/ e .process-ai/, got ${top.join(',')}`,
+      ['.claude', '.process-ai', 'method-packs'],
+      `install só deve criar .claude/, .process-ai/ e method-packs/, got ${top.join(',')}`,
     );
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

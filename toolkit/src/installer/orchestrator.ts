@@ -22,6 +22,7 @@ import { scaffoldConfig } from '../install.ts';
 import { backupFile } from './file-ops.ts';
 import { MANIFEST_REL_PATH, writeManifest } from './manifest.ts';
 import type { InstallType, Manifest } from './manifest.ts';
+import { installMethodPacks, uninstallMethodPacks } from './pack-copy.ts';
 import { detectInstallationState } from './state.ts';
 import type { InstallState } from './state.ts';
 import { getFrameworkVersion, getPackageRoot } from './resource.ts';
@@ -97,10 +98,11 @@ export class Installer {
       }
     }
 
-    const result = await this.ideSetup.setupIde(targetDir, {
+    const ideResult = await this.ideSetup.setupIde(targetDir, {
       activePack: req.activePack,
       processAiVersion: version,
     });
+    const packFiles = await installMethodPacks(targetDir);
     await scaffoldConfig(targetDir, { activePack: req.activePack, processAiVersion: version });
 
     const manifest: Manifest = {
@@ -108,16 +110,16 @@ export class Installer {
         framework_version: version,
         installed_at: new Date().toISOString(),
         install_type: installType,
-        ide: result.ide,
+        ide: ideResult.ide,
         active_pack: req.activePack ?? 'bpmn-sipoc',
       },
-      files: result.files,
+      files: [...ideResult.files, ...packFiles],
     };
     await writeManifest(targetDir, manifest);
 
     const outcome: InstallOutcome['outcome'] =
       installType === 'fresh' ? 'installed' : installType === 'update' ? 'updated' : 'repaired';
-    return { outcome, installType, ide: result.ide, files: result.files, backed, targetDir };
+    return { outcome, installType, ide: ideResult.ide, files: [...ideResult.files, ...packFiles], backed, targetDir };
   }
 
   /** Atualiza uma instalação existente. Erro se não instalado; no-op se já atual. */
@@ -148,7 +150,9 @@ export class Installer {
     const state = await detectInstallationState(targetDir, getFrameworkVersion());
     const wasInstalled = state.kind !== 'clean';
 
-    const removed = (await this.ideSetup.uninstallIde(targetDir)).removed;
+    const ideRemoved = (await this.ideSetup.uninstallIde(targetDir)).removed;
+    const packRemoved = await uninstallMethodPacks(targetDir);
+    const removed = [...ideRemoved, ...packRemoved];
     await fs.rm(path.join(targetDir, MANIFEST_REL_PATH), { force: true });
     if (req.purge) {
       await fs.rm(path.join(targetDir, '.process-ai'), { recursive: true, force: true });

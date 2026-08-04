@@ -30,6 +30,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { EngineAdapter } from './engine-adapter.ts';
 import { atomicWrite, escapeTomlString } from './installer/file-ops.ts';
+import { installMethodPacks } from './installer/pack-copy.ts';
 
 /**
  * Encontra o package root do framework (dir com `package.json` name "process-ai")
@@ -184,6 +185,9 @@ export async function runInstall(
   // Skills + slash-commands via adapter (porta).
   await adapter.installSkills(targetDir);
   await adapter.registerSlashCommands(targetDir);
+
+  // Method-packs (framework-level, agnóstico à IDE).
+  await installMethodPacks(targetDir);
 
   // Config installer-managed.
   const scaffold = await scaffoldConfig(targetDir, opts);
