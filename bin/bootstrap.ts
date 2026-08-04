@@ -17,9 +17,8 @@
 import path from 'node:path';
 import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { ClaudeCodeAdapter } from '../toolkit/adapters/claude-code/adapter.ts';
-import type { EngineAdapter } from '../toolkit/src/engine-adapter.ts';
-import { runInstall, formatInstallSummary } from '../toolkit/src/install.ts';
+import { ClaudeCodeIdeSetup } from '../toolkit/adapters/claude-code/ide-setup.ts';
+import { Installer, formatOutcome } from '../toolkit/src/installer/orchestrator.ts';
 
 export interface BootstrapOptions {
   target: string;
@@ -160,17 +159,13 @@ export async function main(options: BootstrapOptions): Promise<void> {
     );
   }
 
-  // [CR-hardening, item 4f] Composition root: o bootstrap depende da PORTA
-  // (EngineAdapter), não do adapter concreto. ClaudeCodeAdapter é instanciado
-  // aqui (único ponto que sabe que a engine v1 é o Claude Code) e usado como
-  // EngineAdapter daqui em diante.
-  const adapter: EngineAdapter = new ClaudeCodeAdapter();
-
-  // Install consolidado (skills + config installer-managed em .process-ai/).
-  // Reusa runInstall — MESMO caminho de `process-ai install` e do postinstall,
-  // encerrando a duplicação bootstrap-vs-postinstall (retro Epic 3, AI-2).
-  const result = await runInstall(adapter, target);
-  process.stdout.write(formatInstallSummary(result));
+  // [CR-hardening, item 4f] Composition root: o bootstrap instancia o Installer
+  // com o ClaudeCodeIdeSetup (único ponto que sabe que a IDE/engine v1 é Claude
+  // Code). MESMO caminho de `process-ai install` e do postinstall (orquestrador
+  // Installer), encerrando a duplicação bootstrap-vs-postinstall (retro Epic 3, AI-2).
+  const installer = new Installer(new ClaudeCodeIdeSetup());
+  const outcome = await installer.install({ targetDir: target, interactive: false });
+  process.stdout.write(formatOutcome(outcome));
 }
 
 // Entry-point guard: só executa quando invocado diretamente como CLI

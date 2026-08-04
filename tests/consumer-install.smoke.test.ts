@@ -58,7 +58,7 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
       0,
       `bare process-ai (install) falhou: stdout=${install.stdout}\nstderr=${install.stderr}`,
     );
-    assert.match(install.stdout, /process-ai instalado/);
+    assert.match(install.stdout, /instalado/);
 
     // 4. skills instaladas
     const skill = path.join(consumer, '.claude', 'skills', 'process-ai', 'SKILL.md');
@@ -76,7 +76,23 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     const configUser = path.join(consumer, '.process-ai', 'config.user');
     assert.ok(existsSync(configUser), 'install deve criar .process-ai/config.user');
 
-    // 5b. caminho explícito `install --target` também funciona no CLI compilado
+    // 5a. manifest de instalação presente + parseável (black-box: lê o TOML).
+    const manifestPath = path.join(consumer, '.process-ai', 'install-manifest.toml');
+    assert.ok(existsSync(manifestPath), 'install deve escrever .process-ai/install-manifest.toml');
+    const manifest = readFileSync(manifestPath, 'utf8');
+    assert.match(manifest, /ide = "claude-code"/);
+    assert.match(manifest, /\[\[files\]\]/);
+
+    // 5b. `install --status` relata o estado instalado (não escreve).
+    const status = spawnSync(NODE, [cli, 'install', '--status'], { encoding: 'utf8', cwd: consumer });
+    assert.equal(status.status, 0, `install --status falhou: ${status.stdout}\n${status.stderr}`);
+    assert.match(status.stdout, /instalado|atualizado/i);
+
+    // 5c. `update` é exit 0 (idempotente neste cenário).
+    const update = spawnSync(NODE, [cli, 'update', '--target', consumer], { encoding: 'utf8', cwd: consumer });
+    assert.equal(update.status, 0, `update falhou: ${update.stdout}\n${update.stderr}`);
+
+    // 5d. caminho explícito `install --target` também funciona no CLI compilado
     //     (cobertura do subcommand, não só bare — plano pedia testar ambos).
     const explicit = spawnSync(NODE, [cli, 'install', '--target', consumer], {
       encoding: 'utf8',
@@ -87,7 +103,7 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
       0,
       `process-ai install --target falhou: stdout=${explicit.stdout}\nstderr=${explicit.stderr}`,
     );
-    assert.match(explicit.stdout, /process-ai instalado/);
+    assert.match(explicit.stdout, /instalado/);
 
     // 6. idempotente + config.user PRESERVADO em re-run (nunca tocado pelo installer)
     writeFileSync(configUser, '# override do usuario\nactive_pack = "custom"\n', 'utf8');
@@ -95,6 +111,40 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     assert.equal(rerun.status, 0, `re-run bare process-ai falhou: ${rerun.stdout}\n${rerun.stderr}`);
     const preserved = readFileSync(configUser, 'utf8');
     assert.match(preserved, /override do usuario/, 'config.user deve ser preservado em re-run');
+
+    // 7. uninstall remove skills + manifest, preserva config.
+    const uninstall = spawnSync(NODE, [cli, 'uninstall', '--target', consumer], {
+      encoding: 'utf8',
+      cwd: consumer,
+    });
+    assert.equal(uninstall.status, 0, `uninstall falhou: ${uninstall.stdout}\n${uninstall.stderr}`);
+    assert.match(uninstall.stdout, /desinstalado/);
+    assert.equal(existsSync(skill), false, 'uninstall deve remover as skills');
+    assert.equal(existsSync(manifestPath), false, 'uninstall deve remover o manifest');
+    assert.ok(
+      existsSync(path.join(consumer, '.process-ai', 'config')),
+      'uninstall preserva config',
+    );
+
+    // 8. uninstall em estado limpo → not-installed (idempotente).
+    const uninstall2 = spawnSync(NODE, [cli, 'uninstall', '--target', consumer], {
+      encoding: 'utf8',
+      cwd: consumer,
+    });
+    assert.equal(uninstall2.status, 0);
+    assert.match(uninstall2.stdout, /não está instalado|nada a desinstalar/i);
+
+    // 9. uninstall --purge remove TODO o .process-ai/.
+    const purge = spawnSync(NODE, [cli, 'uninstall', '--target', consumer, '--purge'], {
+      encoding: 'utf8',
+      cwd: consumer,
+    });
+    assert.equal(purge.status, 0, `uninstall --purge falhou: ${purge.stdout}\n${purge.stderr}`);
+    assert.equal(
+      existsSync(path.join(consumer, '.process-ai')),
+      false,
+      'purge deve remover todo .process-ai/',
+    );
   } finally {
     rmSync(consumer, { recursive: true, force: true });
     try {

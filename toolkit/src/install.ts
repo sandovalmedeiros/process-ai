@@ -29,6 +29,7 @@ import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { EngineAdapter } from './engine-adapter.ts';
+import { atomicWrite, escapeTomlString } from './installer/file-ops.ts';
 
 /**
  * Encontra o package root do framework (dir com `package.json` name "process-ai")
@@ -63,12 +64,6 @@ const FRAMEWORK_VERSION: string = (() => {
     return '0.0.0';
   }
 })();
-
-/** Escapa valor pra TOML basic string (double-quoted): neutraliza `\`, `"`, CR/LF.
- *  Previne corrupção/injeção de chaves via valores (readConfig é parser linha-a-linha). */
-function escapeTomlString(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/[\r\n]+/g, ' ');
-}
 
 // ---- scaffoldConfig ----
 
@@ -152,19 +147,6 @@ export async function scaffoldConfig(
   return { configPath, configUserPath, configUserExisted };
 }
 
-/** Escrita atômica: temp + rename no mesmo diretório (rename atômico em POSIX). */
-async function atomicWrite(filePath: string, content: string): Promise<void> {
-  const tmp = `${filePath}.tmp-${process.pid}-${installTempCounter++}`;
-  await fs.writeFile(tmp, content, 'utf8');
-  try {
-    await fs.rename(tmp, filePath);
-  } catch (e) {
-    await fs.rm(tmp, { force: true });
-    throw e;
-  }
-}
-let installTempCounter = 0;
-
 // ---- runInstall (orquestrador) ----
 
 /** Opções do install (estende scaffold). */
@@ -188,6 +170,11 @@ export interface InstallResult {
  *
  * Não imprime nada (pure-ish) — o caller formata/imprime via `formatInstallSummary`.
  * Idempotente. Não conhece a engine (usa só a porta `EngineAdapter`).
+ *
+ * @deprecated Caminho legado sem manifest. Prefira `Installer.install`
+ * (`toolkit/src/installer/orchestrator.ts`), que orquestra via porta `IdeSetup` +
+ * escreve `.process-ai/install-manifest.toml` (detecção de update/repair). Retido
+ * por compatibilidade (`install.test.ts` e callers que não precisam do manifest).
  */
 export async function runInstall(
   adapter: EngineAdapter,

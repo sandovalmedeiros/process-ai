@@ -52,6 +52,43 @@ test('parseArgs: install [--target <dir>] (forma explícita; --target opcional)'
   assert.equal(bare.target, undefined);
 });
 
+test('parseArgs: install --status / --full / --ide / --pack (boolean + value flags)', () => {
+  const st = parseArgs(['install', '--status']) as Extract<ParsedCommand, { kind: 'install' }>;
+  assert.equal(st.statusOnly, true);
+  const full = parseArgs(['install', '--full']) as Extract<ParsedCommand, { kind: 'install' }>;
+  assert.equal(full.full, true);
+  const ide = parseArgs([
+    'install',
+    '--ide',
+    'claude-code',
+    '--pack',
+    'bpmn-sipoc',
+  ]) as Extract<ParsedCommand, { kind: 'install' }>;
+  assert.equal(ide.ide, 'claude-code');
+  assert.equal(ide.pack, 'bpmn-sipoc');
+});
+
+test('parseArgs: install --ide <outra> → erro (v1 só claude-code)', () => {
+  assert.throws(() => parseArgs(['install', '--ide', 'cursor']), /não suportada|claude-code/i);
+});
+
+test('parseArgs: update [--target] e uninstall [--target] [--purge]', () => {
+  const up = parseArgs(['update', '--target', '/tmp/u']) as Extract<ParsedCommand, { kind: 'update' }>;
+  assert.equal(up.kind, 'update');
+  assert.equal(up.target, '/tmp/u');
+  const un = parseArgs([
+    'uninstall',
+    '--target',
+    '/tmp/u',
+    '--purge',
+  ]) as Extract<ParsedCommand, { kind: 'uninstall' }>;
+  assert.equal(un.kind, 'uninstall');
+  assert.equal(un.target, '/tmp/u');
+  assert.equal(un.purge, true);
+  const unNoPurge = parseArgs(['uninstall']) as Extract<ParsedCommand, { kind: 'uninstall' }>;
+  assert.equal(unNoPurge.purge, false);
+});
+
 test('parseArgs: propose --payload <path>', () => {
   const c = parseArgs(['propose', '--payload', 'x.json']) as Extract<ParsedCommand, { kind: 'propose' }>;
   assert.equal(c.kind, 'propose');

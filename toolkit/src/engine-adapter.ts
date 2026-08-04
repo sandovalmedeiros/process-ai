@@ -60,10 +60,20 @@ export interface CommitResult {
  *  3. propose              — canal de propose em modo PASS-THROUGH (roteia sem mutar).
  */
 export interface EngineAdapter {
-  /** Instala as skills (markdown) do framework no projeto-alvo. */
+  /**
+   * Instala as skills (markdown) do framework no projeto-alvo.
+   *
+   * @deprecated Concern de install-time. Prefira a porta `IdeSetup.setupIde`
+   * (concreta `ClaudeCodeIdeSetup`), acionada pelo orquestrador
+   * (`toolkit/src/installer/orchestrator.ts`). Retido por compatibilidade.
+   */
   installSkills(targetProjectDir: string): Promise<void>;
 
-  /** Registra o(s) slash-command(s) públicos (ex.: /process-ai) no projeto-alvo. */
+  /**
+   * Registra o(s) slash-command(s) públicos (ex.: /process-ai) no projeto-alvo.
+   *
+   * @deprecated Concern de install-time; prefira `IdeSetup.setupIde`.
+   */
   registerSlashCommands(targetProjectDir: string): Promise<void>;
 
   /**

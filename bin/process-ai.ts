@@ -44,14 +44,28 @@ import {
   resume,
 } from '../toolkit/src/checkpoint.ts';
 import { reportConfidence, formatConfidenceReport } from '../toolkit/src/report.ts';
-import { runInstall, formatInstallSummary, findPackageRoot } from '../toolkit/src/install.ts';
+import { findPackageRoot } from '../toolkit/src/install.ts';
+import { ClaudeCodeIdeSetup } from '../toolkit/adapters/claude-code/ide-setup.ts';
+import { Installer, formatOutcome } from '../toolkit/src/installer/orchestrator.ts';
+import type { InstallState } from '../toolkit/src/installer/state.ts';
+import { gatherInstallOptions } from '../toolkit/src/installer/prompts.ts';
+import * as readline from 'node:readline/promises';
 
 // ---- Tipos ----
 
 /** Comando parseado (discriminado por `kind`). */
 export type ParsedCommand =
   | { kind: 'help' }
-  | { kind: 'install'; target?: string }
+  | {
+      kind: 'install';
+      target?: string;
+      ide?: string;
+      pack?: string;
+      full?: boolean;
+      statusOnly?: boolean;
+    }
+  | { kind: 'update'; target?: string; pack?: string }
+  | { kind: 'uninstall'; target?: string; purge?: boolean }
   | { kind: 'propose'; payloadPath: string }
   | { kind: 'gate'; id: string; decision: string }
   | { kind: 'stage'; to: string }
@@ -75,13 +89,26 @@ const VALID_DECISIONS: ReadonlySet<string> = new Set([
 
 // ---- Ajuda ----
 
-export const HELP = `process-ai — canal de runtime do framework (orquestrado pela skill Déa)
+export const HELP = `process-ai — installer + canal de runtime do framework (orquestrado pela skill Déa)
 
 Uso:
-  process-ai                              # instala no diretório atual (skills + .process-ai/config)
-  process-ai install [--target <dir>]     # instalação explícita
-  process-ai <subcomando> [flags]         # canal de runtime (orquestrado pela skill Déa)
+  process-ai                                          # instala (interativo em TTY; headless c/ defaults em CI)
+  process-ai install [--target <dir>] [--ide <id>] [--pack <id>] [--full] [--status]
+  process-ai update [--target <dir>]                  # atualiza instalação existente
+  process-ai uninstall [--target <dir>] [--purge]     # remove skills + manifest (--purge = todo .process-ai/)
+  process-ai <subcomando> [flags]                     # canal de runtime (orquestrado pela skill Déa)
   process-ai --help | -h
+
+Install (usuário):
+  install            instala skills em .claude/skills/ + .process-ai/config + .process-ai/install-manifest.toml.
+                     Interativo quando TTY e sem flags; headless com --target/--ide/--pack/--full ou em CI.
+  --target <dir>     diretório-alvo (default: cwd).
+  --ide <id>         IDE alvo (v1: claude-code apenas; outras em breve).
+  --pack <id>        method-pack ativo (default: bpmn-sipoc).
+  --full             instala tudo, não-interativo (v1: sempre todas as skills).
+  --status           mostra o estado da instalação (não escreve). (Veja também: status, p/ checkpoint runtime.)
+  update             detecta instalação prévia e atualiza/repara (backup .bak de editados).
+  uninstall          remove skills + manifest (preserva config/estado de sessão). --purge remove tudo.
 
 Subcomandos (o agente invoca via Bash; TODA escrita passa pelo toolkit):
   propose --payload <arquivo.json>
@@ -132,12 +159,24 @@ const PACKAGE_ROOT = findPackageRoot(path.dirname(fileURLToPath(import.meta.url)
  * Rejeita flags desconhecidas, duplicadas e valores que parecem flag (no form
  * espaço, exige `=`). Erros acionáveis em pt-BR.
  */
-function parseFlags(args: string[], allowed: string[], sub: string): Map<string, string> {
+function parseFlags(
+  args: string[],
+  allowed: string[],
+  sub: string,
+  booleanFlags: ReadonlySet<string> = new Set(),
+): Map<string, string> {
   const allowedSet = new Set(allowed.map((a) => `--${a}`));
   const result = new Map<string, string>();
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
+
+    // Boolean flags (sem valor): --full / --status / --purge — setam 'true' sem consumir o próximo arg.
+    if (booleanFlags.has(arg)) {
+      if (result.has(arg)) throw new Error(`Flag duplicada: ${arg}.`);
+      result.set(arg, 'true');
+      continue;
+    }
 
     // Form com '=': --flag=valor (aceita valor começando com '-').
     if (arg.startsWith('--') && arg.includes('=')) {
@@ -242,10 +281,36 @@ export function parseArgs(argv: string[]): ParsedCommand {
       rejectArgs(rest, 'status');
       return { kind: 'status' };
     case 'install': {
-      // --target opcional (default = cwd, resolvido no dispatch). install NÃO é
-      // invocado pela skill (é entry do usuário) — fora da lista de subcomandos runtime.
-      const flags = parseFlags(rest, ['target'], 'install');
-      return { kind: 'install', target: flags.get('--target') };
+      // --target (default cwd), --ide (v1 só claude-code), --pack, --full, --status.
+      // install NÃO é invocado pela skill (é entry do usuário) — fora dos subcomandos runtime.
+      const flags = parseFlags(
+        rest,
+        ['target', 'ide', 'pack', 'full', 'status'],
+        'install',
+        new Set(['--full', '--status']),
+      );
+      const ide = flags.get('--ide');
+      if (ide !== undefined && ide !== 'claude-code') {
+        throw new Error(
+          `IDE "${ide}" não suportada em v1 (apenas "claude-code"). Outras IDEs chegam em versões futuras.\n\n${HELP}`,
+        );
+      }
+      return {
+        kind: 'install',
+        target: flags.get('--target'),
+        ide,
+        pack: flags.get('--pack'),
+        full: flags.has('--full'),
+        statusOnly: flags.has('--status'),
+      };
+    }
+    case 'update': {
+      const flags = parseFlags(rest, ['target', 'pack'], 'update');
+      return { kind: 'update', target: flags.get('--target'), pack: flags.get('--pack') };
+    }
+    case 'uninstall': {
+      const flags = parseFlags(rest, ['target', 'purge'], 'uninstall', new Set(['--purge']));
+      return { kind: 'uninstall', target: flags.get('--target'), purge: flags.has('--purge') };
     }
     default:
       throw new Error(`Subcomando desconhecido: "${sub}".\n\n${HELP}`);
@@ -304,24 +369,39 @@ export async function dispatch(
   cmd: ParsedCommand,
   adapter: EngineAdapter,
   root: string,
+  installer: Installer = new Installer(new ClaudeCodeIdeSetup()),
 ): Promise<DispatchResult> {
   switch (cmd.kind) {
     case 'help':
       return { ok: true, output: HELP };
 
     case 'install': {
-      // Bare `process-ai` ou `process-ai install [--target]` → install no projeto-alvo.
-      // target default = root (cwd); runInstall orquestra skills + config installer-managed.
-      const target = path.resolve(cmd.target ?? root);
-      // Guard de self-install (espelha bootstrap.ts): recusa instalar no próprio
-      // repo/package do framework — poluiria .process-ai/ + .claude/skills/ do source.
-      if (PACKAGE_ROOT && sameRealpath(target, PACKAGE_ROOT)) {
-        throw new Error(
-          `Recusado: --target aponta para o próprio repositório do framework (${PACKAGE_ROOT}). Aponte --target para outro diretório de projeto.`,
-        );
+      // Bare `process-ai` ou `process-ai install [flags]` → install no projeto-alvo
+      // via orquestrador (Installer). Self-install guard fica no Installer.
+      if (cmd.statusOnly) {
+        const { state } = await installer.status(path.resolve(cmd.target ?? root));
+        return { ok: true, output: formatInstallState(state) };
       }
-      const result = await runInstall(adapter, target);
-      return { ok: true, output: formatInstallSummary(result) };
+      const outcome = await installer.install({
+        targetDir: cmd.target ?? root,
+        activePack: cmd.pack,
+        interactive: false,
+      });
+      return { ok: true, output: formatOutcome(outcome) };
+    }
+    case 'update': {
+      const outcome = await installer.update({
+        targetDir: cmd.target ?? root,
+        activePack: cmd.pack,
+      });
+      return { ok: true, output: formatOutcome(outcome) };
+    }
+    case 'uninstall': {
+      const outcome = await installer.uninstall({
+        targetDir: cmd.target ?? root,
+        purge: cmd.purge,
+      });
+      return { ok: true, output: formatOutcome(outcome) };
     }
 
     case 'propose': {
@@ -383,6 +463,50 @@ export async function dispatch(
   }
 }
 
+/** Formata o estado da instalação (install --status) em texto pt-BR. */
+function formatInstallState(state: InstallState): string {
+  switch (state.kind) {
+    case 'clean':
+      return `ℹ Nenhuma instalação do process-ai detectada neste diretório.\n`;
+    case 'installed-current':
+      return `✓ process-ai instalado e atualizado (v${state.manifest.install.framework_version}, IDE: ${state.manifest.install.ide}, ${state.manifest.files.length} arquivo(s)).\n`;
+    case 'installed-modified':
+      return `⚠ Instalado mas MODIFICADO — ${state.report.modified.length} modificado(s), ${state.report.missing.length} ausente(s). Rode \`process-ai update\` para reparar.\n`;
+    case 'installed-stale':
+      return `⚠ Instalado (v${state.manifestVersion}) mas o framework está em v${state.currentVersion}. Rode \`process-ai update\`.\n`;
+  }
+}
+
+/** Decide se o install roda interativo: TTY e nenhuma flag de install informada. */
+function isInteractive(cmd: Extract<ParsedCommand, { kind: 'install' }>): boolean {
+  return process.stdout.isTTY === true && !cmd.target && !cmd.ide && !cmd.pack && !cmd.full;
+}
+
+/** Roda os prompts interativos e devolve o comando install resolvido (headless). */
+async function runInteractive(
+  cmd: Extract<ParsedCommand, { kind: 'install' }>,
+  root: string,
+): Promise<Extract<ParsedCommand, { kind: 'install' }>> {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  try {
+    const resolved = await gatherInstallOptions(rl, {
+      targetDir: cmd.target ?? root,
+      ide: cmd.ide ?? 'claude-code',
+      activePack: cmd.pack ?? 'bpmn-sipoc',
+      full: cmd.full ?? true,
+    });
+    return {
+      kind: 'install',
+      target: resolved.targetDir,
+      ide: resolved.ide,
+      pack: resolved.activePack,
+      full: resolved.full,
+    };
+  } finally {
+    rl.close();
+  }
+}
+
 // ---- main (composition root + impressão + tratamento de erro) ----
 
 export interface MainOptions {
@@ -391,15 +515,24 @@ export interface MainOptions {
 }
 
 /**
- * Composition root: resolve a raiz, instancia o adapter (porta) e despacha.
+ * Composition root: resolve a raiz, instancia o adapter (porta runtime) + o
+ * Installer (porta install, concrete ClaudeCodeIdeSetup), e despacha. Install é
+ * interativo quando TTY e sem flags (modelo BMAD); demais comandos são headless.
  * Tratamento de erro (stderr + exit 1) fica no entry-point guard.
  */
 export async function main(argv: string[], opts: MainOptions = {}): Promise<void> {
   const root = path.resolve(opts.cwd ?? process.cwd());
-  const cmd = parseArgs(argv);
-  // AD-3: o dispatcher depende da PORTA; ClaudeCodeAdapter é instanciado aqui.
+  let cmd = parseArgs(argv);
+  // AD-3: runtime depende da porta; ClaudeCodeAdapter é instanciado aqui.
   const adapter: EngineAdapter = new ClaudeCodeAdapter({ cwd: root });
-  const result = await dispatch(cmd, adapter, root);
+
+  // install interativo quando TTY e sem flags de install.
+  if (cmd.kind === 'install' && !cmd.statusOnly && isInteractive(cmd)) {
+    cmd = await runInteractive(cmd, root);
+  }
+
+  const installer = new Installer(new ClaudeCodeIdeSetup());
+  const result = await dispatch(cmd, adapter, root, installer);
   process.stdout.write(result.output + '\n');
 }
 
