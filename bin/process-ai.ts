@@ -47,6 +47,7 @@ import { reportConfidence, formatConfidenceReport } from '../toolkit/src/report.
 import { findPackageRoot } from '../toolkit/src/install.ts';
 import { ClaudeCodeIdeSetup } from '../toolkit/adapters/claude-code/ide-setup.ts';
 import { Installer, formatOutcome } from '../toolkit/src/installer/orchestrator.ts';
+import { getFrameworkVersion } from '../toolkit/src/installer/resource.ts';
 import type { InstallState } from '../toolkit/src/installer/state.ts';
 import { gatherInstallOptions } from '../toolkit/src/installer/prompts.ts';
 import * as readline from 'node:readline/promises';
@@ -57,6 +58,7 @@ import { ingest, supportedFormats } from '../toolkit/src/ingest.ts';
 /** Comando parseado (discriminado por `kind`). */
 export type ParsedCommand =
   | { kind: 'help' }
+  | { kind: 'version' }
   | {
       kind: 'install';
       target?: string;
@@ -100,6 +102,7 @@ Uso:
   process-ai uninstall [--target <dir>] [--purge]     # remove skills + manifest (--purge = todo .process-ai/)
   process-ai <subcomando> [flags]                     # canal de runtime (orquestrado pela skill Déa)
   process-ai --help | -h
+  process-ai --version | -V
 
 Install (usuário):
   install            instala skills em .claude/skills/ + .process-ai/config + .process-ai/install-manifest.toml.
@@ -259,6 +262,7 @@ export function parseArgs(argv: string[]): ParsedCommand {
   const rest = argv.slice(1);
 
   if (sub === 'help' || sub === '--help' || sub === '-h') return { kind: 'help' };
+  if (sub === '--version' || sub === '-V') return { kind: 'version' };
 
   switch (sub) {
     case 'propose': {
@@ -388,6 +392,9 @@ export async function dispatch(
   switch (cmd.kind) {
     case 'help':
       return { ok: true, output: HELP };
+
+    case 'version':
+      return { ok: true, output: getFrameworkVersion() };
 
     case 'install': {
       // Bare `process-ai` ou `process-ai install [flags]` → install no projeto-alvo
