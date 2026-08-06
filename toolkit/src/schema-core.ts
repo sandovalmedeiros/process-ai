@@ -167,9 +167,36 @@ const SUMMARY_REPORT_SCHEMA = {
   'x-extensible': true,
 } as const;
 
+/**
+ * Schema para reference-material (documento ingerido — Laura, a Arquivista).
+ * Shape mínimo: body markdown + metadados do arquivo-fonte.
+ */
+const REFERENCE_MATERIAL_SCHEMA = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  $id: 'https://process-ai/schemas/reference-material/v1',
+  type: 'object',
+  properties: {
+    body: { type: 'string', description: 'Markdown estruturado do documento ingerido.' },
+    source_file: { type: 'string', description: 'Nome do arquivo original (ex.: manual-qualidade.pdf).' },
+    source_format: { type: 'string', enum: ['pdf', 'docx', 'pptx'], description: 'Formato do arquivo-fonte.' },
+    page_count: { type: 'integer', minimum: 1, description: 'Número de páginas (PDF/DOCX) ou slides (PPTX).' },
+    metadata: {
+      type: 'object',
+      properties: {
+        title: { type: 'string', description: 'Título extraído do documento.' },
+        author: { type: 'string', description: 'Autor extraído dos metadados.' },
+        created: { type: 'string', description: 'Data de criação (ISO-8601) extraída dos metadados.' },
+      },
+      description: 'Metadados extraídos do arquivo-fonte.',
+    },
+  },
+  additionalProperties: true,
+  'x-extensible': true,
+} as const;
+
 // ---- Mapa de schemas ----
 
-/** Mapa artifactType → schema canônico (vocabulário fechado em 7). */
+/** Mapa artifactType → schema canônico. */
 export const SCHEMAS: Record<string, object> = {
   'discovery-interview': DISCOVERY_INTERVIEW_SCHEMA,
   'sipoc': SIPOC_SCHEMA,
@@ -178,6 +205,7 @@ export const SCHEMAS: Record<string, object> = {
   'flow': FLOW_SCHEMA,
   'pop': POP_SCHEMA,
   'summary-report': SUMMARY_REPORT_SCHEMA,
+  'reference-material': REFERENCE_MATERIAL_SCHEMA,
 };
 
 /** ArtifactTypes canônicos (derivados das chaves de SCHEMAS). */

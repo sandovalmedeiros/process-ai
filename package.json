@@ -16,6 +16,7 @@
     "bin/postinstall.js",
     "skills/",
     "method-packs/",
+    "scripts/",
     "README.md",
     "LICENSE"
   ],

@@ -1,7 +1,7 @@
 /**
  * tests/schema-core.test.ts — Schema-núcleo toolkit-owned (AD-2, 3.1).
  *
- * Cobre validateContent() para os 7 artifactTypes: validação positiva
+ * Cobre validateContent() para os 8 artifactTypes: validação positiva
  * (payloads válidos passam), validação negativa (payloads inválidos rejeitados),
  * artifactType desconhecido, additionalProperties: false, e integração
  * com commit (abort-before-write).
@@ -22,18 +22,19 @@ import type { ProposePayload } from '../toolkit/src/engine-adapter.ts';
 
 // ---- T1: Schemas carregam e são objetos válidos ----
 
-test('SCHEMAS contém os 7 artifactTypes canônicos', () => {
+test('SCHEMAS contém os 8 artifactTypes canônicos', () => {
   const types = Object.keys(SCHEMAS).sort();
   assert.deepEqual(types, [
     'discovery-interview',
     'flow',
     'hierarchy',
     'pop',
+    'reference-material',
     'sipoc',
     'summary-report',
     'value-chain',
   ]);
-  assert.equal(VALID_ARTIFACT_TYPES.length, 7);
+  assert.equal(VALID_ARTIFACT_TYPES.length, 8);
 });
 
 test('cada schema tem $id versionado, $schema, type: object, x-extensible', () => {

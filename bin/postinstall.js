@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const MODULE_DIR = fileURLToPath(import.meta.url).replace(/\\/g, '/').replace(/\/bin\/postinstall\.js$/, '');
 const CLI = join(MODULE_DIR, 'dist', 'bin', 'process-ai.js');
+const REQS = join(MODULE_DIR, 'scripts', 'requirements-ingest.txt');
 // INIT_CWD = diretório de onde o usuário rodou `npm install` (projeto consumidor).
 // Fallback para cwd quando ausente (ex.: `node bin/postinstall.js` manualmente).
 const CWD = process.env.INIT_CWD ? resolve(process.env.INIT_CWD) : resolve('.');
@@ -42,6 +43,50 @@ try {
 if (!cliStat.isFile()) {
   console.error(`[process-ai] postinstall: ${CLI} não é um arquivo (inesperado). /process-ai não registrado.`);
   process.exit(0);
+}
+
+// Instala dependências Python para o ingest (fail-soft: avisa se Python/pip ausente).
+// Tenta python3 primeiro (Unix), depois python (Windows). Usa `python -m pip` para
+// garantir que o pip é o do mesmo interpretador (evita pip solto no PATH).
+{
+  let reqsStat;
+  try {
+    reqsStat = statSync(REQS);
+  } catch {
+    // requirements-ingest.txt não existe (tarball sem scripts/) — silencia.
+  }
+  if (reqsStat && reqsStat.isFile()) {
+    const pythonExes = process.platform === 'win32'
+      ? ['python']
+      : ['python3', 'python'];
+    let installed = false;
+    for (const py of pythonExes) {
+      const pipCheck = spawnSync(py, ['-m', 'pip', '--version'], {
+        stdio: 'pipe', encoding: 'utf8', timeout: 10_000,
+      });
+      if (pipCheck.status === 0) {
+        const pipR = spawnSync(py, ['-m', 'pip', 'install', '-r', REQS], {
+          stdio: 'pipe', encoding: 'utf8', timeout: 60_000,
+        });
+        if (pipR.status === 0) {
+          installed = true;
+          break;
+        }
+        // pip falhou — tenta próximo Python, mas avisa
+        console.error(`[process-ai] pip install falhou com ${py}: ${pipR.stderr?.slice(0, 200) || '(sem stderr)'}`);
+      }
+    }
+    if (!installed) {
+      const how = process.platform === 'win32'
+        ? 'winget install Python.Python.3.11'
+        : process.platform === 'darwin'
+          ? 'brew install python@3.11'
+          : 'sudo apt-get install python3.11 python3-pip  # ou o gerenciador da sua distro';
+      console.error(`[process-ai] Python 3.11+ / pip não encontrado. O subcomando \`process-ai ingest\` não funcionará.`);
+      console.error(`[process-ai] Como instalar Python: ${how}`);
+      console.error(`[process-ai] Depois rode: pip install -r node_modules/process-ai/scripts/requirements-ingest.txt`);
+    }
+  }
 }
 
 // Delega ao CLI compilado: `node dist/bin/process-ai.js install --target <CWD>`.

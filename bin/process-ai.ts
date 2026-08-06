@@ -50,6 +50,7 @@ import { Installer, formatOutcome } from '../toolkit/src/installer/orchestrator.
 import type { InstallState } from '../toolkit/src/installer/state.ts';
 import { gatherInstallOptions } from '../toolkit/src/installer/prompts.ts';
 import * as readline from 'node:readline/promises';
+import { ingest, supportedFormats } from '../toolkit/src/ingest.ts';
 
 // ---- Tipos ----
 
@@ -71,7 +72,8 @@ export type ParsedCommand =
   | { kind: 'stage'; to: string }
   | { kind: 'resume' }
   | { kind: 'report' }
-  | { kind: 'status' };
+  | { kind: 'status' }
+  | { kind: 'ingest'; path: string; agent?: string };
 
 /** Resultado canônico de um dispatch (o que `main` imprime em stdout). */
 export interface DispatchResult {
@@ -129,6 +131,13 @@ Subcomandos (o agente invoca via Bash; TODA escrita passa pelo toolkit):
       de confiança + artefatos + nota de gaps/orphans). Imprime markdown pt-BR.
   status
       Imprime o CheckpointState atual (JSON).
+  ingest --path <arquivo|diretório> [--agent <nome>]
+      Ingere documentos (PDF/DOCX/PPTX) como artefatos reference-material.
+      Chama scripts Python (scripts/ingest_<formato>.py) para converter cada
+      documento em markdown estruturado e commita via propose com claims 🟡
+      automáticos de extração mecânica. --path aceita arquivo ou diretório
+      (processa recursivamente). --agent default: "Laura".
+      Formatos aceitos: .pdf, .docx, .pptx.
 
 Pastas protegidas: escrita só em _process-ai_output/ (artefatos) e .process-ai/
 (manifestos, checkpoint, WAL, ledger, provenance) — sempre via toolkit, nunca
@@ -280,6 +289,11 @@ export function parseArgs(argv: string[]): ParsedCommand {
     case 'status':
       rejectArgs(rest, 'status');
       return { kind: 'status' };
+    case 'ingest': {
+      const flags = parseFlags(rest, ['path', 'agent'], 'ingest');
+      const ingestPath = requireFlag(flags, 'path', 'ingest');
+      return { kind: 'ingest', path: ingestPath, agent: flags.get('--agent') };
+    }
     case 'install': {
       // --target (default cwd), --ide (v1 só claude-code), --pack, --full, --status.
       // install NÃO é invocado pela skill (é entry do usuário) — fora dos subcomandos runtime.
@@ -459,6 +473,23 @@ export async function dispatch(
     case 'status': {
       const state = await checkpointRead(root);
       return { ok: true, output: JSON.stringify(state) };
+    }
+
+    case 'ingest': {
+      const results = await ingest({
+        path: cmd.path,
+        adapter,
+        root,
+        agent: cmd.agent,
+      });
+      const output = results.map((r) => ({
+        file: r.filePath.split(path.sep).join('/'),
+        format: r.format,
+        sha256: r.commit.sha256,
+        artifactPath: r.commit.artifactPath.split(path.sep).join('/'),
+        manifestPath: r.commit.manifestPath.split(path.sep).join('/'),
+      }));
+      return { ok: true, output: JSON.stringify(output) };
     }
   }
 }

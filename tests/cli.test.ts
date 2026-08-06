@@ -146,6 +146,21 @@ test('parseArgs: resume / report / status → kinds corretos', () => {
   assert.equal(parseArgs(['status']).kind, 'status');
 });
 
+test('parseArgs: ingest --path <arquivo> [--agent <nome>]', () => {
+  const c = parseArgs(['ingest', '--path', '/tmp/doc.pdf']) as Extract<ParsedCommand, { kind: 'ingest' }>;
+  assert.equal(c.kind, 'ingest');
+  assert.equal(c.path, '/tmp/doc.pdf');
+  assert.equal(c.agent, undefined);
+  const withAgent = parseArgs([
+    'ingest', '--path', '/tmp/doc.pdf', '--agent', 'Laura',
+  ]) as Extract<ParsedCommand, { kind: 'ingest' }>;
+  assert.equal(withAgent.agent, 'Laura');
+});
+
+test('parseArgs: ingest sem --path → erro', () => {
+  assert.throws(() => parseArgs(['ingest']), /path/i);
+});
+
 test('parseArgs: subcomando desconhecido → erro pt-BR', () => {
   assert.throws(() => parseArgs(['inexistente']), /subcomando|desconhecido/i);
 });
@@ -154,8 +169,8 @@ test('parseArgs: flag duplicada → erro', () => {
   assert.throws(() => parseArgs(['gate', '--id', 'gate-0', '--id', 'gate-1', '--decision', 'approved']), /duplicad/i);
 });
 
-test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status) + install', () => {
-  for (const sub of ['propose', 'gate', 'stage', 'resume', 'report', 'status']) {
+test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status/ingest) + install', () => {
+  for (const sub of ['propose', 'gate', 'stage', 'resume', 'report', 'status', 'ingest']) {
     assert.ok(HELP.includes(sub), `HELP deve listar o subcomando ${sub}`);
   }
   assert.ok(HELP.includes('install'), 'HELP deve mencionar install (entry do usuário)');
