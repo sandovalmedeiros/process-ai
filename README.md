@@ -2,11 +2,11 @@
 
 **Framework open-source de mapeamento de processos com agentes de IA.**
 
-Uma equipe de 5 agentes — Déa, Bento, Miguel, Júlia e Zanoni — conduz uma pessoa comum, por perguntas e respostas, até documentar a arquitetura completa de um processo: da cadeia de valor aos diagramas BPMN e aos POPs. **O usuário não precisa saber metodologia; os agentes sabem — e conduzem.**
+Uma equipe de 6 agentes — Déa, Bento, Miguel, Júlia, Zanoni e Laura — conduz uma pessoa comum, por perguntas e respostas, até documentar a arquitetura completa de um processo: da cadeia de valor aos diagramas BPMN e aos POPs, com ingestão de documentos existentes como evidência. **O usuário não precisa saber metodologia; os agentes sabem — e conduzem.**
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-309%20passing-brightgreen)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-313%20passing-brightgreen)](./tests/)
 
 ---
 
@@ -27,6 +27,7 @@ O **process-ai** resolve isso herdando o **rigor do Reversa** (confiança 🟢�
 | **Miguel** 🏗️ | Mapeamento — hierarquia Macro→Tarefa (5 níveis) | `hierarchy` |
 | **Júlia** 📐 | Modelagem — fluxo BPMN 2.0 XML + gargalos | `flow` |
 | **Zanoni** 📋 | Padronização — POPs + diagnóstico consolidado | `pop` |
+| **Laura** 🗄️ | Arquivista — ingestão de documentos (PDF/DOCX/PPTX) como material de referência | `reference-material` |
 
 ---
 
@@ -42,7 +43,7 @@ npx process-ai
 
 O que o install faz:
 
-- copia as skills (Déa + 4 especialistas) para `.claude/skills/`;
+- copia as skills (Déa + 5 especialistas) para `.claude/skills/`;
 - cria `.process-ai/config` (installer-managed, regenerado a cada install) e `.process-ai/config.user` (seus overrides — nunca sobrescritos pelo installer);
 - escreve `.process-ai/install-manifest.toml` — o **manifest de instalação** (versão, IDE, pack ativo, e cada arquivo com seu SHA-256), que habilita `update`/`status` e a detecção de arquivos modificados.
 
@@ -54,6 +55,7 @@ npx process-ai install --target <dir>                # install explícito (headl
 npx process-ai install --status                      # estado da instalação (não escreve)
 npx process-ai update   [--target <dir>]             # atualiza/repara instalação existente
 npx process-ai uninstall [--target <dir>] [--purge]  # remove skills + manifest
+npx process-ai ingest   --path <arquivo|diretório>   # ingere PDF/DOCX/PPTX como reference-material
 ```
 
 Flags de install: `--target <dir>` (default: cwd), `--ide <id>` (v1: `claude-code`), `--pack <id>` (default: `bpmn-sipoc`), `--full` (instala tudo, não-interativo), `--status` (apenas relata estado).
@@ -77,10 +79,12 @@ A Déa pergunta: *"Qual processo vamos mapear?"*
 A partir daí, ela conduz o usuário pela pipeline completa:
 
 ```
-Gate 0 (escopo) → Bento (descoberta) → Gate 1 → Miguel (hierarquia)
-→ Gate 2 → Júlia (BPMN) → Gate 3 → Zanoni (POPs) → Gate 4
-→ Resumo final + Relatório de Confiança
+[Ingestão documental (Laura)] → Gate 0 (escopo) → Bento (descoberta)
+→ Gate 1 → Miguel (hierarquia) → Gate 2 → Júlia (BPMN)
+→ Gate 3 → Zanoni (POPs) → Gate 4 → Resumo final + Relatório de Confiança
 ```
+
+A ingestão documental é opcional e pode ser executada antes ou durante a sessão: `process-ai ingest --path <arquivo|diretório>` converte PDF, DOCX e PPTX em artefatos `reference-material` que os especialistas usam como evidência.
 
 Cada gate **bloqueia** a próxima etapa até aprovação humana, exibindo a contagem de itens 🟢 (confirmados), 🟡 (inferidos) e 🔴 (gaps).
 
@@ -174,7 +178,7 @@ Cada pack declara schemas **aditivos** (estendem o schema-núcleo sem redefinir)
 git clone https://github.com/sandovalmedeiros/process-ai.git
 cd process-ai
 npm install
-npm test          # 309 testes, 0 falhas
+npm test          # 313 testes, 0 falhas
 npm run typecheck # tsc --noEmit
 ```
 
@@ -185,10 +189,11 @@ process-ai/
 ├── toolkit/
 │   ├── src/                # Core engine-agnostic
 │   └── adapters/           # Engine adapters (v1: Claude Code)
+├── scripts/                # Scripts Python de ingestão (PDF/DOCX/PPTX)
 ├── skills/                 # Skills dos agentes
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1
-├── tests/                  # Testes determinísticos (309)
+├── tests/                  # Testes determinísticos (313)
 └── docs/                   # Documentação
 ```
 
