@@ -152,7 +152,7 @@ test('discoverSourceSkills: descobre só dirs process-ai* com SKILL.md regular (
   }
 });
 
-test('AC1: installSkills instala exatamente as 6 skills reais (condutor + 5 especialistas)', async () => {
+test('AC1: installSkills instala exatamente as 7 skills reais (condutor + 6 especialistas)', async () => {
   // Guarda de regressão: o install real (repo-fonte) instala exatamente o conjunto
   // esperado — nenhum fantasma, nenhum arquivo solto.
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-spec-set-'));
@@ -162,8 +162,8 @@ test('AC1: installSkills instala exatamente as 6 skills reais (condutor + 5 espe
     const installed = (await fs.readdir(path.join(tmp, '.claude', 'skills'))).sort();
     assert.deepEqual(
       installed,
-      ['process-ai', 'process-ai-bento', 'process-ai-julia', 'process-ai-laura', 'process-ai-miguel', 'process-ai-zanoni'],
-      'installSkills deve instalar exatamente as 6 skills com SKILL.md',
+      ['process-ai', 'process-ai-bento', 'process-ai-julia', 'process-ai-laura', 'process-ai-miguel', 'process-ai-tiago', 'process-ai-zanoni'],
+      'installSkills deve instalar exatamente as 7 skills com SKILL.md',
     );
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

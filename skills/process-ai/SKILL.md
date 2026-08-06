@@ -106,12 +106,12 @@ via `/process-ai-laura` ou `process-ai ingest --path`.
 
 ## 3. Pipeline — especialistas + gates (AC3)
 
-A pipeline é **fixa** no v1: 5 especialistas (1 de ingestão + 4 de mapeamento),
+A pipeline é **fixa** no v1: 6 especialistas (1 de ingestão + 5 de mapeamento + 1 de documentação),
 cada um com um **gate de saída** (após concluir e commitar — bloqueia o avanço
 até aprovação). A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 
 > **Especialistas são skills** (`process-ai-bento`, `process-ai-miguel`,
-> `process-ai-julia`, `process-ai-zanoni`, `process-ai-laura`), instaladas junto
+> `process-ai-julia`, `process-ai-zanoni`, `process-ai-tiago`, `process-ai-laura`), instaladas junto
 > com esta skill. **Laura** (ingestão documental) é acessada via
 > `/process-ai-laura` ou via CLI (`process-ai ingest --path`) — converte
 > PDF/DOCX/PPTX/XLSX/CSV/XML em `reference-material` antes ou durante a sessão. A Déa faz o
@@ -126,6 +126,7 @@ até aprovação). A ordem é canônica e **não deve ser alterada** (o resume d
 | `gate-2` | `mapping` | **Miguel** | hierarquia (Macro→Tarefa) | `hierarchy` |
 | `gate-3` | `modeling` | **Júlia** | fluxo BPMN 2.0 XML | `flow` |
 | `gate-4` | `standardization` | **Zanoni** | POPs + diagnóstico | `pop` |
+| `gate-5` | `reporting` | **Tiago** | Relatório final de documentação | `process-report` |
 
 > **Epic 2 em curso.** Bento (2.1), Miguel (2.2) e Júlia (2.3) são **profundos**: Bento entrega
 > entrevista persistida + SIPOC + cadeia completos (🟢 sustentados pela entrevista); Miguel entrega
@@ -151,7 +152,7 @@ Para cada especialista, em ordem:
 > Assim o `process-ai report` exibido em cada gate mostra o estágio **correto**, e o
 > resume reconhece em qual estágio a sessão parou.
 
-**Etapa completa por especialista de mapeamento (repita para Bento→Miguel→Júlia→Zanoni):**
+**Etapa completa por especialista de mapeamento (repita para Bento→Miguel→Júlia→Zanoni→Tiago):**
 
 1. **Conduza o handoff ao especialista:** adote a persona do especialista seguindo a
    skill `process-ai-<especialista>` (em `.claude/skills/`). O especialista conduz sua
@@ -168,7 +169,9 @@ Para cada especialista, em ordem:
    - **Miguel** → entrega o `sha256` de `hierarchy` à Júlia (Miguel já pode 🟢 sourcing
      a `value-chain` de Bento).
    - **Júlia** → entrega o `sha256` de `flow` ao Zanoni.
-   - **Zanoni** (último) → ao fim, retorna à Déa para o encerramento.
+   - **Zanoni** → entrega o `sha256` de `pop` ao Tiago.
+   - **Tiago** (último de mapeamento) → consolida todos os artefatos no `process-report`
+     e entrega o `sha256` à Déa para o encerramento.
 
 3. **Gate informativo (2.6 — FR-4 full):** **antes** de registrar a decisão do gate,
    execute `process-ai report` (via Bash) e capture a saída markdown. **Se o comando
@@ -205,17 +208,17 @@ Para cada especialista, em ordem:
      informe o usuário de que a sessão pode ser retomada via `process-ai resume`).
 
 5. **Se aprovado, avance para o próximo estágio** (entrada do próximo especialista):
-   `process-ai stage --to <próximo>` (`discovery` → `mapping` → `modeling` → `standardization`).
-   Após o gate-4 (Zanoni) aprovado, vá para a §4 (encerramento).
+   `process-ai stage --to <próximo>` (`discovery` → `mapping` → `modeling` → `standardization` → `reporting`).
+   Após o gate-5 (Tiago) aprovado, vá para a §4 (encerramento).
    > O avanço de estágio **só ocorre** após `--decision approved`. Se `changes-requested`
    > ou `rejected`, o estágio **não avança** — o especialista atual é reaberto ou o
    > fluxo é encerrado.
 
 ---
 
-## 4. Encerramento — resumo narrativo + relatório de confiança (AC6, FR-5 full)
+## 4. Encerramento — apresentação do relatório + resumo (AC6, FR-5 full)
 
-Ao fim da pipeline (após o Gate 4 aprovado):
+Ao fim da pipeline (após o Gate 5 aprovado — Tiago concluiu o `process-report`):
 
 1. **Colete o estado final:**
    - Execute `process-ai report` (via Bash) e capture a saída markdown — este é o
@@ -228,18 +231,20 @@ Ao fim da pipeline (após o Gate 4 aprovado):
      usuário e **não redija a narrativa** — nunca invente dados que não venham
      desses dois comandos.
 
-2. **Redija o resumo narrativo de encerramento** (a Déa escreve, em markdown pt-BR).
-   O resumo deve conter as seções abaixo. Use os dados do `status` (artefatos) e
-   do `report` (contagens, itens, gaps) — **nunca invente** dados que não estejam
-   nesses dois comandos.
+2. **Apresente o relatório do Tiago e redija o resumo de encerramento**
+   (a Déa escreve, em markdown pt-BR). O `process-report` do Tiago já contém o
+   relatório completo — a Déa faz um **resumo de 1 página** para o `summary-report`.
+   Use os dados do `status` (artefatos), do `report` (contagens, itens, gaps) e do
+   `process-report` (Tiago) — **nunca invente** dados.
 
    **Estrutura do resumo narrativo:**
 
    a. **Cabeçalho:** *"Processo mapeado: [escopo confirmado no Gate 0]. Documentação
-      gerada em [data] pelo process-ai."*
+      gerada em [data] pelo process-ai. Relatório completo: `process-report`
+      (sha256: <sha do Tiago>)."*
 
    b. **Por etapa — 1 parágrafo por estágio** (`ingestion` (se houve) → `discovery` →
-      `mapping` → `modeling` → `standardization`), citando:
+      `mapping` → `modeling` → `standardization` → `reporting`), citando:
       - O que foi produzido (artefatos e seus `artifactType`s)
       - Quantos 🟢/🟡/🔴 por etapa (do breakdown do relatório)
       - A principal fonte de evidência da etapa
@@ -257,7 +262,7 @@ Ao fim da pipeline (após o Gate 4 aprovado):
       - **Nunca** genérico como "revise o processo" ou "melhore a documentação" —
         sempre específico e atrelado a um gap ou artefato concreto.
 
-   d. **Resumo das decisões dos gates:** 1-liner por gate (gate-0 a gate-4) com a
+   d. **Resumo das decisões dos gates:** 1-liner por gate (gate-0 a gate-5) com a
       decisão registrada (`approved` / `changes-requested` / `rejected`).
 
 3. **Embuta o relatório de confiança:** sob o título `## Relatório de Confiança`,

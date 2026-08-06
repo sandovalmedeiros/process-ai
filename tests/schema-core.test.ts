@@ -22,19 +22,20 @@ import type { ProposePayload } from '../toolkit/src/engine-adapter.ts';
 
 // ---- T1: Schemas carregam e são objetos válidos ----
 
-test('SCHEMAS contém os 8 artifactTypes canônicos', () => {
+test('SCHEMAS contém os 9 artifactTypes canônicos', () => {
   const types = Object.keys(SCHEMAS).sort();
   assert.deepEqual(types, [
     'discovery-interview',
     'flow',
     'hierarchy',
     'pop',
+    'process-report',
     'reference-material',
     'sipoc',
     'summary-report',
     'value-chain',
   ]);
-  assert.equal(VALID_ARTIFACT_TYPES.length, 8);
+  assert.equal(VALID_ARTIFACT_TYPES.length, 9);
 });
 
 test('cada schema tem $id versionado, $schema, type: object, x-extensible', () => {

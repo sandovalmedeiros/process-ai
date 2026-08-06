@@ -2,7 +2,7 @@
 
 **Framework open-source de mapeamento de processos com agentes de IA.**
 
-Uma equipe de 6 agentes — Déa, Bento, Miguel, Júlia, Zanoni e Laura — conduz uma pessoa comum, por perguntas e respostas, até documentar a arquitetura completa de um processo: da cadeia de valor aos diagramas BPMN e aos POPs, com ingestão de documentos existentes como evidência. **O usuário não precisa saber metodologia; os agentes sabem — e conduzem.**
+Uma equipe de 7 agentes — Déa, Bento, Miguel, Júlia, Zanoni, Laura e Tiago — conduz uma pessoa comum, por perguntas e respostas, até documentar a arquitetura completa de um processo: da cadeia de valor aos diagramas BPMN, aos POPs e ao relatório final profissional. **O usuário não precisa saber metodologia; os agentes sabem — e conduzem.**
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
@@ -27,6 +27,7 @@ O **process-ai** resolve isso herdando o **rigor do Reversa** (confiança 🟢�
 | **Miguel** 🏗️ | Mapeamento — hierarquia Macro→Tarefa (5 níveis) | `hierarchy` |
 | **Júlia** 📐 | Modelagem — fluxo BPMN 2.0 XML + gargalos | `flow` |
 | **Zanoni** 📋 | Padronização — POPs + diagnóstico consolidado | `pop` |
+| **Tiago** ✍️ | Escritor — consolida todos os artefatos no relatório final de documentação (10 seções) | `process-report` |
 | **Laura** 🗄️ | Arquivista — ingestão de documentos (PDF/DOCX/PPTX/XLSX/CSV/XML) como material de referência | `reference-material` |
 
 ---
@@ -43,7 +44,7 @@ npx process-ai
 
 O que o install faz:
 
-- copia as skills (condutora Déa + 5 especialistas: Bento, Miguel, Júlia, Zanoni e Laura) para `.claude/skills/`;
+- copia as skills (condutora Déa + 6 especialistas: Bento, Miguel, Júlia, Zanoni, Tiago e Laura) para `.claude/skills/`;
 - cria `.process-ai/config` (installer-managed, regenerado a cada install) e `.process-ai/config.user` (seus overrides — nunca sobrescritos pelo installer);
 - escreve `.process-ai/install-manifest.toml` — o **manifest de instalação** (versão, IDE, pack ativo, e cada arquivo com seu SHA-256), que habilita `update`/`status` e a detecção de arquivos modificados.
 
@@ -92,7 +93,8 @@ A partir daí, ela conduz o usuário pela pipeline completa:
 ```
 [Ingestão documental (Laura)] → Gate 0 (escopo) → Bento (descoberta)
 → Gate 1 → Miguel (hierarquia) → Gate 2 → Júlia (BPMN)
-→ Gate 3 → Zanoni (POPs) → Gate 4 → Resumo final + Relatório de Confiança
+→ Gate 3 → Zanoni (POPs) → Gate 4 → Tiago (relatório)
+→ Gate 5 → Resumo final + Relatório de Confiança
 ```
 
 A ingestão documental é opcional e pode ser executada antes ou durante a sessão: `/process-ai-laura` ou `process-ai ingest --path <arquivo|diretório>` converte PDF, DOCX, PPTX, XLSX, CSV e XML em artefatos `reference-material` que os especialistas usam como evidência.

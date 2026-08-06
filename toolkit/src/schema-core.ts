@@ -168,6 +168,21 @@ const SUMMARY_REPORT_SCHEMA = {
 } as const;
 
 /**
+ * Schema para process-report (relatório final de documentação — Tiago, o Escritor).
+ * Shape mínimo: body markdown com 10 seções de documentação de processo.
+ */
+const PROCESS_REPORT_SCHEMA = {
+  $schema: 'https://json-schema.org/draft/2020-12/schema',
+  $id: 'https://process-ai/schemas/process-report/v1',
+  type: 'object',
+  properties: {
+    body: { type: 'string', description: 'Markdown estruturado com as 10 seções do relatório de documentação de processo.' },
+  },
+  additionalProperties: true,
+  'x-extensible': true,
+} as const;
+
+/**
  * Schema para reference-material (documento ingerido — Laura, a Arquivista).
  * Shape mínimo: body markdown + metadados do arquivo-fonte.
  */
@@ -205,6 +220,7 @@ export const SCHEMAS: Record<string, object> = {
   'flow': FLOW_SCHEMA,
   'pop': POP_SCHEMA,
   'summary-report': SUMMARY_REPORT_SCHEMA,
+  'process-report': PROCESS_REPORT_SCHEMA,
   'reference-material': REFERENCE_MATERIAL_SCHEMA,
 };
 
