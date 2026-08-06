@@ -62,7 +62,15 @@ Flags de install: `--target <dir>` (default: cwd), `--ide <id>` (v1: `claude-cod
 
 **Update** detecta a instalação prévia via manifest: re-instala se a versão mudou (`stale`) ou se algum arquivo foi editado (`modified`), fazendo **backup `.bak`** dos editados antes de sobrescrever. **Uninstall** remove skills + manifest mas **preserva** `.process-ai/config` e o estado de sessão; `--purge` remove todo o `.process-ai/`.
 
-> **📦 Atualizar um projeto em andamento:** rode `npx process-ai@latest update` no diretório do projeto. O sufixo `@latest` é **importante**: sem ele, o npx pode usar uma versão em cache e não detectar que o framework foi atualizado. O update é **não-destrutivo** — preserva `.process-ai/config`, checkpoints, estado de sessão e artefatos já gerados. Para verificar se há atualização disponível: `npx process-ai@latest install --status`.
+> **📦 Atualizar um projeto em andamento:** primeiro verifique se há atualização disponível:
+> ```bash
+> npx process-ai@latest install --status
+> ```
+> Se mostrar `⚠ Instalado (vX.Y.Z) mas o framework está em vX.Y.Z+1`, rode:
+> ```bash
+> npx process-ai@latest update
+> ```
+> O sufixo `@latest` é **importante**: sem ele, o npx pode usar uma versão em cache e não detectar que o framework foi atualizado. O update é **não-destrutivo** — preserva `.process-ai/config`, checkpoints, estado de sessão e artefatos já gerados.
 
 **Por que instalar?** O Claude Code (engine v1) descobre slash-commands pelos arquivos em `.claude/skills/` do projeto. O `npx process-ai` coloca as skills **fisicamente** em `.claude/skills/process-ai/SKILL.md` e faz o scaffolding do config. Em engines futuros (Codex, Cursor, Gemini CLI), cada adapter fará o equivalente — a porta `IdeSetup` (ver [`docs/toolkit.md`](./docs/toolkit.md)) isola esse conhecimento.
 
