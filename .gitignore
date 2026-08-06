@@ -7,3 +7,5 @@ _bmad-output/**/.memlog.md
 .claude/
 .agents/
 docs/
+__pycache__/
+*.pyc

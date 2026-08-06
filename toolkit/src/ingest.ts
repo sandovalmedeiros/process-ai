@@ -21,6 +21,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { CommitResult, EngineAdapter, ProposePayload } from './engine-adapter.ts';
+import { findPackageRoot } from './install.ts';
 
 // ---- Tipos ----
 
@@ -31,6 +32,10 @@ export interface IngestResult {
   format?: string;
   pages?: number;
   slides?: number;
+  sheets?: number;
+  rows?: number;
+  columns?: number;
+  elements?: number;
   markdown?: string;
   images?: string[];
   metadata?: {
@@ -43,7 +48,7 @@ export interface IngestResult {
 }
 
 /** Formatos suportados pelo pipeline de ingestão. */
-export type IngestFormat = 'pdf' | 'docx' | 'pptx';
+export type IngestFormat = 'pdf' | 'docx' | 'pptx' | 'xlsx' | 'csv' | 'xml';
 
 /** Resultado da operação de ingest (um ou mais Commits). */
 export interface IngestCommitResult {
@@ -66,13 +71,16 @@ export class IngestError extends Error {
 // ---- Constantes ----
 
 /** Extensões suportadas (para scan de diretório). */
-const SUPPORTED_EXTENSIONS: ReadonlySet<string> = new Set(['.pdf', '.docx', '.pptx']);
+const SUPPORTED_EXTENSIONS: ReadonlySet<string> = new Set(['.pdf', '.docx', '.pptx', '.xlsx', '.csv', '.xml']);
 
 /** Map formato → script Python (relativo ao diretório scripts/ no repo). */
 const FORMAT_SCRIPT: Record<IngestFormat, string> = {
   pdf: 'ingest_pdf.py',
   docx: 'ingest_docx.py',
   pptx: 'ingest_pptx.py',
+  xlsx: 'ingest_xlsx.py',
+  csv: 'ingest_csv.py',
+  xml: 'ingest_xml.py',
 };
 
 // ---- Detecção de formato (magic bytes, TS-side) ----
@@ -114,12 +122,18 @@ async function detectFormat(filePath: string): Promise<IngestFormat | null> {
       if (content.includes('application/vnd.openxmlformats-officedocument.wordprocessingml')) {
         return 'docx';
       }
+      if (content.includes('application/vnd.openxmlformats-officedocument.spreadsheetml')) {
+        return 'xlsx';
+      }
       // Fallback heuristic
       if (content.includes('ppt/slides/') || content.includes('ppt/slides')) {
         return 'pptx';
       }
       if (content.includes('word/')) {
         return 'docx';
+      }
+      if (content.includes('xl/')) {
+        return 'xlsx';
       }
       return null;
     }
@@ -146,11 +160,17 @@ function resolvePython(): string {
   return 'python3';
 }
 
-/** Resolve o diretório scripts/ a partir do toolkit/src/. */
+/** Resolve o diretório scripts/ a partir do package root do framework. */
 function resolveScriptsDir(): string {
   const thisFile = fileURLToPath(import.meta.url);
-  // toolkit/src/ingest.ts → toolkit/src/ → toolkit/ → scripts/
-  return path.resolve(path.dirname(thisFile), '..', '..', 'scripts');
+  const pkgRoot = findPackageRoot(path.dirname(thisFile));
+  if (!pkgRoot) {
+    throw new IngestError(
+      'Não foi possível localizar a raiz do framework (package.json do process-ai). ' +
+      'Reinstale o módulo: npm install process-ai@latest',
+    );
+  }
+  return path.join(pkgRoot, 'scripts');
 }
 
 // ---- Execução do script Python ----
@@ -240,7 +260,7 @@ function buildPayload(
       body: result.markdown ?? '',
       source_file: result.metadata?.source_file ?? filename,
       source_format: fmt,
-      page_count: result.pages ?? result.slides ?? 1,
+      page_count: result.pages ?? result.slides ?? result.sheets ?? result.rows ?? result.elements ?? 1,
       metadata: {
         title: result.metadata?.title ?? filename,
         author: result.metadata?.author ?? '',
@@ -252,16 +272,30 @@ function buildPayload(
         statement: `Conteúdo extraído mecanicamente de "${filename}" ` +
           `(formato ${fmt.toUpperCase()}, ` +
           `${result.pages ? result.pages + ' páginas' : ''}` +
-          `${result.slides ? result.slides + ' slides' : ''})`,
+          `${result.slides ? result.slides + ' slides' : ''}` +
+          `${result.sheets ? result.sheets + ' planilhas' : ''}` +
+          `${result.rows ? result.rows + ' linhas' : ''}` +
+          `${result.elements ? result.elements + ' elementos' : ''})`,
         level: '🟡', // 🟡
-        reasoning: [
-          `Conversão ${fmt.toUpperCase()} → Markdown via script Python (scripts/ingest_${fmt}.py).`,
-          fmt === 'pdf'
-            ? 'Estrutura (headings) inferida por heurística de font-size; conteúdo textual é determinístico.'
-            : fmt === 'docx'
-              ? 'Estrutura baseada em estilos nativos (Heading 1-6); tabelas convertidas para markdown; imagens extraídas com contexto de parágrafo.'
-              : 'Estrutura baseada em títulos de slide; notas do apresentador incluídas como blockquote; SmartArt/diagramas marcados como placeholder.',
-        ].join(' '),
+        reasoning: (() => {
+          const base = `Conversão ${fmt.toUpperCase()} → Markdown via script Python (scripts/ingest_${fmt}.py).`;
+          switch (fmt) {
+            case 'pdf':
+              return `${base} Estrutura (headings) inferida por heurística de font-size; conteúdo textual é determinístico.`;
+            case 'docx':
+              return `${base} Estrutura baseada em estilos nativos (Heading 1-6); tabelas convertidas para markdown; imagens extraídas com contexto de parágrafo.`;
+            case 'pptx':
+              return `${base} Estrutura baseada em títulos de slide; notas do apresentador incluídas como blockquote; SmartArt/diagramas marcados como placeholder.`;
+            case 'xlsx':
+              return `${base} Estrutura baseada em planilhas; fórmulas convertidas para valores (data_only); células convertidas em tabelas markdown por sheet.`;
+            case 'csv':
+              return `${base} Delimitador detectado automaticamente (vírgula, ponto-e-vírgula ou tab); cabeçalho inferido da primeira linha; linhas vazias removidas.`;
+            case 'xml':
+              return `${base} Estrutura hierárquica convertida em headings markdown; atributos representados como blockquote; namespaces XML removidos dos nomes dos elementos.`;
+            default:
+              return base;
+          }
+        })(),
       },
     ],
   };
@@ -334,14 +368,14 @@ export async function ingest(opts: IngestOptions): Promise<IngestCommitResult[]>
     files = await scanDirectory(inputPath);
     if (files.length === 0) {
       throw new IngestError(
-        `Nenhum arquivo suportado (.pdf, .docx, .pptx) encontrado em: ${inputPath}.`,
+        `Nenhum arquivo suportado (.pdf, .docx, .pptx, .xlsx, .csv, .xml) encontrado em: ${inputPath}.`,
       );
     }
   } else if (st.isFile()) {
     const ext = path.extname(inputPath).toLowerCase();
     if (!SUPPORTED_EXTENSIONS.has(ext)) {
       throw new IngestError(
-        `Formato não suportado: "${ext}". Formatos aceitos: .pdf, .docx, .pptx.`,
+        `Formato não suportado: "${ext}". Formatos aceitos: .pdf, .docx, .pptx, .xlsx, .csv, .xml.`,
       );
     }
     files = [inputPath];
@@ -365,7 +399,7 @@ export async function ingest(opts: IngestOptions): Promise<IngestCommitResult[]>
     if (!format) {
       // Tenta detecção por extensão como fallback
       const ext = path.extname(filePath).toLowerCase().replace('.', '');
-      if (ext === 'pdf' || ext === 'docx' || ext === 'pptx') {
+      if (ext === 'pdf' || ext === 'docx' || ext === 'pptx' || ext === 'xlsx' || ext === 'csv' || ext === 'xml') {
         throw new IngestError(
           `Não foi possível confirmar o formato de "${path.basename(filePath)}" ` +
           `(extensão .${ext} mas magic bytes não reconhecidos). O arquivo pode estar corrompido.`,
@@ -431,5 +465,5 @@ export async function ingest(opts: IngestOptions): Promise<IngestCommitResult[]>
  * Lista os formatos suportados para mensagens de erro/help.
  */
 export function supportedFormats(): string {
-  return '.pdf, .docx, .pptx';
+  return '.pdf, .docx, .pptx, .xlsx, .csv, .xml';
 }

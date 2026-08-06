@@ -45,11 +45,15 @@ def detect_format(filepath: str) -> Optional[str]:
             return 'pptx'
         if 'application/vnd.openxmlformats-officedocument.wordprocessingml' in content_str:
             return 'docx'
+        if 'application/vnd.openxmlformats-officedocument.spreadsheetml' in content_str:
+            return 'xlsx'
         # Fallback heuristic: pptx has slide*.xml files
         if b'ppt/slides/' in content or b'slide' in content.lower():
             return 'pptx'
         if b'word/' in content:
             return 'docx'
+        if b'xl/' in content:
+            return 'xlsx'
         return None
 
     return None
@@ -57,13 +61,16 @@ def detect_format(filepath: str) -> Optional[str]:
 
 # ---- Supported formats registry ----
 
-SUPPORTED_EXTENSIONS = {'.pdf', '.docx', '.pptx'}
+SUPPORTED_EXTENSIONS = {'.pdf', '.docx', '.pptx', '.xlsx', '.csv', '.xml'}
 
 # Map format to (display_name, script_name)
 FORMAT_INFO = {
     'pdf':  ('PDF',  'ingest_pdf.py'),
     'docx': ('DOCX', 'ingest_docx.py'),
     'pptx': ('PPTX', 'ingest_pptx.py'),
+    'xlsx': ('XLSX', 'ingest_xlsx.py'),
+    'csv':  ('CSV',  'ingest_csv.py'),
+    'xml':  ('XML',  'ingest_xml.py'),
 }
 
 

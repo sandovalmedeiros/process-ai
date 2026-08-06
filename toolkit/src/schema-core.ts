@@ -178,8 +178,8 @@ const REFERENCE_MATERIAL_SCHEMA = {
   properties: {
     body: { type: 'string', description: 'Markdown estruturado do documento ingerido.' },
     source_file: { type: 'string', description: 'Nome do arquivo original (ex.: manual-qualidade.pdf).' },
-    source_format: { type: 'string', enum: ['pdf', 'docx', 'pptx'], description: 'Formato do arquivo-fonte.' },
-    page_count: { type: 'integer', minimum: 1, description: 'Número de páginas (PDF/DOCX) ou slides (PPTX).' },
+    source_format: { type: 'string', enum: ['pdf', 'docx', 'pptx', 'xlsx', 'csv', 'xml'], description: 'Formato do arquivo-fonte.' },
+    page_count: { type: 'integer', minimum: 1, description: 'Número de páginas (PDF/DOCX), slides (PPTX), planilhas (XLSX), linhas (CSV) ou elementos (XML).' },
     metadata: {
       type: 'object',
       properties: {

@@ -137,10 +137,10 @@ Subcomandos (o agente invoca via Bash; TODA escrita passa pelo toolkit):
   ingest --path <arquivo|diretório> [--agent <nome>]
       Ingere documentos (PDF/DOCX/PPTX) como artefatos reference-material.
       Chama scripts Python (scripts/ingest_<formato>.py) para converter cada
-      documento em markdown estruturado e commita via propose com claims 🟡
+      documento (PDF/DOCX/PPTX/XLSX/CSV/XML) em markdown estruturado e commita via propose com claims 🟡
       automáticos de extração mecânica. --path aceita arquivo ou diretório
       (processa recursivamente). --agent default: "Laura".
-      Formatos aceitos: .pdf, .docx, .pptx.
+      Formatos aceitos: .pdf, .docx, .pptx, .xlsx, .csv, .xml.
 
 Pastas protegidas: escrita só em _process-ai_output/ (artefatos) e .process-ai/
 (manifestos, checkpoint, WAL, ledger, provenance) — sempre via toolkit, nunca

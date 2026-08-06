@@ -77,7 +77,7 @@ Só prossseguir para a pipeline após o Gate 0 aprovado.
 Antes de iniciar a descoberta com o Bento, **ofereça a ingestão documental**:
 
 > **Déa pergunta:** *"Você tem documentos do processo — manuais, POPs existentes,
-> apresentações, fluxogramas em PDF, DOCX ou PPTX — que possam servir como material
+> apresentações, fluxogramas, planilhas em PDF, DOCX, PPTX, XLSX, CSV ou XML — que possam servir como material
 > de referência para o mapeamento?"*
 
 Se o usuário responder **sim**:
@@ -94,7 +94,7 @@ Se o usuário responder **sim**:
 
 Se o usuário responder **não** ou não tiver documentos agora, prossiga
 normalmente — a ingestão pode ser executada a qualquer momento durante a sessão
-via `process-ai ingest --path`.
+via `/process-ai-laura` ou `process-ai ingest --path`.
 
 > **Por que antes do Bento?** Documentos ingeridos dão ao Bento contexto prévio
 > sobre o processo — ele pode cruzar o que ouve na entrevista com o que está nos
@@ -111,11 +111,13 @@ cada um com um **gate de saída** (após concluir e commitar — bloqueia o avan
 até aprovação). A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 
 > **Especialistas são skills** (`process-ai-bento`, `process-ai-miguel`,
-> `process-ai-julia`, `process-ai-zanoni`), instaladas junto com esta skill.
-> **Laura** (ingestão documental) é acessada via CLI (`process-ai ingest --path`),
-> não como skill — converte PDF/DOCX/PPTX em `reference-material` antes ou durante
-> a sessão. A Déa faz o **handoff** adotando a persona de cada especialista (segue
-> a skill correspondente). O leigo **não** invoca os especialistas diretamente.
+> `process-ai-julia`, `process-ai-zanoni`, `process-ai-laura`), instaladas junto
+> com esta skill. **Laura** (ingestão documental) é acessada via
+> `/process-ai-laura` ou via CLI (`process-ai ingest --path`) — converte
+> PDF/DOCX/PPTX/XLSX/CSV/XML em `reference-material` antes ou durante a sessão. A Déa faz o
+> **handoff** adotando a persona de cada especialista (segue a skill
+> correspondente). O leigo também pode invocar `/process-ai-laura` diretamente a
+> qualquer momento.
 
 | Gate | Estágio (`stage --to`) | Especialista | Artefatos produzidos | `artifactType` |
 |------|------------------------|--------------|------------------------|----------------|

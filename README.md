@@ -27,7 +27,7 @@ O **process-ai** resolve isso herdando o **rigor do Reversa** (confiança 🟢�
 | **Miguel** 🏗️ | Mapeamento — hierarquia Macro→Tarefa (5 níveis) | `hierarchy` |
 | **Júlia** 📐 | Modelagem — fluxo BPMN 2.0 XML + gargalos | `flow` |
 | **Zanoni** 📋 | Padronização — POPs + diagnóstico consolidado | `pop` |
-| **Laura** 🗄️ | Arquivista — ingestão de documentos (PDF/DOCX/PPTX) como material de referência | `reference-material` |
+| **Laura** 🗄️ | Arquivista — ingestão de documentos (PDF/DOCX/PPTX/XLSX/CSV/XML) como material de referência | `reference-material` |
 
 ---
 
@@ -43,7 +43,7 @@ npx process-ai
 
 O que o install faz:
 
-- copia as skills (Déa + 5 especialistas) para `.claude/skills/`;
+- copia as skills (condutora Déa + 5 especialistas: Bento, Miguel, Júlia, Zanoni e Laura) para `.claude/skills/`;
 - cria `.process-ai/config` (installer-managed, regenerado a cada install) e `.process-ai/config.user` (seus overrides — nunca sobrescritos pelo installer);
 - escreve `.process-ai/install-manifest.toml` — o **manifest de instalação** (versão, IDE, pack ativo, e cada arquivo com seu SHA-256), que habilita `update`/`status` e a detecção de arquivos modificados.
 
@@ -56,7 +56,7 @@ npx process-ai --version                             # versão do framework inst
 npx process-ai@latest install --status               # estado da instalação (força versão mais recente)
 npx process-ai@latest update [--target <dir>]        # atualiza/repara instalação existente
 npx process-ai uninstall [--target <dir>] [--purge]  # remove skills + manifest
-npx process-ai ingest   --path <arquivo|diretório>   # ingere PDF/DOCX/PPTX como reference-material
+npx process-ai ingest   --path <arquivo|diretório>   # ingere PDF/DOCX/PPTX/XLSX/CSV/XML como reference-material
 ```
 
 Flags de install: `--target <dir>` (default: cwd), `--ide <id>` (v1: `claude-code`), `--pack <id>` (default: `bpmn-sipoc`), `--full` (instala tudo, não-interativo), `--status` (apenas relata estado).
@@ -95,7 +95,7 @@ A partir daí, ela conduz o usuário pela pipeline completa:
 → Gate 3 → Zanoni (POPs) → Gate 4 → Resumo final + Relatório de Confiança
 ```
 
-A ingestão documental é opcional e pode ser executada antes ou durante a sessão: `process-ai ingest --path <arquivo|diretório>` converte PDF, DOCX e PPTX em artefatos `reference-material` que os especialistas usam como evidência.
+A ingestão documental é opcional e pode ser executada antes ou durante a sessão: `/process-ai-laura` ou `process-ai ingest --path <arquivo|diretório>` converte PDF, DOCX, PPTX, XLSX, CSV e XML em artefatos `reference-material` que os especialistas usam como evidência.
 
 Cada gate **bloqueia** a próxima etapa até aprovação humana, exibindo a contagem de itens 🟢 (confirmados), 🟡 (inferidos) e 🔴 (gaps).
 
@@ -200,7 +200,7 @@ process-ai/
 ├── toolkit/
 │   ├── src/                # Core engine-agnostic
 │   └── adapters/           # Engine adapters (v1: Claude Code)
-├── scripts/                # Scripts Python de ingestão (PDF/DOCX/PPTX)
+├── scripts/                # Scripts Python de ingestão (PDF/DOCX/PPTX/XLSX/CSV/XML)
 ├── skills/                 # Skills dos agentes
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1

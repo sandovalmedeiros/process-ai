@@ -177,13 +177,13 @@ def merge_adjacent_headings(items):
     return result
 
 
-def extract_images_from_page(page, page_num, img_dir):
+def extract_images_from_page(doc, page, page_num, img_dir):
     """Extract all images from a page and save them. Returns list of (rel_path, width, height)."""
     results = []
     image_list = page.get_images(full=True)
     for img_idx, img in enumerate(image_list):
         xref = img[0]
-        base_image = page.extract_image(xref)
+        base_image = doc.extract_image(xref)
         image_bytes = base_image["image"]
         ext = base_image["ext"]
         w, h = base_image["width"], base_image["height"]
@@ -225,7 +225,7 @@ def convert_pdf(pdf_path, output_dir):
         for i in range(page_count):
             page = doc[i]
             # Extract images from this page
-            page_imgs = extract_images_from_page(page, i, img_dir)
+            page_imgs = extract_images_from_page(doc, page, i, img_dir)
 
             items = page_items(page)
             items = merge_adjacent_headings(items)
