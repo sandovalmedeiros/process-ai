@@ -50,8 +50,9 @@ O que o install faz:
 A instalação é **idempotente** — pode ser re-rodeada sem efeito colateral. Para instalar como dependência de projeto, `npm install process-ai` executa o mesmo install no `postinstall`.
 
 ```bash
-npx process-ai                                             # install (interativo em TTY; headless em CI)
+npx process-ai                                       # install (interativo em TTY; headless em CI)
 npx process-ai install --target <dir>                # install explícito (headless)
+npx process-ai --version                             # versão do framework instalado (-V)
 npx process-ai@latest install --status               # estado da instalação (força versão mais recente)
 npx process-ai@latest update [--target <dir>]        # atualiza/repara instalação existente
 npx process-ai uninstall [--target <dir>] [--purge]  # remove skills + manifest
