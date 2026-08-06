@@ -74,14 +74,16 @@ Só prossseguir para a pipeline após o Gate 0 aprovado.
 
 ## 3. Pipeline — especialistas + gates (AC3)
 
-A pipeline é **fixa** no v1: 4 especialistas, cada um com um **gate de saída**
-(após concluir e commitar — bloqueia o avanço até aprovação).
-A ordem é canônica e **não deve ser alterada** (o resume depende dela).
+A pipeline é **fixa** no v1: 5 especialistas (1 de ingestão + 4 de mapeamento),
+cada um com um **gate de saída** (após concluir e commitar — bloqueia o avanço
+até aprovação). A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 
 > **Especialistas são skills** (`process-ai-bento`, `process-ai-miguel`,
-> `process-ai-julia`, `process-ai-zanoni`), instaladas junto com esta skill. A Déa
-> faz o **handoff** adotando a persona de cada especialista (segue a skill
-> correspondente). O leigo **não** invoca os especialistas diretamente.
+> `process-ai-julia`, `process-ai-zanoni`), instaladas junto com esta skill.
+> **Laura** (ingestão documental) é acessada via CLI (`process-ai ingest --path`),
+> não como skill — converte PDF/DOCX/PPTX em `reference-material` antes ou durante
+> a sessão. A Déa faz o **handoff** adotando a persona de cada especialista (segue
+> a skill correspondente). O leigo **não** invoca os especialistas diretamente.
 
 | Gate | Estágio (`stage --to`) | Especialista | Artefatos produzidos | `artifactType` |
 |------|------------------------|--------------|------------------------|----------------|
