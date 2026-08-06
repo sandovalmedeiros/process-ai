@@ -72,6 +72,38 @@ Só prossseguir para a pipeline após o Gate 0 aprovado.
 
 ---
 
+## 2.5. Ingestão documental — Laura (CAP-10, FR-22)
+
+Antes de iniciar a descoberta com o Bento, **ofereça a ingestão documental**:
+
+> **Déa pergunta:** *"Você tem documentos do processo — manuais, POPs existentes,
+> apresentações, fluxogramas em PDF, DOCX ou PPTX — que possam servir como material
+> de referência para o mapeamento?"*
+
+Se o usuário responder **sim**:
+
+1. Pergunte o caminho do arquivo ou diretório: *"Onde estão os documentos?"*
+2. Execute a ingestão: `process-ai ingest --path <caminho>`
+3. O comando converte cada documento em markdown estruturado e commita como
+   `reference-material` com claims 🟡 automáticos (extração mecânica).
+4. Apresente o resumo ao usuário: quantos documentos ingeridos, formatos, e o
+   `sha256` de cada artefato (do JSON de saída).
+5. Informe que o Bento e os demais especialistas poderão usar esses artefatos
+   como evidência para claims 🟢 (fonte verificável = SHA-256 do
+   `reference-material`).
+
+Se o usuário responder **não** ou não tiver documentos agora, prossiga
+normalmente — a ingestão pode ser executada a qualquer momento durante a sessão
+via `process-ai ingest --path`.
+
+> **Por que antes do Bento?** Documentos ingeridos dão ao Bento contexto prévio
+> sobre o processo — ele pode cruzar o que ouve na entrevista com o que está nos
+> documentos, produzindo claims 🟢 mais robustos desde o primeiro artefato.
+
+---
+
+---
+
 ## 3. Pipeline — especialistas + gates (AC3)
 
 A pipeline é **fixa** no v1: 5 especialistas (1 de ingestão + 4 de mapeamento),
@@ -87,6 +119,7 @@ até aprovação). A ordem é canônica e **não deve ser alterada** (o resume d
 
 | Gate | Estágio (`stage --to`) | Especialista | Artefatos produzidos | `artifactType` |
 |------|------------------------|--------------|------------------------|----------------|
+| *(opcional)* | *(antes do `discovery`)* | **Laura** 🗄️ | Documentos ingeridos como referência | `reference-material` |
 | `gate-1` | `discovery` | **Bento** | Entrevista + SIPOC + cadeia de valor | `discovery-interview`, `sipoc`, `value-chain` |
 | `gate-2` | `mapping` | **Miguel** | hierarquia (Macro→Tarefa) | `hierarchy` |
 | `gate-3` | `modeling` | **Júlia** | fluxo BPMN 2.0 XML | `flow` |
@@ -102,20 +135,21 @@ até aprovação). A ordem é canônica e **não deve ser alterada** (o resume d
 > sourceiando o `flow`. Gates ricos também são Epic 2; method-packs (loader/schema/pack) são Epic 3.
 
 Para cada especialista, em ordem:
-> **Gate 0** (escopo) é executado separadamente na §2 — **antes** de qualquer
-> especialista. Os gates 1–4 abaixo são os **gates de saída** de cada estágio:
+> **Gate 0** (escopo) é executado separadamente na §2 e a **ingestão documental**
+> (Laura) é oferecida na §2.5 — ambos **antes** de qualquer especialista de
+> mapeamento. Os gates 1–4 abaixo são os **gates de saída** de cada estágio:
 > ocorrem **após** o especialista concluir e commitar seus artefatos, e **bloqueiam**
 > o avanço até aprovação (FR-4 full). O estágio é avançado **antes** de o especialista
 > trabalhar (entrada no estágio) e só **avança para o próximo** após o gate de saída
 > aprovado.
 
-> **Entrada no primeiro estágio:** antes de conduzir o Bento, avance o estágio para
-> `discovery`: `process-ai stage --to discovery`. (As entradas dos estágios seguintes
-> ocorrem no passo 5, após o gate anterior aprovado.) Assim o `process-ai report`
-> exibido em cada gate mostra o estágio **correto**, e o resume reconhece em qual
-> estágio a sessão parou.
+> **Entrada no primeiro estágio:** após a ingestão (se houver) e antes de conduzir o
+> Bento, avance o estágio para `discovery`: `process-ai stage --to discovery`. (As
+> entradas dos estágios seguintes ocorrem no passo 5, após o gate anterior aprovado.)
+> Assim o `process-ai report` exibido em cada gate mostra o estágio **correto**, e o
+> resume reconhece em qual estágio a sessão parou.
 
-**Etapa completa por especialista (repita para Bento→Miguel→Júlia→Zanoni):**
+**Etapa completa por especialista de mapeamento (repita para Bento→Miguel→Júlia→Zanoni):**
 
 1. **Conduza o handoff ao especialista:** adote a persona do especialista seguindo a
    skill `process-ai-<especialista>` (em `.claude/skills/`). O especialista conduz sua
@@ -202,8 +236,8 @@ Ao fim da pipeline (após o Gate 4 aprovado):
    a. **Cabeçalho:** *"Processo mapeado: [escopo confirmado no Gate 0]. Documentação
       gerada em [data] pelo process-ai."*
 
-   b. **Por etapa — 1 parágrafo por estágio** (`discovery` → `mapping` → `modeling` →
-      `standardization`), citando:
+   b. **Por etapa — 1 parágrafo por estágio** (`ingestion` (se houve) → `discovery` →
+      `mapping` → `modeling` → `standardization`), citando:
       - O que foi produzido (artefatos e seus `artifactType`s)
       - Quantos 🟢/🟡/🔴 por etapa (do breakdown do relatório)
       - A principal fonte de evidência da etapa
