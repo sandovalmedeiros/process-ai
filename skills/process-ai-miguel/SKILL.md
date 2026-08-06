@@ -126,6 +126,28 @@ aninhadas** para Atividade/Tarefa, cada nó declarando seu pai. Exemplo:
 > Miguel **continua** essa cadeia: seus claims 🟢 sourceiam a **`value-chain`** de Bento (não a
 > entrevista — mantém a cadeia limpa: `hierarchy ← value-chain ← discovery-interview`).
 
+0. **Inclua o diagrama da hierarquia** no markdown do artefato — um `flowchart TD` com a
+   árvore completa (Macro→E2E→Sub→Atividade→Tarefa):
+   - IDs estáveis como node IDs Mermaid (ex.: `M1`, `E1_1`, `S1_1_1`, `A1_1_1_1`, `T1_1_1_1_1`)
+   - Conexões pai→filho com `-->`
+   - `style` por nível de confiança: 🟢 = `fill:#4CAF50,color:#fff`, 🟡 = `fill:#FF9800,color:#000`, 🔴 = `fill:#F44336,color:#fff`
+   - Exemplo:
+     ````markdown
+     ### Diagrama da Hierarquia
+
+     ```mermaid
+     flowchart TD
+         M1[Macro: Vendas] --> E1_1[E2E: Lead-to-Close]
+         E1_1 --> S1_1_1[Sub: Qualificação]
+         S1_1_1 --> A1_1_1_1[Atv: Avaliar fit]
+         A1_1_1_1 --> T1_1_1_1_1[Tarefa: Checar perfil]
+         style M1 fill:#4CAF50,color:#fff
+         style E1_1 fill:#4CAF50,color:#fff
+         style S1_1_1 fill:#FF9800,color:#000
+         style T1_1_1_1_1 fill:#F44336,color:#fff
+     ```
+     ````
+
 1. **Monte o `ProposePayload`** e grave num temp com a **ferramenta de escrita (Write), NÃO
    heredoc de Bash**. Um **claim por ramo/nível significativo** com `level` + `reasoning`
    (+ `source` quando 🟢):

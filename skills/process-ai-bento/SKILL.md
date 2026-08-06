@@ -170,6 +170,24 @@ hierarquia, base para o Miguel):
 
 1. **Redija a cadeia** em markdown — os macroprocessos em ordem, posicionando o processo
    mapeado entre eles (ex.: Atração → **Vendas** → Entrega → Pós-venda/Cobrança).
+
+   Inclua um **diagrama Mermaid** da cadeia como `flowchart LR`:
+   - Um nó por macroprocesso, na ordem (esquerda → direita)
+   - Setas `-->` entre eles
+   - Destaque o **processo mapeado** com `style` (ex.: `style Vendas fill:#4CAF50,color:#fff`)
+   - Exemplo:
+     ````markdown
+     ### Diagrama da Cadeia de Valor
+
+     ```mermaid
+     flowchart LR
+         Atracao[Atração] --> Vendas[Vendas]
+         Vendas --> Entrega[Entrega]
+         Entrega --> PosVenda[Pós-venda]
+         style Vendas fill:#4CAF50,color:#fff
+     ```
+     ````
+
 2. **Monte o `ProposePayload`** com `claims` — macroprocessos **confirmados** 🟢 (sourcing a
    `discovery-interview`); **inferidos** 🟡 com `reasoning`:
    ```json

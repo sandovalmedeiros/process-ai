@@ -104,6 +104,30 @@ adapte ao processo real):
 > **suas próprias contagens** (o que ele consolidou); a agregação completa do ledger ponta-a-ponta
 > é **FR-16 → 2.5**.
 
+**Diagramas Mermaid no artefato:** inclua no markdown do `pop`:
+- **Fluxo por POP:** um `flowchart LR` com os passos numerados de cada procedimento.
+  Exemplo para um POP de 4 passos:
+  ````markdown
+  ### Fluxo do POP: Enviar proposta
+  ```mermaid
+  flowchart LR
+      P1[1. Conferir dados do lead] --> P2[2. Selecionar template]
+      P2 --> P3[3. Personalizar proposta]
+      P3 --> P4[4. Enviar por e-mail]
+  ```
+  ````
+- **Diagnóstico consolidado:** um `pie` chart com a contagem de gargalos, gaps e
+  recomendações. Exemplo:
+  ````markdown
+  ### Diagnóstico
+  ```mermaid
+  pie title Diagnóstico Consolidado
+      "Gargalos" : 1
+      "Gaps" : 1
+      "Recomendações" : 1
+  ```
+  ````
+
 ## 4. Committa com claims por elemento (Zanoni continua a cadeia de 🟢 sourcing `flow`)
 
 > **Provenance (AD-5):** Bento alcança 🟢 (desde 2.1, sourcing `discovery-interview`); Miguel

@@ -237,6 +237,40 @@ Ao fim da pipeline (após o Gate 5 aprovado — Tiago concluiu o `process-report
    Use os dados do `status` (artefatos), do `report` (contagens, itens, gaps) e do
    `process-report` (Tiago) — **nunca invente** dados.
 
+   Inclua **diagramas Mermaid** no `summary-report`:
+   - **Pipeline executada:** um `flowchart LR` com os estágios percorridos e decisões
+     dos gates (com `style` verde para approved, amarelo para changes-requested).
+     Exemplo:
+     ````markdown
+     ### Pipeline Executada
+     ```mermaid
+     flowchart LR
+         Scope[Escopo] -->|gate-0 ✓| Discovery[Descoberta]
+         Discovery -->|gate-1 ✓| Mapping[Mapeamento]
+         Mapping -->|gate-2 ✓| Modeling[Modelagem]
+         Modeling -->|gate-3 ✓| Std[Padronização]
+         Std -->|gate-4 ✓| Report[Relatório]
+         Report -->|gate-5 ✓| Summary[Encerramento]
+         style Scope fill:#4CAF50,color:#fff
+         style Discovery fill:#4CAF50,color:#fff
+         style Mapping fill:#4CAF50,color:#fff
+         style Modeling fill:#4CAF50,color:#fff
+         style Std fill:#4CAF50,color:#fff
+         style Report fill:#4CAF50,color:#fff
+     ```
+     ````
+   - **Confiança consolidada:** um `pie` chart com a contagem 🟢🟡🔴 do
+     `process-ai report`. Exemplo:
+     ````markdown
+     ### Confiança Final
+     ```mermaid
+     pie title Confiança do Mapeamento
+         "🟢 Confirmado" : 14
+         "🟡 Inferido" : 6
+         "🔴 Gap" : 4
+     ```
+     ````
+
    **Estrutura do resumo narrativo:**
 
    a. **Cabeçalho:** *"Processo mapeado: [escopo confirmado no Gate 0]. Documentação

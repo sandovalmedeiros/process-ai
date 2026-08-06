@@ -81,7 +81,19 @@ pelos `sha256`** — o leitor pode verificar cada afirmação.
 
 - Extrair do `value-chain` (Bento)
 - Narrativa: como o processo se insere na cadeia de valor da organização
-- Diagrama Mermaid da cadeia (se disponível no artefato)
+- **Diagrama Mermaid:** derive um `flowchart LR` com os macroprocessos do `value-chain`,
+  destacando o processo mapeado com `style` (fill verde). Um nó por macroprocesso, setas
+  `-->` na ordem da cadeia. Exemplo:
+  ````markdown
+  ### Diagrama da Cadeia de Valor
+  ```mermaid
+  flowchart LR
+      Atracao[Atração] --> Vendas[Vendas]
+      Vendas --> Entrega[Entrega]
+      Entrega --> PosVenda[Pós-venda]
+      style Vendas fill:#4CAF50,color:#fff
+  ```
+  ````
 - Claims 🟢 sourceiam `value-chain`
 
 ### Seção 4 — SIPOC
@@ -96,7 +108,9 @@ pelos `sha256`** — o leitor pode verificar cada afirmação.
 - Extrair do `hierarchy` (Miguel)
 - Tabela hierárquica: Macroprocesso → Processo → Subprocesso → Atividade → Tarefa
 - IDs estáveis (A1, T1…)
-- Diagrama de árvore Mermaid representando a hierarquia
+- **Diagrama Mermaid:** derive um `flowchart TD` em árvore com os 5 níveis. IDs estáveis
+  como node IDs, conexões pai→filho com `-->`, `style` por confiança:
+  🟢 = `fill:#4CAF50,color:#fff`, 🟡 = `fill:#FF9800,color:#000`, 🔴 = `fill:#F44336,color:#fff`
 - Claims 🟢 sourceiam `hierarchy`
 
 ### Seção 6 — Fluxo do Processo
@@ -105,6 +119,23 @@ pelos `sha256`** — o leitor pode verificar cada afirmação.
 - **Fluxo principal (happy path):** descrição narrativa passo a passo
 - **Desvios e exceções:** gateways, condições, caminhos alternativos
 - **Papéis e responsabilidades:** tabela de raias/swimlanes (quem faz o quê)
+- **Diagrama Mermaid:** derive um `flowchart LR` do BPMN 2.0 XML do `flow`.
+  Leia o XML e extraia: `startEvent`→nó circular, `task`/`serviceTask`→nó retangular,
+  `exclusiveGateway`→nó losango com arestas rotuladas (condições `-- Sim -->`/`-- Não -->`),
+  `parallelGateway`→nó losango com `-->` paralelas, `endEvent`→nó circular. Respeite a
+  topologia do `<sequenceFlow>`. Exemplo:
+  ````markdown
+  ### Diagrama do Fluxo Principal
+  ```mermaid
+  flowchart LR
+      Start((Início)) --> Captar[Captar lead]
+      Captar --> Qualificar[Qualificar lead]
+      Qualificar --> Gateway{Lead qualificado?}
+      Gateway -- Sim --> Proposta[Enviar proposta]
+      Gateway -- Não --> Descarte((Lead descartado))
+      Proposta --> Fechamento((Fechamento))
+  ```
+  ````
 - Referência ao XML BPMN canônico (anexo — `sha256` do `flow`)
 - Claims 🟢 sourceiam `flow`
 
@@ -122,6 +153,17 @@ pelos `sha256`** — o leitor pode verificar cada afirmação.
   - Extrair do diagnóstico do `pop` (Zanoni)
   - Formato: tabela com Problema | Causa | Gravidade | Urgência | Tendência | Solução
 - **Recomendações 🟡:** extrair do `pop` (Zanoni)
+- **Diagrama Mermaid:** monte um `pie` chart com a contagem consolidada 🟢🟡🔴
+  do `process-ai report`. Exemplo:
+  ````markdown
+  ### Confiança Consolidada
+  ```mermaid
+  pie title Confiança do Mapeamento
+      "🟢 Confirmado" : 12
+      "🟡 Inferido" : 5
+      "🔴 Gap" : 3
+  ```
+  ````
 
 ### Seção 9 — Relatório de Confiança
 
