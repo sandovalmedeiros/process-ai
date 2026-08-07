@@ -1,8 +1,8 @@
 # process-ai
 
-**Framework open-source de mapeamento de processos com agentes de IA.**
+**Framework de mapeamento de processos para PMEs — com agentes de IA.**
 
-Uma equipe de 7 agentes — Déa, Bento, Miguel, Júlia, Zanoni, Laura e Tiago — conduz uma pessoa comum, por perguntas e respostas, até documentar a arquitetura completa de um processo: da cadeia de valor aos diagramas BPMN, aos POPs e ao relatório final profissional. **O usuário não precisa saber metodologia; os agentes sabem — e conduzem.**
+Voltado para **Pequenas e Médias Empresas**, o process-ai coloca uma equipe de 7 agentes de IA — Déa, Bento, Miguel, Júlia, Zanoni, Laura e Tiago — para conduzir qualquer pessoa, por perguntas e respostas, até a documentação completa de um processo: cadeia de valor, SIPOC, hierarquia, diagramas BPMN, POPs e relatório final. **O usuário não precisa ser especialista em processos nem em metodologia; os agentes sabem — e conduzem.**
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
@@ -10,11 +10,21 @@ Uma equipe de 7 agentes — Déa, Bento, Miguel, Júlia, Zanoni, Laura e Tiago �
 
 ---
 
+## Para quem é
+
+O process-ai é feito para **Pequenas e Médias Empresas** que precisam documentar seus processos mas não têm orçamento para consultoria especializada nem equipe dedicada de BPM.
+
+**O dono da empresa, o gerente, o analista — qualquer pessoa** pode usar. Basta responder às perguntas que os agentes fazem. Ninguém precisa saber o que é BPMN, SIPOC ou metodologia de mapeamento.
+
 ## Por que existe
 
-Nas PMEs, os processos críticos vivem na cabeça das pessoas. Quando alguém sai, o conhecimento vai junto. A operação fica frágil, não escala e reprova em auditorias. Sair disso exige consultoria cara ou ferramenta que pede especialista.
+Nas PMEs, os processos críticos vivem na cabeça das pessoas. Quando alguém sai, o conhecimento vai junto. A operação fica frágil, não escala e reprova em auditorias. Sair disso exige:
 
-O **process-ai** resolve isso herdando o **rigor do Reversa** (confiança 🟢🟡🔴, rastreabilidade, não-destrutivo) e o **modo de conduzir do BMad** — aplicados ao domínio de processos. O resultado é um framework que qualquer um instala e usa, sem treinamento.
+- **Consultoria** — cara, R$ 15-50 mil por processo
+- **Ferramenta BPM** — exige especialista, curva de meses
+- **DIY com planilha** — informal, não rastreável, não auditável
+
+O **process-ai** é a quarta via: herda o **rigor do Reversa** (confiança 🟢🟡🔴, rastreabilidade SHA-256, não-destrutivo) e o **modo de conduzir do BMad** — aplicados ao domínio de processos. O resultado: **mapeamento profissional de processos ao alcance de qualquer PME**, sem treinamento, sem consultor, sem licença cara.
 
 ---
 
