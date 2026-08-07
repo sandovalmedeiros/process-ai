@@ -62,8 +62,8 @@ escrita acontece pelo canal de runtime **`process-ai`** (CLI executado via Bash)
    ```
 2. Execute o renderizador (toolkit Node + Playwright):
    ```bash
-   node --input-type=module -e "
-     const { renderBpmn } = await import('./scripts/bpmn-renderer/render.js');
+   npx tsx -e "
+     const { renderBpmn } = await import('./scripts/bpmn-renderer/render.ts');
      const { readFileSync } = await import('node:fs');
      const xml = readFileSync('/tmp/flow-<sha>.bpmn', 'utf8');
      const result = await renderBpmn(xml, '_process-ai_output/flow', 'flow-<sha>');
