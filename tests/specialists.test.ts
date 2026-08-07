@@ -1,13 +1,13 @@
 /**
  * tests/specialists.test.ts — Skills dos especialistas (AC1, AC2, AC3, AC4, AC5, AD-1).
  *
- * As 4 skills-fonte (skills/process-ai-{bento,miguel,julia,zanoni}/SKILL.md) são fontes
+ * As 5 skills-fonte (skills/process-ai-{bento,miguel,julia,guilherme,zanoni}/SKILL.md) são fontes
  * únicas de verdade: o ClaudeCodeAdapter as copia byte-a-byte para o alvo (T2). Aqui
  * validamos que cada skill carrega a condução mínima do especialista — persona, propose
  * com claims (marcadores 🟢🟡🔴), threading de sha256 para provenance, e o invariante
  * AD-1 (sem escrita direta nas pastas protegidas).
  *
- * Os testes de *instalação* (installSkills instala as 5 skills byte-a-byte) vivem no
+ * Os testes de *instalação* (installSkills instala as 8 skills byte-a-byte) vivem no
  * final deste arquivo e em tests/adapter.test.ts — exigem a T2 (generalização do
  * installSkills).
  */
@@ -25,6 +25,7 @@ const SPECIALISTS = [
   { skill: 'process-ai-bento', persona: 'Bento', types: ['discovery-interview', 'sipoc', 'value-chain'] },
   { skill: 'process-ai-miguel', persona: 'Miguel', types: ['hierarchy'] },
   { skill: 'process-ai-julia', persona: 'Júlia', types: ['flow'] },
+  { skill: 'process-ai-guilherme', persona: 'Guilherme', types: ['flow-image'] },
   { skill: 'process-ai-zanoni', persona: 'Zanoni', types: ['pop'] },
 ] as const;
 
@@ -81,7 +82,7 @@ for (const s of SPECIALISTS) {
 
 // ---- Instalação (AC1, AD-7) — exige T2 (installSkills generalizado) ----
 
-test('AC1: installSkills instala as 5 skills (condutor + 4 especialistas) byte-a-byte', async () => {
+test('AC1: installSkills instala as 8 skills (condutor + 7 especialistas) byte-a-byte', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-spec-install-'));
   try {
     const adapter = new ClaudeCodeAdapter();
@@ -152,7 +153,7 @@ test('discoverSourceSkills: descobre só dirs process-ai* com SKILL.md regular (
   }
 });
 
-test('AC1: installSkills instala exatamente as 7 skills reais (condutor + 6 especialistas)', async () => {
+test('AC1: installSkills instala exatamente as 8 skills reais (condutor + 7 especialistas)', async () => {
   // Guarda de regressão: o install real (repo-fonte) instala exatamente o conjunto
   // esperado — nenhum fantasma, nenhum arquivo solto.
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-spec-set-'));
@@ -162,8 +163,8 @@ test('AC1: installSkills instala exatamente as 7 skills reais (condutor + 6 espe
     const installed = (await fs.readdir(path.join(tmp, '.claude', 'skills'))).sort();
     assert.deepEqual(
       installed,
-      ['process-ai', 'process-ai-bento', 'process-ai-julia', 'process-ai-laura', 'process-ai-miguel', 'process-ai-tiago', 'process-ai-zanoni'],
-      'installSkills deve instalar exatamente as 7 skills com SKILL.md',
+      ['process-ai', 'process-ai-bento', 'process-ai-guilherme', 'process-ai-julia', 'process-ai-laura', 'process-ai-miguel', 'process-ai-tiago', 'process-ai-zanoni'],
+      'installSkills deve instalar exatamente as 8 skills com SKILL.md',
     );
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

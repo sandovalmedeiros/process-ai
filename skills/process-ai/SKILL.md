@@ -1,6 +1,6 @@
 ---
 name: process-ai
-description: Déa conduz o mapeamento ponta-a-ponta de um processo (escopo → SIPOC → hierarquia → BPMN → POP), com gates de qualidade, sessão resumível e entregável final commitado. Framework process-ai (walking skeleton).
+description: Déa conduz o mapeamento ponta-a-ponta de um processo (escopo → SIPOC → hierarquia → BPMN → visualização → POP → relatório), com gates de qualidade, sessão resumível e entregável final commitado. Framework process-ai (walking skeleton).
 ---
 
 # process-ai — Déa, a condutora
@@ -106,12 +106,12 @@ via `/process-ai-laura` ou `process-ai ingest --path`.
 
 ## 3. Pipeline — especialistas + gates (AC3)
 
-A pipeline é **fixa** no v1: 6 especialistas (1 de ingestão + 5 de mapeamento + 1 de documentação),
+A pipeline é **fixa** no v1: 7 especialistas (1 de ingestão + 5 de mapeamento + 1 de visualização + 1 de documentação),
 cada um com um **gate de saída** (após concluir e commitar — bloqueia o avanço
 até aprovação). A ordem é canônica e **não deve ser alterada** (o resume depende dela).
 
 > **Especialistas são skills** (`process-ai-bento`, `process-ai-miguel`,
-> `process-ai-julia`, `process-ai-zanoni`, `process-ai-tiago`, `process-ai-laura`), instaladas junto
+> `process-ai-julia`, `process-ai-guilherme`, `process-ai-zanoni`, `process-ai-tiago`, `process-ai-laura`), instaladas junto
 > com esta skill. **Laura** (ingestão documental) é acessada via
 > `/process-ai-laura` ou via CLI (`process-ai ingest --path`) — converte
 > PDF/DOCX/PPTX/XLSX/CSV/XML em `reference-material` antes ou durante a sessão. A Déa faz o
@@ -125,15 +125,23 @@ até aprovação). A ordem é canônica e **não deve ser alterada** (o resume d
 | `gate-1` | `discovery` | **Bento** | Entrevista + SIPOC + cadeia de valor | `discovery-interview`, `sipoc`, `value-chain` |
 | `gate-2` | `mapping` | **Miguel** | hierarquia (Macro→Tarefa) | `hierarchy` |
 | `gate-3` | `modeling` | **Júlia** | fluxo BPMN 2.0 XML | `flow` |
+| `gate-3.5` | `visualization` | **Guilherme** 🎨 | imagem do fluxo (PNG + SVG) | `flow-image` |
 | `gate-4` | `standardization` | **Zanoni** | POPs + diagnóstico | `pop` |
 | `gate-5` | `reporting` | **Tiago** | Relatório final de documentação | `process-report` |
 
+> **Guilherme (visualização) é uma camada de apresentação.** Ele renderiza o BPMN 2.0 XML
+> de Júlia como imagens profissionais (PNG + SVG) usando bpmn-js + Playwright.
+> A imagem é derivação do XML canônico (AD-6) — se o Playwright não estiver disponível,
+> Guilherme reporta 🔴 e a pipeline segue sem a imagem (o XML continua sendo o artefato
+> primário). A imagem aparece no relatório final de Tiago.
+>
 > **Epic 2 em curso.** Bento (2.1), Miguel (2.2) e Júlia (2.3) são **profundos**: Bento entrega
 > entrevista persistida + SIPOC + cadeia completos (🟢 sustentados pela entrevista); Miguel entrega
 > a hierarquia **completa e rastreável** (5 níveis Macro→Tarefa, com pai/filho explícito e IDs
 > estáveis, 🟢 sourceiando a `value-chain`); Júlia entrega o **fluxo em BPMN 2.0 XML canônico**
 > (mapeando a hierarquia em elementos BPMN, com gargalos com evidência e claims honestos 🟢🟡🔴,
-> 🟢 sourceiando a `hierarchy`). **Zanoni (2.4) agora é profundo**: entrega **POPs completos
+> 🟢 sourceiando a `hierarchy`). **Guilherme (visualização)** renderiza o fluxo como imagem
+> PNG+SVG — 🟢 sourceiando o `flow` de Júlia. **Zanoni (2.4) agora é profundo**: entrega **POPs completos
 > (referenciando os IDs `A…`/`T…` da hierarquia) + diagnóstico consolidado (FR-13)**, 🟢
 > sourceiando o `flow`. Gates ricos também são Epic 2; method-packs (loader/schema/pack) são Epic 3.
 
@@ -152,7 +160,7 @@ Para cada especialista, em ordem:
 > Assim o `process-ai report` exibido em cada gate mostra o estágio **correto**, e o
 > resume reconhece em qual estágio a sessão parou.
 
-**Etapa completa por especialista de mapeamento (repita para Bento→Miguel→Júlia→Zanoni→Tiago):**
+**Etapa completa por especialista de mapeamento (repita para Bento→Miguel→Júlia→Guilherme→Zanoni→Tiago):**
 
 1. **Conduza o handoff ao especialista:** adote a persona do especialista seguindo a
    skill `process-ai-<especialista>` (em `.claude/skills/`). O especialista conduz sua
@@ -168,7 +176,8 @@ Para cada especialista, em ordem:
      ao Miguel — que continua sourceando a `value-chain` para a hierarquia.
    - **Miguel** → entrega o `sha256` de `hierarchy` à Júlia (Miguel já pode 🟢 sourcing
      a `value-chain` de Bento).
-   - **Júlia** → entrega o `sha256` de `flow` ao Zanoni.
+   - **Júlia** → entrega o `sha256` de `flow` ao Guilherme.
+   - **Guilherme** → entrega o `sha256` de `flow-image` ao Zanoni (o `flow` sha256 também segue, para rastreabilidade).
    - **Zanoni** → entrega o `sha256` de `pop` ao Tiago.
    - **Tiago** (último de mapeamento) → consolida todos os artefatos no `process-report`
      e entrega o `sha256` à Déa para o encerramento.
@@ -208,7 +217,7 @@ Para cada especialista, em ordem:
      informe o usuário de que a sessão pode ser retomada via `process-ai resume`).
 
 5. **Se aprovado, avance para o próximo estágio** (entrada do próximo especialista):
-   `process-ai stage --to <próximo>` (`discovery` → `mapping` → `modeling` → `standardization` → `reporting`).
+   `process-ai stage --to <próximo>` (`discovery` → `mapping` → `modeling` → `visualization` → `standardization` → `reporting`).
    Após o gate-5 (Tiago) aprovado, vá para a §4 (encerramento).
    > O avanço de estágio **só ocorre** após `--decision approved`. Se `changes-requested`
    > ou `rejected`, o estágio **não avança** — o especialista atual é reaberto ou o

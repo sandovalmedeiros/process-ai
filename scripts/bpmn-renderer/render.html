@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>process-ai — Renderizador BPMN</title>
+<!-- bpmn-js via CDN (versão estável) -->
+<script src="https://unpkg.com/bpmn-js@17/dist/bpmn-viewer.development.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #fff; }
+  #canvas { width: 100vw; height: 100vh; }
+
+  /* Estilo Bizagi-like — azul corporativo, linhas limpas */
+  .bjs-container { --bjs-font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+
+  /* Atividades (tasks): azul Bizagi */
+  .djs-element[data-element-id] .djs-visual > :first-child {
+    stroke: #2E86AB !important;
+  }
+  .djs-element[data-element-id] .djs-visual text {
+    fill: #1a1a1a !important;
+    font-family: 'Segoe UI', sans-serif !important;
+    font-size: 11px !important;
+  }
+
+  /* Eventos de início: verde */
+  .bpmn-icon-start-event-none { color: #5CB85C !important; }
+
+  /* Eventos de fim: vermelho */
+  .bpmn-icon-end-event-none { color: #D9534F !important; }
+
+  /* Gateways: amarelo/dourado */
+  .bpmn-icon-gateway-none { color: #F0AD4E !important; }
+  .bpmn-icon-gateway-xor { color: #F0AD4E !important; }
+</style>
+</head>
+<body>
+<div id="canvas"></div>
+<script>
+  // A função setBpmnXml(xml) é exposta para o Playwright injetar o XML
+  let viewer = null;
+
+  async function renderBpmn(xml) {
+    if (viewer) {
+      // Reimporta sem recriar o viewer
+      try {
+        const { warnings } = await viewer.importXML(xml);
+        if (warnings.length) {
+          document.title = 'WARN:' + warnings.join('; ');
+        }
+      } catch (err) {
+        document.title = 'ERROR:' + (err.message || String(err));
+      }
+      return;
+    }
+
+    const BpmnViewer = window.BpmnJS;
+    viewer = new BpmnViewer({ container: '#canvas' });
+
+    try {
+      const { warnings } = await viewer.importXML(xml);
+      const canvas = viewer.get('canvas');
+      canvas.zoom('fit-viewport', 'auto');
+
+      if (warnings.length) {
+        document.title = 'WARN:' + warnings.join('; ');
+      } else {
+        document.title = 'OK';
+      }
+    } catch (err) {
+      document.title = 'ERROR:' + (err.message || String(err));
+      // Renderiza o erro no canvas como fallback
+      document.getElementById('canvas').innerHTML =
+        '<div style="padding:2rem;color:#D9534F;font-family:sans-serif">' +
+        '<h2>Erro ao renderizar BPMN</h2>' +
+        '<pre>' + (err.message || String(err)) + '</pre>' +
+        '</div>';
+    }
+  }
+
+  // Expor para Playwright
+  window.renderBpmn = renderBpmn;
+</script>
+</body>
+</html>

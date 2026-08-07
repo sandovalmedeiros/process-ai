@@ -95,7 +95,7 @@ test('E2E: loop completo do condutor — Gate 0 → pipeline(gates+estágios) �
       '',
       reportRes.output, // relatório de confiança embutido
     ].join('\n');
-    await fs.writeFile(payloadPath, JSON.stringify({ artifactType: 'summary-report', content: summaryContent }), 'utf8');
+    await fs.writeFile(payloadPath, JSON.stringify({ artifactType: 'summary-report', content: { body: summaryContent } }), 'utf8');
 
     const proposeRes = await dispatch(parseArgs(['propose', '--payload', payloadPath]), adapter, tmp);
     const commit = JSON.parse(proposeRes.output) as { sha256: string; artifactPath: string; manifestPath: string };

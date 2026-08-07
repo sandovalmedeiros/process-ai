@@ -36,7 +36,7 @@ test('AC2: skill-fonte contém Gate 0 (escopo antes de qualquer descoberta)', as
   assert.ok(/gate-0/.test(content), 'deve referenciar gate-0 no CLI');
 });
 
-test('AC3: skill-fonte declara a pipeline fixa com os 4 slots de especialista + gates 1–4', async () => {
+test('AC3: skill-fonte declara a pipeline fixa com os 5 slots de especialista + gates 1–5', async () => {
   const content = await fs.readFile(SOURCE_SKILL_MD, 'utf8');
   // Slots canônicos (Bento/Miguel/Júlia/Zanoni) — em 1.5 são handoffs declarados.
   for (const slot of ['Bento', 'Miguel', 'Júlia', 'Zanoni']) {
