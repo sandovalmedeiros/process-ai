@@ -75,13 +75,17 @@ O loader carrega prompts presentes; especialistas sem prompt no pack usam o prom
 
 ## Validação
 
-Rode o loader para validar seu pack (ESM — o projeto usa `"type": "module"`, então `require` não existe):
+Para validar seu pack em desenvolvimento (raiz do repo, ESM — `"type": "module"`):
+
 ```bash
+# Importe o loader compilado e valide a estrutura do pack
 node --input-type=module -e "
-  const { loadPack } = await import('./toolkit/src/pack-loader.ts');
+  const { loadPack } = await import('./toolkit/dist/pack-loader.js');
   const pack = await loadPack('./method-packs/meu-pack');
   console.log('OK:', pack.manifest.name);
 "
 ```
+
+> **Nota:** O pack é validado automaticamente quando ativado via `.process-ai/config` — o toolkit rejeita packs que violem AD-2 (redefinir schema-núcleo, declarar pipeline/roles, etc.).
 
 O pack padrão `bpmn-sipoc` (method-packs/bpmn-sipoc/) serve como referência completa.

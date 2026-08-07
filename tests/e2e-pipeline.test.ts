@@ -87,7 +87,7 @@ async function propose(
 
 /** Entrevista de descoberta — cenário Vendas PME (lead→fechamento). */
 const INTERVIEW_CONTENT =
-  '# Entrevista de Descoberta — Processo de Vendas (Distribuidora B2B)\n' +
+  { body: '# Entrevista de Descoberta — Processo de Vendas (Distribuidora B2B)\n' +
   '\n' +
   '## Pergunta 1: Como chegam os leads?\n' +
   '**Resposta:** "Principalmente por indicação de clientes atuais e pelo site. O time de marketing ' +
@@ -120,11 +120,11 @@ const INTERVIEW_CONTENT =
   '## Pergunta 7: Onde travam?\n' +
   '**Resposta:** "Na proposta. O Sênior é sobrecarregado — são 20 propostas/mês para 1 pessoa. ' +
   'O follow-up pós-proposta também é fraco: não temos processo de follow-up, cada um faz ' +
-  'quando lembra."\n';
+  'quando lembra."\n' };
 
 /** SIPOC realista — Vendas PME. */
 const SIPOC_CONTENT =
-  '# SIPOC — Processo de Vendas\n' +
+  { body: '# SIPOC — Processo de Vendas\n' +
   '\n' +
   '| | Descrição |\n' +
   '|---|---|\n' +
@@ -132,11 +132,11 @@ const SIPOC_CONTENT =
   '| **I**nputs | Leads (40/mês), MQLs qualificados, Briefing de necessidade |\n' +
   '| **P**rocess | Prospecção → Qualificação → Proposta → Negociação → Fechamento → Onboarding |\n' +
   '| **O**utputs | Proposta comercial, Contrato assinado (DocuSign), Cliente onboarded |\n' +
-  '| **C**ustomers | PMEs B2B (20-200 funcionários), setores: serviços, indústria leve, tecnologia |\n';
+  '| **C**ustomers | PMEs B2B (20-200 funcionários), setores: serviços, indústria leve, tecnologia |\n' };
 
 /** Cadeia de valor — Vendas PME. */
 const VALUE_CHAIN_CONTENT =
-  '# Cadeia de Valor — Vendas\n' +
+  { body: '# Cadeia de Valor — Vendas\n' +
   '\n' +
   '1. **Prospecção** — Captação de leads via marketing digital, indicações e site.\n' +
   '2. **Qualificação** — Avaliação de fit (orçamento, necessidade, autoridade) pelo vendedor Júnior.\n' +
@@ -145,11 +145,11 @@ const VALUE_CHAIN_CONTENT =
   '5. **Fechamento** — Contrato via DocuSign + onboarding pelo time de CS (5 dias úteis).\n' +
   '\n' +
   '**Nota:** O elo de Pós-venda (onboarding + CS) é parte do ciclo de vida do cliente, ' +
-  'mas o foco do wedge é lead→fechamento.\n';
+  'mas o foco do wedge é lead→fechamento.\n' };
 
 /** Hierarquia — Vendas PME (Miguel, 2.2). */
 const HIERARCHY_CONTENT =
-  '# Hierarquia — Processo de Vendas (Lead-to-Cash)\n' +
+  { body: '# Hierarquia — Processo de Vendas (Lead-to-Cash)\n' +
   '\n' +
   '## M1. Vendas (Macroprocesso) — pai: Cadeia de Valor\n' +
   'Gerir o ciclo comercial do lead ao fechamento, garantindo previsibilidade e conversão.\n' +
@@ -192,11 +192,11 @@ const HIERARCHY_CONTENT =
   '- A1.1.5.1. Enviar contrato (Atividade) — pai: S1.1.5\n' +
   '  - T1.1.5.1.1. Gerar DocuSign — pai: A1.1.5.1\n' +
   '- A1.1.5.2. Onboarding (Atividade) — pai: S1.1.5\n' +
-  '  - T1.1.5.2.1. Time de CS agenda kickoff em até 5 dias — pai: A1.1.5.2\n';
+  '  - T1.1.5.2.1. Time de CS agenda kickoff em até 5 dias — pai: A1.1.5.2\n' };
 
 /** BPMN 2.0 XML — Vendas PME (Júlia, 2.3). */
 const FLOW_CONTENT =
-  '<?xml version="1.0" encoding="UTF-8"?>\n' +
+  { body: '<?xml version="1.0" encoding="UTF-8"?>\n' +
   '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" ' +
   'id="Definitions_vendas" targetNamespace="http://process-ai/flow/vendas">\n' +
   '  <bpmn:process id="Process_vendas" isExecutable="false">\n' +
@@ -253,11 +253,11 @@ const FLOW_CONTENT =
   '    <bpmn:sequenceFlow id="Flow_s9" sourceRef="A1.1.5.1" targetRef="A1.1.5.2"/>\n' +
   '    <bpmn:sequenceFlow id="Flow_s10" sourceRef="A1.1.5.2" targetRef="End_cliente_fechado"/>\n' +
   '  </bpmn:process>\n' +
-  '</bpmn:definitions>';
+  '</bpmn:definitions>' };
 
 /** POP + Diagnóstico — Vendas PME (Zanoni, 2.4). */
 const POP_CONTENT =
-  '# POP-001 — Qualificação de Lead (ref: A1.1.2.1)\n' +
+  { body: '# POP-001 — Qualificação de Lead (ref: A1.1.2.1)\n' +
   '\n' +
   '**Objetivo:** Garantir que todo lead receba o primeiro contato em até 24h e seja ' +
   'avaliado nos critérios de fit.\n' +
@@ -303,7 +303,7 @@ const POP_CONTENT =
   '- **Médio prazo:** Contratar 2º vendedor Sênior ou dividir carteira por setor ' +
   'para reduzir sobrecarga.\n' +
   '- **Médio prazo:** Criar template padrão de proposta no HubSpot (reduz ' +
-  'variabilidade e acelera montagem).\n';
+  'variabilidade e acelera montagem).\n' };
 
 // ---- Teste principal ----
 
@@ -485,9 +485,8 @@ test('E2E (2.7): pipeline Vendas/PME com fixture realista + calibração + conta
     // Entregável final (resumo + relatório embutido).
     turn(); const summary = await propose(adapter, tmp, {
       artifactType: 'summary-report',
-      content: '# Resumo de Encerramento — Processo de Vendas (Distribuidora B2B)\n' +
-        'Pipeline completa com 7 artefatos produzidos.\n\n' +
-        reportRes.output,
+      content: { body: 'Pipeline completa com 7 artefatos produzidos.\n\n' +
+        reportRes.output },
     });
 
     // ---- Asserções de estado ----

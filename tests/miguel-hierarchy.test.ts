@@ -78,7 +78,7 @@ test('2.2 AC2/AC3: Miguel profundo decompõe a cadeia em hierarquia completa ras
     // value-chain commitada por Bento — é a fonte que habilita claims 🟢 no hierarchy.
     const valueChain = await propose(adapter, tmp, {
       artifactType: 'value-chain',
-      content: '# Cadeia de Valor\nAtração → Vendas → Entrega',
+      content: { body: '' },
     });
 
     // ---- Gate 2 + mapping: Miguel profundo ----
@@ -93,13 +93,11 @@ test('2.2 AC2/AC3: Miguel profundo decompõe a cadeia em hierarquia completa ras
     //  - 🔴 gap de nível (não determinado).
     await propose(adapter, tmp, {
       artifactType: 'hierarchy',
-      content:
-        '# Hierarquia de processos — Vendas\n' +
-        '## M1. Vendas (Macroprocesso) — pai: cadeia de valor\n' +
+      content: { body: '## M1. Vendas (Macroprocesso) — pai: cadeia de valor\n' +
         '### E1.1. Lead-to-Close (Processo End-to-End) — pai: M1\n' +
         '#### S1.1.1. Qualificação (Subprocesso) — pai: E1.1\n' +
         '- A1.1.1.1. Avaliar fit (Atividade) — pai: S1.1.1\n' +
-        '  - T1.1.1.1.1. <?> (Tarefa — gap: não confirmada) — pai: A1.1.1.1',
+        '  - T1.1.1.1.1. <?> (Tarefa — gap: não confirmada) — pai: A1.1.1.1' },
       claims: [
         {
           statement: 'O macroprocesso M1 (Vendas) consta nominalmente na Cadeia de Valor',

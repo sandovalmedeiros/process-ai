@@ -66,14 +66,13 @@ test('2.1 AC2/AC3: Bento persiste a entrevista e alcança 🟢 sourcing-a (+ deg
     // ---- Bento: persiste a entrevista PRIMEIRO (fonte dos claims 🟢) ----
     const interview = await propose(adapter, tmp, {
       artifactType: 'discovery-interview',
-      content:
-        '# Entrevista de descoberta — Vendas\n## Fornecedores\nMarketing e indicações.\n## Processo\nLead → Qualificação → Proposta → Fechamento.',
+      content: { body: '' },
     });
 
     // ---- Bento: SIPOC com claim 🟢 (resolve) + 🟢 inexistente (degrada) + 🟡 + 🔴 ----
     await propose(adapter, tmp, {
       artifactType: 'sipoc',
-      content: '# SIPOC\nFornecedores: Marketing. Entradas: Leads. Saídas: Proposta.',
+      content: { body: '' },
       claims: [
         {
           statement: 'O Marketing fornece os leads',
@@ -95,7 +94,7 @@ test('2.1 AC2/AC3: Bento persiste a entrevista e alcança 🟢 sourcing-a (+ deg
     // ---- Bento: Cadeia de Valor com 🟢 sourcing a entrevista (AC3) ----
     await propose(adapter, tmp, {
       artifactType: 'value-chain',
-      content: '# Cadeia de Valor\nAtração → Vendas → Entrega',
+      content: { body: '' },
       claims: [
         {
           statement: 'A cadeia inclui Atração → Vendas → Entrega',

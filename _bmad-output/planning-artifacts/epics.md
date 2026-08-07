@@ -4,12 +4,15 @@ stepsCompleted:
   - step-02-epics
   - step-03-stories
   - step-04-validation
+  - step-04-validation-epic-4-hardening
 inputDocuments:
   - ../specs/spec-process-ai/SPEC.md
   - prds/prd-process-ai-2026-08-01/prd.md
   - architecture/architecture-process-ai-2026-08-01/ARCHITECTURE-SPINE.md
   - architecture/architecture-process-ai-2026-08-01/SOLUTION-DESIGN.md
   - ../specs/spec-process-ai/glossary.md
+  - sprint-change-proposal-2026-08-07.md
+  - ../implementation-artifacts/epic-3-retro-2026-08-03.md
 ---
 
 # process-ai - Epic Breakdown
@@ -97,6 +100,7 @@ This document provides the complete epic and story breakdown for **process-ai**,
 
 > **NFRs:** NFR-1/3/4/5/6 → Epic 1 (fundação determinística) + Epic 2 (profundidade); NFR-2 (privacidade) → adapter/engine (Epic 1/3); NFR-7 (perf) → calibrar no Epic 2/piloto.
 > **ADs:** AD-1/3/4 → Epic 1; AD-5/6 → Epic 2; AD-2/7 → Epic 3.
+> **Epic 4 (Hardening v1.1):** reforça FR-14 (confiança verificável via schema enforcement), FR-17 (method-pack contido por validador real), FR-20 (não-destrutivo blindado por smoke test), NFR-1 (honestidade — claims = código), NFR-5 (observabilidade — self-check gate). Fecha AD-2 (schema enforcement deixa de ser deferido).
 
 ## Epic List
 
@@ -111,6 +115,10 @@ Os agentes produzem os artefatos **reais e usáveis** — SIPOC + cadeia de valo
 ### Epic 3: Method-Agnostic + Distribuição OSS
 A metodologia vira **method-pack plugável** (schema-núcleo + pack BPMN+SIPOC extraído; terceiros podem criar packs sem tocar o core) e o framework é **instalável por qualquer um** via **npm + bootstrap**. Habilita adoção (SM-3) e ecossistema.
 **FRs covered:** FR-17, FR-18 (+ AD-2 schema-núcleo, AD-7 distribuição).
+
+### Epic 4: Hardening v1.1 — Confiabilidade e Integridade
+As arestas identificadas nos 3 épicos do MVP são fechadas: documentação reflete o código, o schema-núcleo tem enforcement real (fecha AD-2), o pipeline de distribuição é coberto por smoke test, e a dívida técnica [Low] acumulada no deferred-work é triada e reduzida. O framework passa de "funcional e verificável" para "robusto e auditável".
+**FRs cobertos:** reforça FR-14 (confiança), FR-17 (method-pack), FR-20 (não-destrutivo), NFR-1 (honestidade), NFR-5 (observabilidade). Fecha AD-2 (schema enforcement não-deferido).
 
 ## Epic 1: Esqueleto Ponta-a-Ponta (Walking Skeleton)
 
@@ -327,3 +335,108 @@ So que a comunidade estenda o framework.
 **Given** o `SOLUTION-DESIGN.md`
 **When** publicado como docs
 **Then** cobre: criar method-pack (content-only, estende schema-núcleo), criar adapter (porta + pass-through), trabalhar no toolkit. *(SM-3)*
+
+## Epic 4: Hardening v1.1 — Confiabilidade e Integridade
+
+As arestas identificadas nos 3 épicos do MVP são fechadas: documentação reflete o código, o schema-núcleo tem enforcement real (fecha AD-2), o pipeline de distribuição é coberto por smoke test, e a dívida técnica [Low] acumulada no deferred-work é triada e reduzida. O framework passa de "funcional e verificável" para "robusto e auditável".
+
+**FRs cobertos:** reforça FR-14 (confiança), FR-17 (method-pack), FR-20 (não-destrutivo), NFR-1 (honestidade), NFR-5 (observabilidade). Fecha AD-2 (schema enforcement não-deferido).
+
+**Dependências:** Épicos 1–3 concluídos.
+
+### Story 4.1: Schema-núcleo — enforcement estrito (fecha AD-2)
+
+As a dev/contribuidor,
+I want o schema-núcleo com validação real de shape (required, additionalProperties: false, rejeitar não-objetos),
+So that method-packs sejam contidos pelo contrato e o AD-2 saia do papel.
+
+**Acceptance Criteria:**
+**Given** o validador v1 leniente (AC4 backward-compat)
+**When** esta story implementa o endurecimento
+**Then** (a) todos os payloads do E2E + fixtures de teste são auditados para conformidade ANTES de endurecer
+**And** (b) `validateContent` rejeita não-objetos (string, número, array), ativa `required` por tipo, fecha `additionalProperties: false` nos 7 schemas, e rejeita objetos exóticos (Date, boxed String/Number)
+**And** (c) headers/JSDoc de cada schema voltam a refletir o código (sem doc falsa)
+**And** (d) 259+ testes continuam passando; typecheck limpo; AD-3 (não mexer no core além do schema-core) respeitado.
+
+### Story 4.2: Self-check gate — ACs com evidência antes de done
+
+As a dev,
+I want que toda story tenha um checklist de ACs verificadas + Dev Agent Record preenchido antes de `done`,
+So that o review adversarial encontre problemas sutis, não incompletude básica.
+
+**Acceptance Criteria:**
+**Given** uma story em desenvolvimento
+**When** o agente marca `done`
+**Then** o Dev Agent Record está preenchido (sem `{{placeholder}}`) com: modelo, data, escopo, arquivos tocados
+**And** cada AC da story tem checkbox + evidência (link a commit/arquivo/teste)
+**And** items não cobertos são explicitamente marcados como deferidos com justificativa
+**And** o template/story-helper inclui esse checklist como seção obrigatória.
+
+### Story 4.3: Smoke test de consumer-install no pipeline
+
+As a dev,
+I want um smoke test que simula `npm install` real em projeto consumidor limpo,
+So that "testes verdes na raiz do repo" não deem falsa confiança sobre distribuição.
+
+**Acceptance Criteria:**
+**Given** o pacote buildado (`npm pack`)
+**When** o smoke roda
+**Then** `npm install <tarball>` em dir temporário limpo → `npx process-ai --help` funciona
+**And** `/process-ai` slash-command é registrado no engine-alvo (Claude Code)
+**And** o smoke é integrado ao CI (roda em todo commit que toca `package.json`/`bin`/`postinstall`)
+**And** falha de registro ou bootstrap reporta erro claro (não `exit(0)` mascarado).
+
+### Story 4.4: Documentação — drift zero (código ↔ docs)
+
+As a contribuidor,
+I want docs que reflitam o código real (paths, imports, contagens),
+So that um novo contribuidor siga as instruções e chegue a resultado funcional.
+
+**Acceptance Criteria:**
+**Given** o código atual (ESM, 259 testes)
+**When** a doc é conferida
+**Then** `docs/method-packs.md` instrui `import` (não `require`) e não referencia paths `.ts` fora do repo
+**And** `docs/toolkit.md` tem contagem de testes correta e atualizada
+**And** um teste leve automatizado confere: contagem da doc vs contagem real
+**And** headers/JSDoc de schema-core não afirmam enforcement que o código não cumpre (pré-4.1: remover claims falsas; pós-4.1: claims verdadeiras).
+
+### Story 4.5: Claims de contrato/doc validadas contra consumo
+
+As a dev/contribuidor,
+I want que nenhuma header/JSDoc/claim afirme enforcement que o código não cumpre,
+So that a intenção declarada e o comportamento real sejam indistinguíveis.
+
+**Acceptance Criteria:**
+**Given** o toolkit com schemas, validação e docs
+**When** claims são conferidas contra consumo real
+**Then** um teste no estilo `doesNotMatch(/pattern/)` cobre cada arquivo de schema-core, adapter, e doc que faça afirmação de enforcement
+**And** claims falsas são removidas ou o código é corrigido para cumpri-las (nunca deixadas em desacordo)
+**And** o teste é integrado à suite principal (roda em todo commit).
+
+### Story 4.6: Triagem do deferred-work — agrupar, priorizar, fechar lotes
+
+As a dev,
+I want o deferred-work triado por arquivo-gatilho e os lotes simples fechados,
+So that o backlog de dívida diminua e o resto fique corretamente governado.
+
+**Acceptance Criteria:**
+**Given** os ~50 itens [Low] em `deferred-work.md`
+**When** a triagem é concluída
+**Then** itens são agrupados por arquivo-gatilho (ex.: 4 de `confidence.ts` = 1 lote; 3 de `report.ts` = 1 lote)
+**And** lotes com custo/risco justificado são fechados (PRs com correções + testes)
+**And** itens mantidos em aberto são reavaliados: severidade ainda é [Low]? gatilho ainda é válido?
+**And** `deferred-work.md` é atualizado com status pós-triagem: fechados, reagrupados, reavaliados.
+
+### Story 4.7: Readiness final — fechar dimensões pendentes da retro
+
+As a project lead / dev,
+I want as 3 dimensões pendentes de readiness resolvidas ou explicitamente deferidas,
+So that o v1.1 seja declarado completo com confiança.
+
+**Acceptance Criteria:**
+**Given** as dimensões pendentes do §11 da retro do Épico 3
+**When** esta story conclui
+**Then** (a) Deploy/publicação npm: decisão documentada (publicar agora vs aguardar X)
+**And** (b) Aceitação de stakeholders: wedge Vendas/PME validado com ≥1 pessoa externa ou explicitamente deferido com justificativa
+**And** (c) Estabilidade (gut): o Project Lead declara o v1.1 pronto — decisão documentada
+**And** retros opcionais dos Épicos 1 e 2 são consideradas (rodar ou declarar N/A com justificativa).

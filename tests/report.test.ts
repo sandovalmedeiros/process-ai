@@ -107,7 +107,7 @@ test('1.5-regression: contagem usa nível VALIDADO (não proposed) — honestida
 test('1.5-regression: lista de artefatos reflete o checkpoint (após commit real)', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-rep-art-'));
   try {
-    const res = await commit({ artifactType: 'sipoc', content: { a: 1 } }, { root: tmp });
+    const res = await commit({ artifactType: 'sipoc', content: { body: 'report test' } }, { root: tmp });
     const report = await reportConfidence(tmp);
     assert.equal(report.artifacts.length, 1);
     assert.equal(report.artifacts[0].sha256, res.sha256);

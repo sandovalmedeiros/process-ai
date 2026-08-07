@@ -638,7 +638,7 @@ test('AC6: payload sem claims → commit OK, sem ledger', async () => {
   try {
     const payload: ProposePayload = {
       artifactType: 'sipoc',
-      content: { suppliers: ['A'] },
+      content: { body: 'SIPOC', suppliers: ['A'] },
     };
 
     const result = await commit(payload, { root, agent: 'bento' });
@@ -659,7 +659,7 @@ test('AC6: payload com claims vazio → commit OK, sem ledger', async () => {
   try {
     const payload: ProposePayload = {
       artifactType: 'sipoc',
-      content: { data: 'x' },
+      content: { body: 'data test' },
       claims: [],
     };
 
@@ -682,7 +682,7 @@ test('AC1+AC3: commit com claims válidos → artefato + ledger gravados', async
 
     const payload: ProposePayload = {
       artifactType: 'sipoc',
-      content: { suppliers: ['A', 'B'] },
+      content: { body: 'SIPOC', suppliers: ['A', 'B'] },
       claims: [
         {
           statement: 'Fornecedores A e B confirmados',
@@ -729,7 +729,7 @@ test('AC1: commit com 🟢 ghost → commit OK (degradado), ledger mostra degrad
   try {
     const payload: ProposePayload = {
       artifactType: 'sipoc',
-      content: { data: 'x' },
+      content: { body: 'data test' },
       claims: [
         {
           statement: 'Afirmação com fonte fantasma',
@@ -759,7 +759,7 @@ test('AC4+P8: commit com nível inválido → CommitError, aborta antes de qualq
   try {
     const payload: ProposePayload = {
       artifactType: 'sipoc',
-      content: { data: 'x' },
+      content: { body: 'data test' },
       claims: [
         {
           statement: 'Nível inválido',
@@ -796,7 +796,7 @@ test('P6: re-validação atualiza a linha do ledger quando a base de source muda
     const sourceSha = sha256(canonicalize({ data: 'fonte-real' }));
     const payload: ProposePayload = {
       artifactType: 'sipoc',
-      content: { suppliers: ['A'] },
+      content: { body: 'SIPOC', suppliers: ['A'] },
       claims: [
         {
           statement: 'Confirmado pela entrevista',

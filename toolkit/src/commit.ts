@@ -427,8 +427,21 @@ function slugify(text: string): string {
  * Retorna string vazia se não conseguir extrair nada útil.
  */
 function extractTitle(content: unknown): string {
-  if (typeof content !== 'string') return '';
-  const lines = content.split(/\r?\n/);
+  // Se content é um objeto com body string, extrai o título do body (schema enforcement 4.1).
+  let text: string;
+  if (typeof content === 'string') {
+    text = content;
+  } else if (content !== null && typeof content === 'object' && !Array.isArray(content)) {
+    const obj = content as Record<string, unknown>;
+    if (typeof obj.body === 'string') {
+      text = obj.body;
+    } else {
+      return '';
+    }
+  } else {
+    return '';
+  }
+  const lines = text.split(/\r?\n/);
   // Procura o primeiro heading nível 1.
   for (const line of lines) {
     const m = /^#\s+(.+)$/.exec(line);

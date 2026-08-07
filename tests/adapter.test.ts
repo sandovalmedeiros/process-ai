@@ -52,7 +52,7 @@ test('AC4: propose() é pass-through e delega ao commit (CommitResult, sem muta�
     const adapter = new ClaudeCodeAdapter({ cwd: tmp });
     const payload = {
       artifactType: 'sipoc',
-      content: { supplier: ['Fornecedor A'], outputs: ['x', 'y'], nested: { n: 1 } },
+      content: { body: 'SIPOC de teste', suppliers: ['Fornecedor A'], outputs: ['x', 'y'] },
       claims: [{
         statement: 'Fornecedor A confirmado',
         level: '🟡' as const,
@@ -218,7 +218,7 @@ test('P12: CommitResult.artifactPath e manifestPath usam `/` (não path.sep do O
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-p12-'));
   try {
     const adapter = new ClaudeCodeAdapter({ cwd: tmp });
-    const result = await adapter.propose({ artifactType: 'sipoc', content: 'x' });
+    const result = await adapter.propose({ artifactType: 'sipoc', content: { body: '' } });
     assert.ok(!result.artifactPath.includes('\\'), 'artifactPath não deve conter backslash');
     assert.ok(!result.manifestPath.includes('\\'), 'manifestPath não deve conter backslash');
     assert.ok(result.artifactPath.includes('/'), 'artifactPath deve usar forward slash');

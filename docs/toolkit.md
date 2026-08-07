@@ -56,7 +56,7 @@ Para adicionar um novo artifactType:
 2. Adicione extensão em `EXT_BY_TYPE` (commit.ts) se necessário.
 3. Testes de schema em `tests/schema-core.test.ts`.
 
-**Vocabulário fechado em 7 tipos no v1:** `discovery-interview`, `sipoc`, `value-chain`, `hierarchy`, `flow`, `pop`, `summary-report`.
+**Vocabulário com 9 tipos no v1:** `discovery-interview`, `sipoc`, `value-chain`, `hierarchy`, `flow`, `pop`, `summary-report`, `process-report`, `reference-material`.
 
 ## Testes
 

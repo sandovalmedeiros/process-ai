@@ -46,7 +46,7 @@ test('cada schema tem $id versionado, $schema, type: object, x-extensible', () =
     assert.ok((s['$schema'] as string).includes('json-schema.org'),
       `${artifactType}: $schema presente`);
     assert.equal(s['type'], 'object', `${artifactType}: type === object`);
-    // v1: additionalProperties: true para backward-compat (AC4). Fecha em 3.2.
+    // v1.1: additionalProperties: false — AD-2 enforcement.
     assert.equal(s['x-extensible'], true,
       `${artifactType}: x-extensible === true`);
   }
@@ -58,7 +58,7 @@ test('cada schema tem body: string como campo definido (não-obrigatório no v1 
     const props = s['properties'] as Record<string, Record<string, unknown>>;
     assert.ok(props['body'], `${artifactType}: body está nas properties`);
     assert.equal(props['body']['type'], 'string', `${artifactType}: body.type === string`);
-    // v1: body NÃO é required — backward-compat com payloads existentes.
+    // v1.1: body é required — AD-2 enforcement.
   }
 });
 
@@ -115,13 +115,21 @@ test('validateContent: artifactType desconhecido → { valid: true } no v1 (AC4)
   assert.equal(result.valid, true, 'artifactType desconhecido aceito no v1');
 });
 
-test('validateContent: content não-objeto (string/array/number) → { valid: true } no v1 (AC4)', () => {
-  // v1: strings, arrays, números são válidos — backward-compat com payloads existentes.
-  const validNonObjects: unknown[] = ['string solta', 42, ['array'], true, 0];
-  for (const content of validNonObjects) {
+test('validateContent: content não-objeto (string/array/number) → { valid: false } (AD-2 enforcement)', () => {
+  // v1.1: strings, arrays, números são REJEITADOS — schema exige objeto plano.
+  const invalidNonObjects: unknown[] = ['string solta', 42, ['array'], true, 0];
+  for (const content of invalidNonObjects) {
     const result = validateContent('sipoc', content);
-    assert.equal(result.valid, true, `sipoc + ${typeof content}: deve passar no v1`);
+    assert.equal(result.valid, false, `sipoc + ${typeof content}: deve ser rejeitado`);
   }
+});
+
+test('validateContent: objetos exóticos (Date, boxed String/Number) → { valid: false }', () => {
+  assert.equal(validateContent('sipoc', new Date()).valid, false, 'Date deve ser rejeitado');
+  // eslint-disable-next-line no-new-wrappers
+  assert.equal(validateContent('sipoc', new String('x')).valid, false, 'boxed String deve ser rejeitado');
+  // eslint-disable-next-line no-new-wrappers
+  assert.equal(validateContent('sipoc', new Number(1)).valid, false, 'boxed Number deve ser rejeitado');
 });
 
 test('validateContent: content null/undefined → { valid: false }', () => {
@@ -129,10 +137,11 @@ test('validateContent: content null/undefined → { valid: false }', () => {
   assert.equal(validateContent('sipoc', undefined).valid, false);
 });
 
-test('validateContent: objeto vazio → { valid: true } (v1: sem campos obrigatórios, AC4)', () => {
+test('validateContent: objeto vazio → { valid: false } (required: body ausente)', () => {
   for (const artifactType of VALID_ARTIFACT_TYPES) {
     const result = validateContent(artifactType, {});
-    assert.equal(result.valid, true, `${artifactType}: objeto vazio deve passar (backward-compat)`);
+    assert.equal(result.valid, false, `${artifactType}: objeto vazio deve falhar — body é required`);
+    assert.ok(result.errors.some((e) => e.includes('body')), `${artifactType}: erro deve mencionar body`);
   }
 });
 
@@ -167,12 +176,13 @@ test('validateContent: campo com tipo errado → { valid: false }', () => {
   assert.ok(r6.errors.some((e) => e.includes('suppliers[1]')), 'erro deve indicar índice do item inválido');
 });
 
-test('validateContent: campos extras aceitos no v1 (additionalProperties: true → backward-compat AC4)', () => {
+test('validateContent: campos extras rejeitados (additionalProperties: false — AD-2 enforcement)', () => {
   const result = validateContent('sipoc', {
     body: 'SIPOC',
-    campoExtra: 'não-existe-no-schema-mas-aceito-no-v1',
+    campoExtra: 'não-existe-no-schema',
   });
-  assert.equal(result.valid, true, 'v1: campos extras são aceitos (backward-compat)');
+  assert.equal(result.valid, false, 'v1.1: campos extras devem ser rejeitados');
+  assert.ok(result.errors.some((e) => e.includes('campoExtra')), 'erro deve nomear o campo extra');
 });
 
 // ---- T4: Integração com commit (abort-before-write) ----

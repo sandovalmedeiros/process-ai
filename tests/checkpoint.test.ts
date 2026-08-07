@@ -318,7 +318,7 @@ test('AC3: resume — determínistico (mesmo estado → mesmo resultado)', async
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-resdet-'));
   try {
     // Commit um artefato → estado conhecido
-    await commit({ artifactType: 'sipoc', content: 'data' }, { root: tmp });
+    await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp });
 
     const r1 = await resume(tmp);
     const r2 = await resume(tmp);
@@ -397,7 +397,7 @@ test('AC4: quarentena — nunca auto-mergeia órfão ao checkpoint', async () =>
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-qnoauto-'));
   try {
     // Commit legítimo → checkpoint tem 1 artefato
-    await commit({ artifactType: 'sipoc', content: 'legit' }, { root: tmp });
+    await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp });
 
     // Cria manifesto órfão manual
     const manifestsDir = metaPath(tmp, 'manifests');
@@ -424,7 +424,7 @@ test('AC4: quarentena — nunca auto-mergeia órfão ao checkpoint', async () =>
 test('AC1: commit integrado — checkpoint reflete artefato após commit', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cpint-'));
   try {
-    const res = await commit({ artifactType: 'sipoc', content: { a: 1 } }, { root: tmp });
+    const res = await commit({ artifactType: 'sipoc', content: { body: 'checkpoint test' } }, { root: tmp });
 
     // Checkpoint deve refletir o artefato
     const cp = await checkpointRead(tmp);
@@ -445,8 +445,8 @@ test('AC1: commit integrado — checkpoint reflete artefato após commit', async
 test('AC1: commit integrado — múltiplos commits no mesmo root → checkpoint acumula', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cpmulti-'));
   try {
-    await commit({ artifactType: 'sipoc', content: 'a' }, { root: tmp });
-    await commit({ artifactType: 'bpmn', content: 'b' }, { root: tmp });
+    await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp });
+    await commit({ artifactType: 'bpmn', content: { body: '' } }, { root: tmp });
 
     const cp = await checkpointRead(tmp);
     assert.equal(cp.artifacts.length, 2);
@@ -463,8 +463,8 @@ test('AC1: commit integrado — múltiplos commits no mesmo root → checkpoint 
 test('AC3: resume — determinístico com commit real (ponta-a-ponta)', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-rese2e-'));
   try {
-    await commit({ artifactType: 'sipoc', content: 'x' }, { root: tmp, agent: 't1' });
-    await commit({ artifactType: 'bpmn', content: 'y' }, { root: tmp, agent: 't2' });
+    await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp, agent: 't1' });
+    await commit({ artifactType: 'bpmn', content: { body: '' } }, { root: tmp, agent: 't2' });
 
     const result = await resume(tmp);
     assert.equal(result.state.stage, 'init'); // commit não avança stage
@@ -512,7 +512,7 @@ test('AC3 (1.2): commit aborta em artifactType inseguro — ZERO escrita com che
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-abortcp-'));
   try {
     await assert.rejects(
-      () => commit({ artifactType: '../evil', content: 'x' }, { root: tmp }),
+      () => commit({ artifactType: '../evil', content: { body: '' } }, { root: tmp }),
       /CommitError|CheckpointError/,
     );
 

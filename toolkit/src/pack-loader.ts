@@ -340,8 +340,8 @@ export function validatePackSchemas(pack: MethodPack): PackValidationResult {
         }
       }
     }
-    // Nota: `required` do núcleo é vazio no v1 (todos comentados p/ AC4), então não há
-    // required-núcleo a ser redefinido. Packs podem adicionar `required` para campos NOVOS.
+    // v1.1: `required: ['body']` do núcleo está ativo (AD-2 enforcement).
+    // Packs podem adicionar `required` para campos NOVOS, mas não redefinir os do núcleo.
   }
 
   return errors.length === 0 ? { valid: true, errors: [] } : { valid: false, errors };

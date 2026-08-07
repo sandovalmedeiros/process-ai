@@ -83,7 +83,7 @@ test('2.4 AC2/AC3/AC4: Zanoni profundo propõe pop com 🟢 sourcing flow + 🟡
     // value-chain commitada por Bento (sem claims — só estrutura a cadeia real).
     await propose(adapter, tmp, {
       artifactType: 'value-chain',
-      content: '# Cadeia de Valor\nAtração → Vendas → Entrega',
+      content: { body: '' },
     });
 
     // ---- Gate 2 + mapping: Miguel entrega a hierarchy ----
@@ -92,13 +92,11 @@ test('2.4 AC2/AC3/AC4: Zanoni profundo propõe pop com 🟢 sourcing flow + 🟡
 
     await propose(adapter, tmp, {
       artifactType: 'hierarchy',
-      content:
-        '# Hierarquia de processos — Vendas\n' +
-        '## M1. Vendas (Macroprocesso)\n' +
+      content: { body: '## M1. Vendas (Macroprocesso)\n' +
         '#### S1.1.1. Qualificação (Subprocesso)\n' +
         '- A1.1.1.1. Avaliar fit (Atividade)\n' +
         '#### S1.1.2. Proposta (Subprocesso)\n' +
-        '- A1.1.2.1. Enviar proposta (Atividade)',
+        '- A1.1.2.1. Enviar proposta (Atividade)' },
     });
 
     // ---- Gate 3 + modeling: Júlia profunda (flow = a fonte que habilita 🟢 no pop) ----
@@ -107,7 +105,7 @@ test('2.4 AC2/AC3/AC4: Zanoni profundo propõe pop com 🟢 sourcing flow + 🟡
 
     const flow = await propose(adapter, tmp, {
       artifactType: 'flow',
-      content: '# Fluxo de vendas\nstartEvent → task A1.1.1.1 (Avaliar fit) → task A1.1.2.1 (Enviar proposta) → endEvent',
+      content: { body: '' },
     });
 
     // ---- Gate 4 + standardization: Zanoni profundo ----
@@ -120,16 +118,14 @@ test('2.4 AC2/AC3/AC4: Zanoni profundo propõe pop com 🟢 sourcing flow + 🟡
 
     await propose(adapter, tmp, {
       artifactType: 'pop',
-      content:
-        '# POP — Qualificação de lead (A1.1.1.1)\n' +
-        'Objetivo: qualificar o lead. Responsável: Vendas. Passos: 1. Avaliar fit. 2. Documentar.\n\n' +
+      content: { body: 'Objetivo: qualificar o lead. Responsável: Vendas. Passos: 1. Avaliar fit. 2. Documentar.\n\n' +
         '# POP — Envio de proposta (A1.1.2.1)\n' +
         'Objetivo: enviar a proposta. Responsável: Vendas. Passos: 1. Redigir proposta. 2. Enviar.\n\n' +
         '# Diagnóstico consolidado\n' +
         '- Gargalo: handoff sem sistema integrador entre A1.1.1.1 e A1.1.2.1 (🟡).\n' +
         '- Gap: SLA de resposta não determinado — <?> (🔴).\n' +
         '- Recomendação: integrar o CRM ao handoff (🟡).\n' +
-        '- Contagem: 1 gargalo, 1 gap, 1 recomendação.',
+        '- Contagem: 1 gargalo, 1 gap, 1 recomendação.' },
       claims: [
         {
           statement: 'O passo 1 do POP (A1.1.1.1) deriva do fluxo de Júlia',

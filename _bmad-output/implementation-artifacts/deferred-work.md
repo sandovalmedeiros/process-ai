@@ -1,136 +1,109 @@
 # Deferred Work — process-ai
 
-Itens reais, porém fora do escopo prioritário do momento. Reavaliar ao tocar os arquivos/stories correspondentes.
+Triagem pós-Epic 4 (2026-08-07). Itens reais, porém fora do escopo prioritário do momento. Reavaliar ao tocar os arquivos/stories correspondentes.
 
-## Resolvido — aplicado como hardening pós code review (2026-08-01)
+## Itens fechados (pós-triagem Epic 4)
 
-Os itens [Low] abaixo do code review da story `1-1-scaffold-engineadapter-claudecodeadapter` foram aplicados. Validação: `tsc --noEmit` limpo + 23/23 testes (0 falhas), incluindo cobertura nova para cada item.
+Resolvidos pelas stories do Épico 4 (4.1, 4.4, 4.5) ou já fechados em stories anteriores (2.5).
 
-- ✅ **Validação de `--target` (existe + é diretório)** — `adapter.ts` `installSkills` agora valida o alvo com `fs.stat`, recusando diretório inexistente (erro acionável, sem árvore dispersa) e arquivo (evita `ENOTDIR` opaco). Testes: `adapter.test.ts` (target inexistente / arquivo).
-- ✅ **Recusa de symlink no destino do `SKILL.md`** (escopo `.claude/`, defense-in-depth) — `lstat` do destino; recusa se for symlink (não segue o link). Teste: `adapter.test.ts` (symlink não é seguido/escrito).
-- ✅ **Ergonomia do CLI do bootstrap** — `parseArgs` reescrito: (a) `--target=<dir>` (form com `=`); (b) `--target` duplicado rejeitado; (c) aceita nomes que começam com `--` via form `=`; (d) pré-scan de `-h`/`--help` com precedência total (`hasHelpFlag`, respeita separador POSIX); (e) separador `--` (posicionais rejeitados). Testes: `bootstrap.test.ts` (parseArgs × 5 + hasHelpFlag + `--help` E2E).
-- ✅ **Hardening miscellaneous** — (a) nota de MAX_PATH no Windows no header do `bootstrap.ts`; (b) recusa de self-install quando `target === REPO_ROOT`; (d) snapshot de idempotência agora inclui `mode` (mtime/owner excluídos por voláteis); (e) teste de escrita-fora-do-alvo via snapshot do dir-pai; (f) composition root — `adapter` tipado como `EngineAdapter` (porta). Testes: `bootstrap.test.ts` (self-install / 4e).
+- ✅ **Enforcement estrito do schema-núcleo (D1, [Med])** — Story 4.1. 9 schemas com `required: ['body']` + `additionalProperties: false`.
+- ✅ **Docs drift (require→import ESM; contagem stale 7→9)** — Story 4.4. `docs/method-packs.md`, `docs/toolkit.md` corrigidos + `tests/docs.test.ts`.
+- ✅ **Claims de doc/contract falsas (headers/JSDoc vs código)** — Story 4.5. `tests/claims.test.ts` (6 assertions `doesNotMatch`).
+- ✅ **Narrativa genérica de handoff "rascunho"** — `skills/process-ai/SKILL.md:108` corrigido (especialistas são profundos desde 2.1).
+- ✅ **`formatConfidenceReport` interpola `stage` sem escape** — FIXED 2.5 (F3).
+- ✅ **Variation selector emoji no ledger** — FIXED 2.5 (deferred-work.md:71).
+- ✅ **`reasoning`/`statement` não persistidos no ledger** — FIXED 2.5 (AC4).
+- ✅ **Smoke test de consumer-install** — `tests/consumer-install.smoke.test.ts` (AI-2 da retro).
+- ✅ **Bootstrap hardening (CR items 1,2,4,4b,d,a/c,a,b,c,e)** — Resolvidos em 1.1/1.2.
+- ✅ **Pipeline 1.6 scope items** — Pertencem a stories concluídas.
+- ✅ **Propose payload validation (1.2)** — Resolvido na story 1.2.
 
-## Mantido em aberto (pertence à story 1.2)
+---
 
-- **[Low → story 1.2] Validação runtime do payload de `propose`** (null/undefined/mal-formado) — ✅ **Resolvido na story 1.2** (`validatePayload` em `commit.ts`, AC6 satisfeito). `[toolkit/adapters/claude-code/adapter.ts, toolkit/src/engine-adapter.ts]`
+## Mantidos em aberto — agrupados por arquivo-gatilho
 
-## Deferred from: code review of 1-2-toolkit-propose-commit-sha256 (2026-08-01)
+Cada grupo lista o arquivo que dispara a reavaliação. Itens mantidos como [Low] — custo/benefício não justifica ação agora.
 
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor). Itens reais, porém fora do escopo prioritário do momento ou pertencem a stories futuras.
+### `toolkit/src/commit.ts`
 
-- **[W1] Falha parcial deixa artefato órfão sem manifesto/provenance** — Se manifest ou provenance falham após artefato escrito, `_process-ai_output/<type>/<sha>.md` existe sem manifesto. Exatamente a fronteira 1.3 WAL/quarentena. `[commit.ts:329-343]`
-- **[W2] TOCTOU symlink race entre walk e write** — Componente de diretório trocado por symlink após `assertNoSymlinkComponent` e antes de `mkdir`/`writeFile`. Não fechável sem `O_NOFOLLOW` (não-portátil no Windows). `[commit.ts:323-325]`
-- **[W3] Prototype pollution bypassa validação de payload** — `validatePayload` usa `p.artifactType`/`p.content` sem `Object.hasOwn`; propriedade herdada via `Object.prototype` poluído passaria na validação. Cenário extremamente improvável (conteúdo vem de agentes, não input externo). `[commit.ts:193-203]`
-- **[W4] Sem `fsync` em `atomicWriteFile` (durabilidade)** — `temp + rename` sem fsync; em power loss o rename pode persistir com dados não-flushados. Durabilidade não é claim da 1.2. `[commit.ts:215-225]`
-- **[W5] Extensão `.md` para conteúdo objeto/JSON é frágil** — Objetos escritos como `.md`; `adapter.test.ts:72` faz `JSON.parse` sobre `.md`. Acoplamento quebra quando extensões mudarem em 3.1. `[commit.ts:40, 315-316]`
+- **[Low] W1: Falha parcial deixa artefato órfão sem manifesto/provenance** — Se manifest ou provenance falham após artefato escrito, `_process-ai_output/<type>/<sha>.md` existe sem manifesto. Pertence à fronteira 1.3 (WAL/quarentena). `[commit.ts:329-343]`
+- **[Low] W2: TOCTOU symlink race entre walk e write** — Não fechável sem `O_NOFOLLOW` (não-portátil no Windows). `[commit.ts:323-325]`
+- **[Low] W3: Prototype pollution bypassa validação de payload** — `validatePayload` usa `p.artifactType`/`p.content` sem `Object.hasOwn`. Cenário extremamente improvável (conteúdo vem de agentes, não input externo). `[commit.ts:193-203]`
+- **[Low] W4: Sem `fsync` em `atomicWriteFile` (durabilidade)** — Durabilidade não é claim da 1.2. `[commit.ts:215-225]`
+- **[Low] W5: Extensão `.md` para conteúdo objeto/JSON é frágil** — Acoplamento que quebra quando extensões mudarem. `[commit.ts:40, 315-316]`
 
-## Deferred from: code review of 1-1-scaffold-engineadapter-claudecodeadapter (2026-08-01, round 2)
+### `toolkit/src/confidence.ts`
 
-Achados do round 2 adversarial (pós-hardening, 3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor). Itens reais, porém fora do escopo prioritário do momento. Reavaliar ao tocar os arquivos/stories correspondentes.
+- **[Low] Linhas corrompidas do ledger dropadas no scan de dedupe → append duplicado possível** — Corrupção não ocorre via atomic-write path. `[confidence.ts:238-246]`
+- **[Low] `appendConfidenceLedger` lê o ledger 2×, O(n)/commit, sem cache** — Perf, não corretude; ledger v1 é pequeno. `[confidence.ts:234-272]`
+- **[Low] `buildLedgerEntries` assume `claims.length === validated.length`** — Unreachable via fluxo normal. Candidato a `assert` de 1 linha. `[confidence.ts:298-299]`
+- **[Low] deferred-work `:44` write-path corrupt-line dedupe window não fechado** — O fix "barato" não é óbvio; read-path dedupe compensa. `[confidence.ts:408-419]`
+- **[Low] `update-on-change` ignora deltas em `statement`/`reasoning`** — Inalcançável via fluxo single-propose-por-artefato. `[confidence.ts:431-435]`
+- **[Low] Zero-width chars passam `isNonEmptyString` mas falham `includes`** — Hardening: normalizar/strip antes do non-empty-check. `[confidence.ts:151-153, 361]`
+- **[Low] BOM strip é read-path only** — Write-path lê sem strip de BOM; read-path F4 + dedupe-on-read compensam. `[confidence.ts:404-423, report.ts:238-240]`
 
-- **[Low] TOCTOU entre `lstat` e `writeFile`** *(reclassificado de Med: requer atacante ativo + janela de ms num CLI de dev v1 → consequência real baixa)* — janela de corrida derrota a defesa de symlink; o fix correto (`O_NOFOLLOW` via `fs.open`) não é portátil no Windows (runtime-alvo) → risco residual aceito. `[toolkit/adapters/claude-code/adapter.ts:71→82]`
-- **[Low] Erros raw não-traduzidos** — source skill ausente (ENOENT cru), `.claude` já existindo como arquivo regular (ENOTDIR opaco do `mkdir`), EACCES/EPERM/ELOOP relançados como errno cru (apenas ENOENT do target é traduzido para mensagem acionável). `[toolkit/adapters/claude-code/adapter.ts:43,63,65,82]`
-- **[Low] `--dev=<value>` rejeitado enquanto `--dev` (bare) funciona** — o branch `=` só aceita `--target=`; `--dev=true` cai em "Argumento desconhecido". `[bin/bootstrap.ts:85-97]`
-- **[Low] Snapshot de idempotência não captura diretórios nem mode de dir** — `snapshotTree` registra só arquivos; mudanças em entradas de diretório passam despercebidas pelo `deepEqual`. Teórico (o bootstrap não cria/muda dirs entre runs). `[tests/bootstrap.test.ts:27-43]`
-- **[Low] HELP mostrado inconsistentemente entre erros de parsing** — alguns erros anexam `\n\n${HELP}`, outros não. `[bin/bootstrap.ts:90-127]`
-- **[Low] Cleanup de teste pode flakear com EBUSY no Windows** — `rmSync({force:true})` suprime ENOENT mas não EBUSY/EPERM (antivirus/Search Indexer segurando handle do `SKILL.md` recém-escrito); passou na execução atual, latente em CI. `[tests/bootstrap.test.ts]`
-- **[Low] `parseArgs` tem nome enganador (chama `process.exit(0)` no help)** — qualquer importador/teste que passe um `--help` tem o processo morto; já mitigado testando `hasHelpFlag` (pura) separadamente. Naming/refactor (`parseArgsPure` + `dispatch`). `[bin/bootstrap.ts:58-63]`
+### `toolkit/src/report.ts`
 
-## Deferred from: code review of 1-4-toolkit-confianca-mecanica-ledger (2026-08-01)
+- **[Low] Reverse-index `split('::')` trunca sha256** — Se `artifactType` contém `::` (só via ledger editado). Fix: re-join tail. `[report.ts:591]`
+- **[Low] Summary "Tipos" interpola `artifactType` sem escape** — Reachabilidade baixa: kebab-validado no commit. `[report.ts:567-572]`
 
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor). Itens reais, porém baixa prioridade / não-acucionáveis agora. Reavaliar ao tocar `confidence.ts` ou em 2.5 (relatório consolidado de confiança).
+### `bin/process-ai.ts` + `toolkit/src/checkpoint.ts`
 
-- **[Low] Linhas corrompidas do ledger dropadas no scan de dedupe → append duplicado possível** — `JSON.parse` falho é ignorado; chave da linha corrompida nunca entra no Set → próximo commit pode append duplicata. Corrupção não ocorre via atomic-write path. Reavaliar em 2.5 (integridade do ledger). `[toolkit/src/confidence.ts:238-246]`
-- **[Low] `appendConfidenceLedger` lê o ledger 2× (scan dedupe + base append), O(n)/commit, sem cache em memória** — perf, não corretude; ledger v1 é pequeno (Decisão 3). Adicionar cache como `_provenanceCache` quando escala justificar. `[toolkit/src/confidence.ts:234-272]`
-- **[Low] `buildLedgerEntries` assume `claims.length === validated.length`** — unreachable via `commit()` (derivou ambos da mesma fonte); TS-signature não enforcement de tamanho mas o produtor garante. Candidato p/ `assert` de 1 linha (belt-and-suspenders). `[toolkit/src/confidence.ts:298-299]`
+- **[Low] `resume()` sem lock** — Fora do modelo single-session do produto. `[checkpoint.ts:392-459, bin/process-ai.ts:334-337]`
+- **[Low] Sem cap de tamanho na leitura do payload** — Payload multi-GB → OOM cru. Size guard barato. `[bin/process-ai.ts:251]`
+- **[Low] `status`/`report`/`resume` em cwd errado "sucedem"; `gate`/`stage` fazem `mkdir -p` silencioso** — Sem `resolveRoot` no dispatcher. `[bin/process-ai.ts:299-345]`
+- **[Low] Sem validação canônica de gate IDs / stage** — CLI é pass-through por design (AD-3). `[bin/process-ai.ts:212-225]`
+- **[Low] Leitores do report sem leaf-symlink check** — Assimetria de defense-in-depth; ameaça requer atacante. `[report.ts:88,122]`
+- **[Low] `aggregateLedger` sem dedupe na leitura** — Inflação só com ledger editado manualmente. `[report.ts:95-108]`
+- **[Low] `process.stdout.write` em pipe fechado lança fora do path de erro** — Adicionar handler EPIPE. `[bin/process-ai.ts:368]`
+- **[Low] `process.cwd()` pode lançar ENOENT cru** — Comum no Windows com shell rm do dir pai. `[bin/process-ai.ts:363]`
+- **[Low] `dispatch` sem guard `assertNever`** — Variante futura de `ParsedCommand` não-tratada → `undefined` → crash. `[bin/process-ai.ts:288-348]`
+- **[Low] Valores whitespace-only passam no parser** — Só checa `=== ''`. `[bin/process-ai.ts:145,157]`
+- **[Low] Valores com traço único aceitos na forma espaço** — Só bloqueia prefixo `--`. `[bin/process-ai.ts:160]`
+- **[Low] `aggregateLedger` materializa o ledger inteiro na memória** — Escala é 2.5. `[report.ts:95]`
+- **[Low] `aggregateLedger`/`report` leem sem lock → snapshot inconsistente** — Mesmo escopo single-session. `[report.ts:146-149]`
 
-## Deferred from: code review of 1-6-pipeline-minima-rascunhos (2026-08-01)
+### `toolkit/adapters/claude-code/adapter.ts` + `bin/bootstrap.ts`
 
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `e7b99f5`, escopo 1-6). Acceptance Auditor PASS (AC1–AC6 + ADs + sem scope creep). Itens reais, porém pré-existentes ou adiados por design (não-acucionáveis nesta story).
+- **[Low] TOCTOU entre `lstat` e `writeFile`** — Janela de corrida derrota defesa de symlink; `O_NOFOLLOW` não-portátil no Windows. `[adapter.ts:71→82]`
+- **[Low] Erros raw não-traduzidos** — ENOENT cru, ENOTDIR opaco, EACCES/EPERM/ELOOP relançados como errno. `[adapter.ts:43,63,65,82]`
+- **[Low] `--dev=<value>` rejeitado enquanto `--dev` funciona** — Branch `=` só aceita `--target=`. `[bootstrap.ts:85-97]`
+- **[Low] Snapshot de idempotência não captura diretórios nem mode de dir** — Teórico (bootstrap não cria/muda dirs entre runs). `[tests/bootstrap.test.ts:27-43]`
+- **[Low] HELP inconsistente entre erros de parsing** — Alguns erros anexam HELP, outros não. `[bootstrap.ts:90-127]`
+- **[Low] Cleanup de teste pode flakear com EBUSY no Windows** — Latente em CI. `[tests/bootstrap.test.ts]`
+- **[Low] `parseArgs` nome enganador (chama `process.exit(0)` no help)** — Refactor (`parseArgsPure` + `dispatch`). `[bootstrap.ts:58-63]`
 
-- **[Low] `checkpoint.artifacts[]` sem dedup por sha256 em re-propose do usuário** — `applyIntent` commit (`checkpoint.ts:354`) faz `[...state.artifacts, {...}]` sem guard de `sha256`. O fluxo normal (single-propose por artefato, o que a 1.6 faz) está correto; o `resume` também não dobra (só replays entries com `cursor > walCursor`, e um commit completo tem `cursor == walCursor`). Apenas um propose **novo e repetido** (mesmo payload) cresce a lista — o arquivo/manifesto/provenance/ledger são idempotentes, só o `checkpoint.artifacts[]` não. Pré-existente desde 1.3; não exercitado pela 1.6. Reavaliar ao tocar `checkpoint.ts` ou se re-propose entrar no fluxo de uso. `[toolkit/src/checkpoint.ts:352-358]`
-- **[Low] `--agent` por-especialista não exposto no CLI `propose`** — a provenance hoje registra `agent: "claude-code"` para todo commit (o `artifactType` distingue qual especialista produziu). Identidade por-especialista (ex.: `--agent bento`) melhoraria a observabilidade (NFR-5 "log de provenance por etapa"), mas nenhum AC exige e adiciona risco (mudar o dispatcher + a composition root). Adiado por design (decisão #6 da story 1.6). Reavaliar se a granularidade de provenance virar requisito (ex.: relatório consolidado navegável da 2.5). `[bin/process-ai.ts:367-374, toolkit/adapters/claude-code/adapter.ts propose]`
+### `tests/` — infra de teste
 
-## Deferred from: code review of 1-5-dea-skill-condutora (2026-08-01)
+- **[Low] Cleanup Windows `fs.rm` não tolera EPERM/EBUSY** — Antivirus/Search Indexer. `[e2e-pipeline.test.ts:588-590]`
+- **[Low] Convenção de path de manifesto duplicada** — Replicada em `commit.ts`, `confidence.ts`, `report.ts`, `e2e-pipeline.test.ts`. `[tests/e2e-pipeline.test.ts:536-537]`
 
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; commit `570cd4c`, escopo 1-5). Acceptance Auditor PASS (AC1–AC6 + ADs + critério implícito). Itens abaixo são reais, porém baixa prioridade / fora do modelo de uso single-session. Reavaliar ao tocar os arquivos ou em stories futuras (validação canônica → gating rico 2.6; report consolidado/streaming → 2.5).
+### `skills/process-ai-miguel/SKILL.md`
 
-- **[Low] `resume()` sem lock** — muta checkpoint + quarentena sem `acquireLock`; corrupção/lost-update só sob sessões concorrentes (fora do modelo single-session do produto). Documentar a assumeção single-writer ou adicionar lock se multi-session entrar no escopo. `[toolkit/src/checkpoint.ts:392-459, bin/process-ai.ts:334-337]`
-- **[Low] Sem cap de tamanho na leitura do payload** — `fs.readFile` buffers o arquivo todo + `JSON.parse` dobra a memória; payload multi-GB → OOM cru. Agente escreve o payload (implausível), mas adicionar size guard é barato. `[bin/process-ai.ts:251]`
-- **[Low] `status`/`report`/`resume` em cwd errado "sucedem"; `gate`/`stage` fazem `mkdir -p` silencioso** — sem `resolveRoot` no dispatcher (só `commit` valida root). `gate` num cwd com typo cria `.process-ai/` no lugar errado. `[bin/process-ai.ts:299-345]`
-- **[Low] Sem validação canônica de gate IDs / stage** — `id`/`to` aceitos verbatim; typo (`gate-5`) persiste; stage pode regredir (`summary`→`init`). CLI é pass-through por design (AD-3); validação canônica pertence ao gating rico (2.6). `[bin/process-ai.ts:212-225]`
-- **[Low] Leitores do report sem leaf-symlink check** — `aggregateLedger`/`countOrphans` seguem symlink; escritores (`commit`/`confidence`) recusam. Assimetria de defense-in-depth; ameaça requer atacante trocando o ledger por symlink (pasta protegida + trusted-agent mitigam). `[toolkit/src/report.ts:88,122]`
-- **[Low] `aggregateLedger` sem dedupe na leitura** — conta toda linha válida; inflação só com ledger migrado/editado manualmente (o escritor dedupe em `(claimId, artifactSha256)`). `[toolkit/src/report.ts:95-108]`
-- **[Low] `formatConfidenceReport` interpola `stage` sem escape markdown** — depende da validação canônica de stage; campo trusted hoje. `[toolkit/src/report.ts:187]`
-- **[Low] `process.stdout.write` em pipe fechado lança fora do path de erro** — `process-ai status | head` → `ERR_STREAM_DESTROYED`, não via `✗ process-ai falhou`. Anexar handler de erro/ignorar EPIPE. `[bin/process-ai.ts:368]`
-- **[Low] `process.cwd()` pode lançar ENOENT cru** — se o cwd for deletado sob o processo (comum no Windows quando outra shell rm o diretório pai). `[bin/process-ai.ts:363]`
-- **[Low] `dispatch` sem guard `assertNever`** — variante futura de `ParsedCommand` não-tratada → retorna `undefined` → crash em runtime (TS pode não pegar). Adicionar `default: assertNever(cmd)`. `[bin/process-ai.ts:288-348]`
-- **[Low] Valores whitespace-only passam no parser** — só checa `=== ''`; `--id "   "` persiste um gate com id em branco. Adicionar `.trim()`. `[bin/process-ai.ts:145,157]`
-- **[Low] Valores com traço único aceitos na forma espaço** — só bloqueia prefixo `--`; `stage --to -9` aceita `-9`. `[bin/process-ai.ts:160]`
-- **[Low] Variation selector `️` em emoji do ledger descarta entrada da contagem** — `(LEVELS).includes(level)` é byte-exato; `🟢️` ≠ `🟢`. Só com edição externa (ledger é escrito pelo toolkit com emoji nu). Normalizar (NFC/strip-FE0F). `[toolkit/src/report.ts:104]`
-- **[Low] `aggregateLedger` materializa o ledger inteiro na memória** — `raw.split('\n')` dobra o pico antes do loop; ledger grande → OOM onde streaming não. Escala é 2.5. `[toolkit/src/report.ts:95]`
-- **[Low] `aggregateLedger`/`report` leem sem lock → snapshot pontual potencialmente inconsistente** — commit concorrente pode landar entre as 3 leituras (ledger/checkpoint/quarantine); o relatório (embutido no entregável final) fica auto-inconsistente. Mesmo escopo single-session do item do `resume`. `[toolkit/src/report.ts:146-149]`
+- **[Low] Scheme de IDs: contadores não-padded quebram ordenação lexical** — Nenhum consumer ordena IDs lexicalmente hoje. `[SKILL.md:89-91]`
+- **[Low] "E1.1" é prefixo de string de "E1.10"** — Sem delimitador/âncora. Nenhum consumer resolve pai por substring. `[SKILL.md:100-107]`
+- **[Low] Contrato de ancoragem downstream sub-especificado** — Agente poderia emitir UUIDs que quebram parse. `[SKILL.md:87-91]`
+- **[Low] Content opaco: referência de pai órfão e divergência bidirecional** — Validação estrutural exige schema ou índice. `[SKILL.md:93,100-107]`
+- **[Low] Marcadores de confiança desacoplados dos nós da árvore** — Marcação por-nó é enhancement de 2.5. `[SKILL.md:97-108,129-148]`
 
-## Deferred from: code review of 2-2-miguel-hierarquia-completa (2026-08-02)
+### `toolkit/src/install.ts` + `toolkit/src/installer/`
 
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `4736f35`, commit `8ab577c`). Acceptance Auditor PASS (AC1–AC5 + AD-3 verde + 177/177). Itens abaixo são reais, porém pré-existentes ou pertencem a stories futuras (não-acucionáveis na 2.2 sem scope creep). Reavaliar ao tocar os arquivos ou nas stories indicadas.
+- **[Low] `atomicWrite` vaza temp file em terminação brusca** — Sweep de `.tmp-*` no início do install seria o fix. `[install.ts:97-105]`
+- **[Low] postinstall fail-soft `exit(0)` mascara pacote quebrado** — Smoke não exerce o postinstall (environment-blocked). `[postinstall.js:33-45, consumer-install.smoke.test.ts:52-56]`
+- **[Low] TOCTOU no `config.user` sob installs concorrentes** — Fora do modelo single-writer. `[install.ts:75-80]`
+- **[Low] `atomicWrite` sem retry no Windows EPERM/EBUSY/EACCES** — Recuperável via re-run. `[install.ts:99-103]`
+- **[Low] `scaffoldConfig` não valida `targetDir`** — Chamador direto passando arquivo-como-targetDir recebe ENOTDIR/EEXIST cru. `[install.ts:58-61]`
 
-- **[Low → 2.3/2.5] Scheme de IDs: contadores não-padded quebram ordenação lexical no 10º irmão (M1, M10, M2)** — qualquer consumer que ordene IDs lexicalmente (relatório, índice 2.5, JSON ordenado) obtém ordem errada da cadeia. Hoje nenhum consumer ordena IDs. `[skills/process-ai-miguel/SKILL.md:89-91]`
-- **[Low → 2.3/2.5] "E1.1" é prefixo de string de "E1.10" → resolução de pai por `includes` casa pai errado** — sem delimitador/âncora no scheme de referência `— pai: <id>`. Hoje nenhum consumer resolve pai por substring. `[skills/process-ai-miguel/SKILL.md:100-107]`
-- **[Low → 2.3] Contrato de ancoragem downstream sub-especificado** — a skill promete que Júlia (2.3)/Zanoni (2.4) "ancoram nestes IDs", mas só garante "estável+único"; um agente poderia emitir IDs não-hierárquicos (UUID, `task-7`) que satisfazem estável+único mas quebram a codificação `M.E.S.A.T` que downstream espera parsear. Recomendar (não exigir) o scheme `M.E.S.A.T` resolve. `[skills/process-ai-miguel/SKILL.md:87-91]`
-- **[Low → 2.5/3.1] Content opaco: referência de pai órfão e divergência bidirecional pai/filho passam sem checagem** — nada valida que cada `pai: X` referencia um nó definido no artefato, nem que as duas direções concordam (M lista filho A; A nomeia pai B). Validação estrutural exige schema (3.1) ou índice (2.5). Hoje a skill pode ganhar uma instrução de self-check barata (verificar as próprias refs antes de commitar) — registrar como hardening opcional. `[skills/process-ai-miguel/SKILL.md:93,100-107]`
-- **[Low → story futura] "Sourceia só `value-chain`" e "não inclua `source` em 🟡/🔴" são só prosa** — o toolkit (`confidence.ts`) valida apenas que `source` resolve, não que `artifactType == 'value-chain'`; e regras 5/6 ignoram `source` em 🟡/🔴 enquanto `buildLedgerEntries` o grava no ledger. Comportamento pré-existente do toolkit (não causado pela 2.2; AD-3 proíbe mexer no core aqui). Enforcement = mudança no toolkit = scope creep. AD-5 é honor-system por design até checagem semântica (2.5/3.1). `[toolkit/src/confidence.ts]`
-- **[Low → 2.5] Marcadores de confiança desacoplados dos nós da árvore** — a árvore markdown não carrega marcadores por nó; o nível de cada nó só existe em `statements` de texto-livre dentro de `claims[]`. Consumer que parseia o `content` vê um nó 🔴 como tarefa concreta sem saber que é gap. Marcação por-nó no `content` é enhancement de 2.5 (AC3 põe marcadores nos `claims`, in-spec para 2.2). `[skills/process-ai-miguel/SKILL.md:97-108,129-148]`
+---
 
-## Deferred from: code review of 2-3-julia-bpmn-xml-gargalos (2026-08-02)
+## Resumo pós-triagem
 
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `9edd593`, commit `01daff3`). Acceptance Auditor PASS (AC1–AC5 + ADs + 179/179). Item abaixo é real, porém pré-existente (toolkit intocável — AD-3) / pertence a story futura. Reavaliar ao tocar `toolkit/src/confidence.ts` ou na story 2.5.
+| Status | Count |
+|--------|-------|
+| **Fechados** (já resolvidos) | ~20 |
+| **Mantidos [Low]** | 35 |
+| **Agrupados por arquivo** | 7 grupos (commit, confidence, report, bin+checkpoint, adapter+bootstrap, tests, skills-miguel, installer) |
 
-- **[Low → 2.5] `reasoning`/`statement` dos claims não são persistidos no ledger** — `ConfidenceLedgerEntry` (`toolkit/src/confidence.ts:83-101`) e `buildLedgerEntries` (`:402-414`) não copiam `statement`/`reasoning`; o caminho 🟡 (`:232-234`) nunca inspeciona `reasoning`. Consequência: a evidência FR-11 do gargalo (que cita o nó do flow no `reasoning`) não é recuperável do ledger pós-commit — um consumer do `confidence-ledger.jsonl` não reconstrói a fundamentação do gargalo. Pré-existente desde 1.4 (não causado pela 2.3); o listing rico + verificação de excerpt são escopo da story 2.5. `[toolkit/src/confidence.ts:83-101,232-234,402-414]`
+**Regra de reavaliação:** ao tocar qualquer arquivo listado acima, reavaliar os itens do grupo correspondente. Itens sem alteração no arquivo-gatilho permanecem diferidos.
 
-## Deferred from: code review of story 2.4 (2026-08-02)
-
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `16005c8`, commit `bd1917b`). Acceptance Auditor PASS (AC1–AC5 + critério implícito; 181/181 testes, typecheck limpo, AD-3 verde). Item abaixo é real, porém pré-existente (fora do escopo T2 da 2.4 — a story só tocou a nota de fronteira do Zanoni + a célula da tabela, não a narrativa genérica de handoff). Reavaliar ao tocar `skills/process-ai/SKILL.md` §3.
-
-- **[Low] Narrativa genérica de handoff do condutor ainda diz "produz o rascunho"** — `skills/process-ai/SKILL.md:108`: *"O especialista conduz sua etapa, produz o **rascunho** e o commita…"*. Stale desde 2.1 (todos os 4 especialistas agora são "profundos"); contradiz a nota de fronteira da própria §3 (`:89-96` "Bento/Miguel/Júlia/Zanoni agora são profundos") e a célula da tabela (`:87` "POPs + diagnóstico"). Pré-existente e genérico a todos os especialistas — fora do escopo T2 da 2.4. One-word fix oportunístico ("rascunho" → "artefato"/"POPs + diagnóstico") quando §3 for tocada novamente. Nota: o guard `doesNotMatch(/rascunho/i)` em `tests/zanoni-pop.test.ts:257` cobre só `skills/process-ai-zanoni/SKILL.md`, não o condutor. `[skills/process-ai/SKILL.md:108]`
-
-## Deferred from: code review of 2-5-confianca-verificavel-rastreabilidade-relatorio (2026-08-03)
-
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `181eaff`, commit `add6852`; escopo dos 4 arquivos da File List). Acceptance Auditor PASS (AC1–AC5 + critério implícito; 241/241 testes, typecheck limpo, AD-3 verde). Itens abaixo são reais, porém baixa prioridade / não-acucionáveis agora ou pertencem ao modelo single-session. Reavaliar ao tocar os arquivos ou nas stories indicadas.
-
-- **[Low] deferred-work `:44` (write-path corrupt-line dedupe window) não fechado** — o corpo da spec (linhas 109-119) marca `:44` como MUST-close ("fechar a janela é barato"), mas as completion notes (linha 163) omitem `:44`. `appendConfidenceLedger` (`confidence.ts:408-419`) ainda não indexa linhas corrompidas no dedupe-scan (catch → preserva no output, não indexa) → um commit subsequente com a mesma chave pode append duplicata. O read-path dedupe (`:64`, `report.ts:272-294`) compensa as contagens do relatório; janela latente só no write-path. Análise: um fix "barato" não é óbvio — sem parsear a linha corrompida não há chave para dedupar. Reavaliar ao tocar `confidence.ts` ou se corrupção de ledger virar cenário real. `[toolkit/src/confidence.ts:408-419]`
-- **[Low] `appendConfidenceLedger` update-on-change ignora deltas em `statement`/`reasoning`** — o replace-trigger (`confidence.ts:433-435`) checa só `validated`/`degradationReason`, não os novos campos `statement`/`reasoning` (AC4/2.5). Re-commit do mesmo sha com claims de texto diferente → texto stale persiste. Inalcançável via fluxo single-propose-por-artefato normal (mesmo payload → mesmos claims → mesmo texto). Estender o trigger para incluir `statement`/`reasoning` quando escalar justificar. `[toolkit/src/confidence.ts:431-435]`
-- **[Low] Zero-width chars (U+200B/200C/200D/FE0E) passam `isNonEmptyString` mas falham `includes`** — JS `String.prototype.trim` não remove ZWSP/ZWNJ/ZWJ/VS-15; um `source.excerpt = "​"` passa o non-empty-check (`confidence.ts:151-153, 267`) mas falha o substring match (`:361`) → falso `excerpt-mismatch` (degradação conservadora 🟢→🟡). Mesma classe do FE0F normalizado em `:71`. Hardening: normalizar/strip desses chars antes do non-empty-check ou do match. `[toolkit/src/confidence.ts:151-153, 361]`
-- **[Low] Reverse-index `split('::')` trunca sha256 se `source.artifactType` contém `::`** — a renderização do reverse-index (`report.ts:591`) faz `key.split('::')` e destructure `[artifactType, sha256]`; um `artifactType` ledger-injetado contendo `::` (só via ledger editado — kebab-validado no write-path rejeita `:`) faz o split produzir >2 elementos → `sha256` vira o segmento errado → prefixo SHA errado na renderização. Sem crash; navegabilidade cosmeticamente errada só em ledger adulterado. Fix: re-join do tail como sha256, ou escape `::` em `sourceKey`. `[toolkit/src/report.ts:591]`
-- **[Dismissed] manifest-leaf TOCTOU entre `manifestExists` e `verifyExcerpt` readFile** — já documentado como risco residual aceito em `deferred-work.md:32` (1.4 round 2: não-portátil no Windows — `O_NOFOLLOW`). Não re-reportado como ação; mantido como dívida conhecida. `[toolkit/src/confidence.ts:259→268→328]`
-
-### Re-review (2026-08-03) — follow-up sobre os patches F1–F6
-
-Pass adversarial de re-review sobre os patches aplicados da rodada anterior (baseline `add6852` pós-patches). Patches F1–F6 verificados corretos, sem regressões (243→244 testes, typecheck limpo, AD-3 verde); 1 follow-up patch aplicado (F3-incompleto — orphan `sha256` sem `escapeMd` no rendering de quarentena; ver changelog da story 2.5). Itens abaixo são Low / pré-existentes — dívida conhecida.
-
-- **[Low] Summary "Tipos" interpola `artifactType` sem escape (pré-existente, mesma classe do F3)** — `report.ts:571-572` renderiza `**Tipos:** ${summary}` onde `summary` é montado de `a.artifactType` (checkpoint-derivado) sem `escapeMd`. O F3 escapou `artifactType` em breakdown/items/reverse-index mas não nesta linha do sumário (fora do escopo ledger-read que o review original delimitou). Reachabilidade baixa: kebab-validado no commit → só `checkpoint.json` editado manualmente injetaria chars especiais. One-liner `${escapeMd(t)}` quando §1 do `formatConfidenceReport` for tocada. `[toolkit/src/report.ts:567-572]`
-- **[Low] BOM strip é read-path only — trigger concreto do defer F7** — o patch F4 stripou BOM (`charCodeAt(0)===0xFEFF`) só no read-path (`scanLedger`, `report.ts:240`). O write-path (`appendConfidenceLedger`, `confidence.ts:404-423`) lê o ledger para dedupe SEM strip de BOM → primeira linha BOM-prefixada falha `JSON.parse` → não-indexada → commit subsequente com chave coincidente é appendado como **duplicata**. O *relatório* permanece correto (read-path F4 + dedupe-on-read compensam); só o *arquivo ledger* pode carregar linha duplicada. **Amastra ao defer F7** (write-path corrupt-line dedupe window): BOM é uma causa específica e reproduzível de "linha corrompida", não só corrupção genérica — quando F7 for fechado, aplicar o strip de BOM em *ambos* os leitores do ledger. `[toolkit/src/confidence.ts:404-423, toolkit/src/report.ts:238-240]`
-
-## Deferred from: code review of story 2.7 (2026-08-03)
-
-Achados do code review adversarial (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `181eaff`, HEAD `694ec9d`; escopo `tests/e2e-pipeline.test.ts`). Itens reais, porém pré-existentes / cross-cutting / fora do escopo test-only da 2.7 (AD-3 proíbe mexer no core/bin nesta story). Reavaliar ao tocar os arquivos.
-
-- **[Low] Cleanup Windows `fs.rm(tmp, {recursive, force})` não tolera EPERM/EBUSY** — `force:true` suprime ENOENT mas não EPERM/EBUSY (antivirus/Search Indexer segurando handles no Windows); o erro de cleanup lançado do bloco `finally` mascara o resultado real do teste. Mesma classe do item já-deferido em `tests/bootstrap.test.ts`. Reavaliar ao tocar o cleanup de teste ou se flake de EBUSY aparecer em CI Windows. `[tests/e2e-pipeline.test.ts:588-590]`
-- **[Low] Convenção de path de manifesto duplicada** — `path.join(root, '.process-ai', 'manifests', \`${artifactType}-${sha256}.json\`)` replicada em `commit.ts`, `confidence.ts`, `report.ts` e agora neste teste; uma mudança de convenção num site quebra os outros (no teste, silenciosamente — até o patch da calibração da 2.7 fechar a janela vacuosa com `assert.ok(totalWithExcerpt > 0)`). O fix real (expôr helper de path no toolkit) é cross-cutting e fora do escopo test-only da 2.7 (AD-3). Reavaliar ao tocar o layout on-disk dos manifestos. `[tests/e2e-pipeline.test.ts:536-537, toolkit/src/commit.ts, toolkit/src/confidence.ts, toolkit/src/report.ts]`
-
-## Deferred from: code review of Epic 3 / story 3-1 (2026-08-03)
-
-Achados do code review adversarial do Épico 3 (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; baseline `add6852`). Item deferido por **decisão explícita do usuário (D1, 2026-08-03)**: manter validador v1 leniente (AC4 backward-compat); corrigir só a documentação/claims agora.
-
-- **[Med→Defer] Enforcement estrito do schema-núcleo no `validateContent`** — o validador v1 é intencionalmente leniente: aceita strings/números/arrays/booleanos, objetos vazios (`{}`), campos extras; `required` comentado em todos os 7 schemas; `additionalProperties: true` e o validador sequer checa `additionalProperties`. A spec (3.1 AC1/AC2/AC3 + AD-2) exige enforcement real de shape ("objeto JSON, **não string arbitrária**"; chaves obrigatórias; `additionalProperties: false`). **Decisão:** manter leniente agora para não quebrar payloads existentes (tensão AC1 vs AC4); deferir para uma story dedicada que deve (a) auditar todos os payloads do E2E (2.7) + fixtures de teste para garantir conformidade ANTES de endurecer, (b) implementar: rejeitar não-objetos, ativar `required` por tipo, fechar `additionalProperties` (no validador e nos schemas), rejeitar objetos exóticos (Date, boxed String/Number — produzem canonicalização sem sentido), e (c) revalidar a JSDoc/header após o endurecer para que a doc volte a refletir o código (a correção pontual da doc falsa já foi aplicada como patch imediato nesta review). `[toolkit/src/schema-core.ts:41-181, 199-280]`
-
-## Deferred from: code review of feat(install) c904116 (2026-08-03)
-
-Achados do code review adversarial do installer `npx process-ai` (3 camadas: Blind Hunter + Edge Case Hunter + Acceptance Auditor; commit `c904116`). Itens reais, porém baixa prioridade / fora do modelo single-session / classe pré-existente. Reavaliar ao tocar os arquivos.
-
-- **[Low] `atomicWrite` vaza temp file em terminação brusca (SIGKILL/power loss)** — temp+rename sem sweep; o `catch` só limpa o tmp corrente. Padrão pré-existente (`installOneSkill` do adapter usa o mesmo temp+rename). Lixo pequeno em `.process-ai/` e `.claude/skills/` após crashes raros. Um sweep de `.tmp-*` no início do install seria o fix real (project-wide). `[toolkit/src/install.ts:97-105]`
-- **[Low] postinstall fail-soft `exit(0)` mascara pacote quebrado + smoke não exerce o postinstall** — fail-soft é by-design (não bloquear `npm install`); o smoke invoca o CLI compilado diretamente (bypassa o postinstall, bloqueado pelo `allow-scripts` do npm neste ambiente). Regressão no wiring do postinstall não seria pega; E2E do postinstall é environment-blocked. `[bin/postinstall.js:33-45, tests/consumer-install.smoke.test.ts:52-56]`
-- **[Low] TOCTOU no `config.user` sob installs concorrentes** — `lstat` → `atomicWrite` não é atômico; dois installs no mesmo target podem ter o stub sobrescrevendo overrides do usuário. Fora do modelo single-writer/single-session do produto. Mitigação via `O_EXCL` se multi-session entrar no escopo. `[toolkit/src/install.ts:75-80]`
-- **[Low] `atomicWrite` sem retry no Windows EPERM/EBUSY/EACCES** — AV/Search Indexer segurando o destino recém-escrito faz o `rename` falhar num lock transitório; o install falha sem retry/backoff. Classe de hardening Windows project-wide (deferred-work já rastreia EBUSY no cleanup de testes); recuperável via re-run. `[toolkit/src/install.ts:99-103]`
-- **[Low] `scaffoldConfig` não valida `targetDir`** — chamador direto passando arquivo-como-targetDir ou `.process-ai`-como-arquivo recebe ENOTDIR/EEXIST cru. No path de produção o `runInstall` chama `installSkills` antes (valida o target); só chamadores diretos (tests/dev) são afetados. `[toolkit/src/install.ts:58-61]`
+*Triagem concluída em 2026-08-07 (Story 4.6).*

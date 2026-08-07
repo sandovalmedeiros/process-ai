@@ -84,7 +84,7 @@ test('2.3 AC2/AC3/AC4: Júlia profunda modela a hierarquia em fluxo BPMN 2.0 XML
     // value-chain commitada por Bento (sem claims — só estrutura a cadeia real).
     await propose(adapter, tmp, {
       artifactType: 'value-chain',
-      content: '# Cadeia de Valor\nAtração → Vendas → Entrega',
+      content: { body: '' },
     });
 
     // ---- Gate 2 + mapping: Miguel entrega a hierarchy (fonte que habilita 🟢 no flow) ----
@@ -94,14 +94,12 @@ test('2.3 AC2/AC3/AC4: Júlia profunda modela a hierarquia em fluxo BPMN 2.0 XML
     // hierarchy commitada por Miguel — é a fonte que habilita claims 🟢 no flow (AD-5).
     const hierarchy = await propose(adapter, tmp, {
       artifactType: 'hierarchy',
-      content:
-        '# Hierarquia de processos — Vendas\n' +
-        '## M1. Vendas (Macroprocesso) — pai: cadeia de valor\n' +
+      content: { body: '## M1. Vendas (Macroprocesso) — pai: cadeia de valor\n' +
         '### E1.1. Lead-to-Close (Processo End-to-End) — pai: M1\n' +
         '#### S1.1.1. Qualificação (Subprocesso) — pai: E1.1\n' +
         '- A1.1.1.1. Avaliar fit (Atividade) — pai: S1.1.1\n' +
         '#### S1.1.2. Proposta (Subprocesso) — pai: E1.1\n' +
-        '- A1.1.2.1. Enviar proposta (Atividade) — pai: S1.1.2',
+        '- A1.1.2.1. Enviar proposta (Atividade) — pai: S1.1.2' },
     });
 
     // ---- Gate 3 + modeling: Júlia profunda ----
@@ -115,9 +113,7 @@ test('2.3 AC2/AC3/AC4: Júlia profunda modela a hierarquia em fluxo BPMN 2.0 XML
     //  - 🔴 passo indeterminado (medida/tempo não determinado na descoberta).
     await propose(adapter, tmp, {
       artifactType: 'flow',
-      content:
-        '<?xml version="1.0" encoding="UTF-8"?>\n' +
-        '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" ' +
+      content: { body: '<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" ' +
         'id="Definitions_vendas" targetNamespace="http://process-ai/flow/vendas">\n' +
         '  <bpmn:process id="Process_vendas" isExecutable="false">\n' +
         '    <bpmn:startEvent id="Start_captao_lead" name="Captação do lead"/>\n' +
@@ -136,7 +132,7 @@ test('2.3 AC2/AC3/AC4: Júlia profunda modela a hierarquia em fluxo BPMN 2.0 XML
         '    </bpmn:sequenceFlow>\n' +
         '    <bpmn:sequenceFlow id="Flow_4" sourceRef="A1.1.2.1" targetRef="End_fechamento"/>\n' +
         '  </bpmn:process>\n' +
-        '</bpmn:definitions>',
+        '</bpmn:definitions>' },
       claims: [
         {
           statement: 'A tarefa A1.1.1.1 (Avaliar fit) corresponde à atividade nominal na hierarchy',

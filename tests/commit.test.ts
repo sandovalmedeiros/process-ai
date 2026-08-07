@@ -98,11 +98,11 @@ test('AC6: validatePayload rejeita malformados com erro acionável', () => {
 });
 
 test('AC6: validatePayload aceita conteúdo presente (0/false/string-vazia são válidos)', () => {
-  validatePayload({ artifactType: 'sipoc', content: 'x' });
+  validatePayload({ artifactType: 'sipoc', content: { body: '' } });
   validatePayload({ artifactType: 'sipoc', content: {} });
   validatePayload({ artifactType: 'sipoc', content: 0 });
   validatePayload({ artifactType: 'sipoc', content: false });
-  validatePayload({ artifactType: 'sipoc', content: '', claims: [] });
+  validatePayload({ artifactType: 'sipoc', content: { body: '' }, claims: [] });
 });
 
 // ---- T3: commit integração (AC2, AC1) ----
@@ -110,7 +110,7 @@ test('AC6: validatePayload aceita conteúdo presente (0/false/string-vazia são 
 test('AC2: commit escreve artefato + manifesto + provenance com sha coerente', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-commit-'));
   try {
-    const content = { supplier: ['Fornecedor A'], outputs: ['x', 'y'] };
+    const content = { body: 'SIPOC', suppliers: ['Fornecedor A'], outputs: ['x', 'y'] };
     const res = await commit({ artifactType: 'sipoc', content }, { root: tmp, agent: 'tester' });
 
     // artefato existe e seu sha bate com o do manifesto (AC2)
@@ -142,7 +142,7 @@ test('AC2: commit escreve artefato + manifesto + provenance com sha coerente', a
 test('AC2: commit com conteúdo markdown (com # heading) → nome do artefato usa slug', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cslug-'));
   try {
-    const content = '# Entrevista de descoberta — SAC multicanal (Marketplace)\n\nEscopo do processo.';
+    const content = { body: '# Entrevista de descoberta — SAC multicanal (Marketplace)\n\nEscopo do processo.' };
     const res = await commit({ artifactType: 'discovery-interview', content }, { root: tmp, agent: 'bento' });
 
     const manifest = JSON.parse(await fs.readFile(res.manifestPath, 'utf8'));
@@ -170,7 +170,7 @@ test('AC2: commit com conteúdo markdown (com # heading) → nome do artefato us
 test('AC5: commit com conteúdo markdown → slug determinístico (idempotente)', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cslug2-'));
   try {
-    const content = '# SIPOC — Processo de Vendas\n\nFornecedores: CRM, ERP.';
+    const content = { body: '# SIPOC — Processo de Vendas\n\nFornecedores: CRM, ERP.' };
     const res1 = await commit({ artifactType: 'sipoc', content }, { root: tmp, agent: 'bento' });
     const res2 = await commit({ artifactType: 'sipoc', content }, { root: tmp, agent: 'bento' });
     // Mesmo conteúdo → mesmo artifactPath (slug determinístico)
@@ -184,7 +184,7 @@ test('AC5: commit com conteúdo markdown → slug determinístico (idempotente)'
 test('AC1: commit escreve SÓ em _process-ai_output/ e .process-ai/ (nada fora)', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cscope-'));
   try {
-    await commit({ artifactType: 'sipoc', content: 'x' }, { root: tmp });
+    await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp });
     const top = (await fs.readdir(tmp)).sort();
     assert.deepEqual(top, ['.process-ai', '_process-ai_output'], 'nada além das duas pastas protegidas');
     assert.deepEqual(
@@ -200,7 +200,7 @@ test('AC1: commit escreve SÓ em _process-ai_output/ e .process-ai/ (nada fora)'
 test('AC1: artifactType sanitizado vira o nome da pasta (content-addressed)', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-casedir-'));
   try {
-    const res = await commit({ artifactType: 'Value-Chain', content: 'x' }, { root: tmp });
+    const res = await commit({ artifactType: 'Value-Chain', content: { body: '' } }, { root: tmp });
     // P12: CommitResult paths usam `/` — usa '/' para o path esperado
     assert.ok(
       res.artifactPath.includes('_process-ai_output/value-chain'),
@@ -216,7 +216,7 @@ test('AC1: artifactType sanitizado vira o nome da pasta (content-addressed)', as
 test('AC5: idempotência — re-commit não duplica/corrompe; manifesto byte-estável', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cidem-'));
   try {
-    const payload: ProposePayload = { artifactType: 'sipoc', content: { a: 1, b: { z: 2, y: 3 } } };
+    const payload: ProposePayload = { artifactType: 'sipoc', content: { body: 'idempotency test', suppliers: ['a'], outputs: ['b'] } };
     const r1 = await commit(payload, { root: tmp, agent: 'a1' });
     const art1 = await fs.readFile(r1.artifactPath, 'utf8');
     const man1 = await fs.readFile(r1.manifestPath, 'utf8');
@@ -236,8 +236,8 @@ test('AC5: idempotência — re-commit não duplica/corrompe; manifesto byte-est
 test('AC2: provenance distingue agentes — dedupe por (sha256, agent, artifactType)', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cprov-'));
   try {
-    await commit({ artifactType: 'sipoc', content: 'c' }, { root: tmp, agent: 'a1' });
-    await commit({ artifactType: 'sipoc', content: 'c' }, { root: tmp, agent: 'a2' });
+    await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp, agent: 'a1' });
+    await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp, agent: 'a2' });
     const lines = (await fs.readFile(PROVENANCE(tmp), 'utf8')).trim().split('\n');
     assert.equal(lines.length, 2, 'mesmo sha + agentes diferentes = 2 linhas');
   } finally {
@@ -252,7 +252,7 @@ test('AC3: commit aborta em artifactType inseguro — ZERO escrita', async () =>
   try {
     for (const bad of ['../x', '/abs', 'a/b', 'a:b']) {
       await assert.rejects(
-        () => commit({ artifactType: bad, content: 'x' }, { root: tmp }),
+        () => commit({ artifactType: bad, content: { body: '' } }, { root: tmp }),
         CommitError,
       );
     }
@@ -270,8 +270,8 @@ test('AC6: commit rejeita payload malformado — ZERO escrita', async () => {
       undefined,
       {},
       { artifactType: 'sipoc' },
-      { artifactType: '', content: 'x' },
-      { content: 'x' },
+      { artifactType: '', content: { body: '' } },
+      { content: { body: '' } },
     ];
     for (const bad of cases) {
       await assert.rejects(() => commit(bad as ProposePayload, { root: tmp }), CommitError);
@@ -320,7 +320,7 @@ test('AC1: commit recusa symlink no caminho protegido (não escapa do escopo)', 
       throw e;
     }
     await assert.rejects(
-      () => commit({ artifactType: 'sipoc', content: 'x' }, { root: tmp }),
+      () => commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp }),
       /symlink/i,
     );
     assert.deepEqual(
@@ -339,8 +339,8 @@ test('AC1: commit recusa symlink no caminho protegido (não escapa do escopo)', 
 test('P3: provenance dedupe inclui artifactType — cross-type gera linhas distintas', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-p3-'));
   try {
-    await commit({ artifactType: 'sipoc', content: 'c' }, { root: tmp, agent: 'a1' });
-    await commit({ artifactType: 'bpmn', content: 'c' }, { root: tmp, agent: 'a1' });
+    await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp, agent: 'a1' });
+    await commit({ artifactType: 'bpmn', content: { body: '' } }, { root: tmp, agent: 'a1' });
     const lines = (await fs.readFile(PROVENANCE(tmp), 'utf8')).trim().split('\n');
     assert.equal(lines.length, 2, 'mesmo sha+agent mas artifactTypes diferentes = 2 linhas (P3)');
   } finally {
@@ -352,8 +352,8 @@ test('P3: provenance dedupe inclui artifactType — cross-type gera linhas disti
 test('D1: manifesto com prefixo artifactType evita colisão cross-type', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-d1-'));
   try {
-    const r1 = await commit({ artifactType: 'sipoc', content: 'x' }, { root: tmp });
-    const r2 = await commit({ artifactType: 'bpmn', content: 'x' }, { root: tmp });
+    const r1 = await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp });
+    const r2 = await commit({ artifactType: 'bpmn', content: { body: '' } }, { root: tmp });
     assert.notEqual(r1.manifestPath, r2.manifestPath,
       'manifestos de tipos diferentes não podem colidir (D1)');
     assert.ok(r1.manifestPath.includes('sipoc-'), 'manifestPath deve conter prefixo do tipo');
@@ -408,11 +408,11 @@ test('P7: root que é arquivo (não diretório) → CommitError acionável', asy
     const filePath = path.join(tmp, 'arquivo.txt');
     await fs.writeFile(filePath, 'x');
     await assert.rejects(
-      () => commit({ artifactType: 'sipoc', content: 'x' }, { root: filePath }),
+      () => commit({ artifactType: 'sipoc', content: { body: '' } }, { root: filePath }),
       CommitError,
     );
     await assert.rejects(
-      () => commit({ artifactType: 'sipoc', content: 'x' }, { root: filePath }),
+      () => commit({ artifactType: 'sipoc', content: { body: '' } }, { root: filePath }),
       /não é um diretório/i,
     );
   } finally {
@@ -427,7 +427,7 @@ test('P11: pasta protegida pré-existindo como arquivo → CommitError', async (
     // Pré-cria `.process-ai` como arquivo regular (não diretório)
     await fs.writeFile(path.join(tmp, '.process-ai'), 'x');
     await assert.rejects(
-      () => commit({ artifactType: 'sipoc', content: 'x' }, { root: tmp }),
+      () => commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp }),
       /não é um diretório/i,
     );
   } finally {
@@ -455,7 +455,7 @@ test('P1: provenance.jsonl symlink → recusa (leaf check)', async (t) => {
       throw e;
     }
     await assert.rejects(
-      () => commit({ artifactType: 'sipoc', content: 'x' }, { root: tmp }),
+      () => commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp }),
       /symlink/i,
     );
   } finally {
@@ -471,7 +471,7 @@ test('P15: extensão com separadores → CommitError', async () => {
   // O teste de regressão garante que a validação existe no código.
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-p15-'));
   try {
-    const res = await commit({ artifactType: 'sipoc', content: 'x' }, { root: tmp });
+    const res = await commit({ artifactType: 'sipoc', content: { body: '' } }, { root: tmp });
     assert.ok(res.artifactPath.endsWith('.md'), 'extensão default .md deve ser aceita');
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

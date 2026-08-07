@@ -210,7 +210,7 @@ test('AC4: propose lê payload de arquivo → CommitResult com sha256/path; arte
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cli-prop-'));
   try {
     const payloadPath = path.join(tmp, 'payload.json');
-    await fs.writeFile(payloadPath, JSON.stringify({ artifactType: 'summary-report', content: '# Resumo\nConteúdo de teste.' }), 'utf8');
+    await fs.writeFile(payloadPath, JSON.stringify({ artifactType: 'summary-report', content: { body: '' } }), 'utf8');
 
     const adapter = new ClaudeCodeAdapter({ cwd: tmp });
     const result = await dispatch(parseArgs(['propose', '--payload', payloadPath]), adapter, tmp);

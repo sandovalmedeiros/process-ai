@@ -41,7 +41,8 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-01
-last_updated: 2026-08-03
+last_updated: 2026-08-07
+# Epic 4 concluído (2026-08-07): 7/7 stories, 318/324 testes, AD-2 fechado, v1.1 declarado pronto.
 project: process-ai
 project_key: NOKEY
 tracking_system: file-system
@@ -56,7 +57,7 @@ development_status:
   1-4-toolkit-confianca-mecanica-ledger: done
   1-5-dea-skill-condutora: done
   1-6-pipeline-minima-rascunhos: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   # ===== Epic 2: Documentação Completa e Honesta do Processo =====
   epic-2: done
@@ -69,7 +70,7 @@ development_status:
   # 2-6 → done em 2026-08-03 (code review aprovada; 13 patches aplicados, 249/249 testes)
   2-7-wedge-vendas-pme-validacao: done
   # 2-7 → done em 2026-08-03 (code review aprovada; 8 patches aplicados, 249/249 testes)
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   # ===== Epic 3: Method-Agnostic + Distribuição OSS =====
   epic-3: done
@@ -83,6 +84,18 @@ development_status:
   3-5-docs-contribuidor-packs-adapters: done
   epic-3-retrospective: done
   # epic-3-retrospective -> done em 2026-08-03 (primeira retro do projeto; doc: epic-3-retro-2026-08-03.md)
+
+  # ===== Epic 4: Hardening v1.1 — Confiabilidade e Integridade =====
+  # Adicionado via Sprint Change Proposal 2026-08-07 (bmad-correct-course)
+  epic-4: done
+  4-1-schema-enforcement-estrito: review
+  4-2-self-check-gate: review
+  4-3-smoke-test-consumer-install: done
+  4-4-correcao-drift-docs: review
+  4-5-claims-validadas-consumo: review
+  4-6-triagem-deferred-work: review
+  4-7-readiness-final: done
+  epic-4-retrospective: done
 
 action_items:
   - epic: 3

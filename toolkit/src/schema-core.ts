@@ -42,13 +42,11 @@ const DISCOVERY_INTERVIEW_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/discovery-interview/v1',
   type: 'object',
-  // v1: sem campos obrigatórios — backward-compat com payloads existentes (AC4).
-  // required: ['body'], // ← ativar em 3.2 quando method-packs definirem requisitos de conteúdo.
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'Markdown com perguntas e respostas da entrevista.' },
   },
-  // v1: additionalProperties: true — backward-compat (AC4). Fechar em 3.2.
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -60,8 +58,7 @@ const SIPOC_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/sipoc/v1',
   type: 'object',
-  // v1: sem campos obrigatórios — backward-compat com payloads existentes (AC4).
-  // required: ['body'], // ← ativar em 3.2 quando method-packs definirem requisitos de conteúdo.
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'Markdown com tabela SIPOC.' },
     suppliers: { type: 'array', items: { type: 'string' } },
@@ -70,8 +67,7 @@ const SIPOC_SCHEMA = {
     outputs: { type: 'array', items: { type: 'string' } },
     customers: { type: 'array', items: { type: 'string' } },
   },
-  // v1: additionalProperties: true — backward-compat (AC4). Fechar em 3.2.
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -83,14 +79,12 @@ const VALUE_CHAIN_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/value-chain/v1',
   type: 'object',
-  // v1: sem campos obrigatórios — backward-compat com payloads existentes (AC4).
-  // required: ['body'], // ← ativar em 3.2 quando method-packs definirem requisitos de conteúdo.
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'Markdown com cadeia de valor.' },
     links: { type: 'array', items: { type: 'string' }, description: 'Nomes dos elos da cadeia.' },
   },
-  // v1: additionalProperties: true — backward-compat (AC4). Fechar em 3.2.
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -102,14 +96,12 @@ const HIERARCHY_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/hierarchy/v1',
   type: 'object',
-  // v1: sem campos obrigatórios — backward-compat com payloads existentes (AC4).
-  // required: ['body'], // ← ativar em 3.2 quando method-packs definirem requisitos de conteúdo.
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'Markdown com árvore hierárquica (M1.E1.S1.A1.T1).' },
     levels: { type: 'integer', minimum: 1, maximum: 6, description: 'Número de níveis na hierarquia.' },
   },
-  // v1: additionalProperties: true — backward-compat (AC4). Fechar em 3.2.
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -121,13 +113,11 @@ const FLOW_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/flow/v1',
   type: 'object',
-  // v1: sem campos obrigatórios — backward-compat com payloads existentes (AC4).
-  // required: ['body'], // ← ativar em 3.2 quando method-packs definirem requisitos de conteúdo.
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'BPMN 2.0 XML canônico (AD-6).' },
   },
-  // v1: additionalProperties: true — backward-compat (AC4). Fechar em 3.2.
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -139,13 +129,11 @@ const POP_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/pop/v1',
   type: 'object',
-  // v1: sem campos obrigatórios — backward-compat com payloads existentes (AC4).
-  // required: ['body'], // ← ativar em 3.2 quando method-packs definirem requisitos de conteúdo.
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'Markdown com POPs + diagnóstico consolidado (FR-13).' },
   },
-  // v1: additionalProperties: true — backward-compat (AC4). Fechar em 3.2.
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -157,13 +145,11 @@ const SUMMARY_REPORT_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/summary-report/v1',
   type: 'object',
-  // v1: sem campos obrigatórios — backward-compat com payloads existentes (AC4).
-  // required: ['body'], // ← ativar em 3.2 quando method-packs definirem requisitos de conteúdo.
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'Markdown narrativo + relatório de confiança embutido.' },
   },
-  // v1: additionalProperties: true — backward-compat (AC4). Fechar em 3.2.
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -175,10 +161,11 @@ const PROCESS_REPORT_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/process-report/v1',
   type: 'object',
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'Markdown estruturado com as 10 seções do relatório de documentação de processo.' },
   },
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -190,6 +177,7 @@ const REFERENCE_MATERIAL_SCHEMA = {
   $schema: 'https://json-schema.org/draft/2020-12/schema',
   $id: 'https://process-ai/schemas/reference-material/v1',
   type: 'object',
+  required: ['body'],
   properties: {
     body: { type: 'string', description: 'Markdown estruturado do documento ingerido.' },
     source_file: { type: 'string', description: 'Nome do arquivo original (ex.: manual-qualidade.pdf).' },
@@ -205,7 +193,7 @@ const REFERENCE_MATERIAL_SCHEMA = {
       description: 'Metadados extraídos do arquivo-fonte.',
     },
   },
-  additionalProperties: true,
+  additionalProperties: false,
   'x-extensible': true,
 } as const;
 
@@ -234,13 +222,11 @@ export const VALID_ARTIFACT_TYPES: readonly string[] = Object.keys(SCHEMAS);
  *
  * Função PURA — zero IO. Validação manual (sem `ajv`) para manter AD-3.
  *
- * POSTURA v1 (leniente — AC4 backward-compat): aceita strings, números, arrays
- * e objetos; rejeita apenas `null`/`undefined`, `artifactType` não-string, e
- * campos conhecidos com tipo errado. `required` está desativado (comentado nos
- * schemas) e `additionalProperties` é `true` (shape NÃO fechado). Enforcement
- * estrito (rejeitar não-objetos, ativar required, fechar additionalProperties,
- * rejeitar objetos exóticos) → DEFERIDO para uma story dedicada (ver
- * `deferred-work.md`, code review Epic 3 / 3-1).
+ * POSTURA v1.1 (enforcement estrito — AD-2 fechado): rejeita não-objetos
+ * (strings, números, arrays), objetos exóticos (Date, boxed String/Number),
+ * campos extras (additionalProperties: false), e exige campos `required`.
+ * O validador é a materialização do AD-2: method-packs são contidos pelo
+ * contrato do schema-núcleo.
  *
  * @param artifactType - Tipo do artefato (deve estar em VALID_ARTIFACT_TYPES).
  * @param content - Conteúdo proposto pelo agente.
@@ -268,8 +254,7 @@ export function validateContent(
   }
 
   // 1) artifactType conhecido? (case-insensitive — sanitizeArtifactType roda depois).
-  //    v1: artifactTypes desconhecidos são aceitos (backward-compat AC4).
-  //    Validação estrita de vocabulário → 3.2 (method-pack loader).
+  //    artifactTypes desconhecidos são aceitos (podem vir de method-pack futuro).
   const normalized = artifactType.toLowerCase();
   const schema = SCHEMAS[normalized] as Record<string, unknown> | undefined;
   if (!schema) {
@@ -287,26 +272,46 @@ export function validateContent(
     };
   }
 
-  // 3) Se content é objeto, validar tipos dos campos conhecidos (best-effort).
-  //    v1: strings, números, arrays e objetos são aceitos (backward-compat AC4).
-  //    Validação estrutural profunda (required, additionalProperties) → 3.2.
-  if (typeof content !== 'object' || Array.isArray(content)) {
-    // strings, números, arrays — todos válidos no v1.
-    return { valid: true, errors: [] };
+  // 3) content deve ser um objeto plano (nem array, nem exótico como Date ou boxed primitive).
+  if (typeof content !== 'object' || content === null) {
+    // null já foi tratado em (2), mas o guard é belt-and-suspenders.
+    return { valid: false, errors: [`"${artifactType}": content deve ser um objeto, recebeu ${typeof content}.`] };
+  }
+  if (Array.isArray(content)) {
+    return { valid: false, errors: [`"${artifactType}": content deve ser um objeto, recebeu array.`] };
+  }
+  // Rejeita objetos exóticos (Date, boxed String/Number) — produzem canonicalização sem sentido.
+  if (content instanceof Date || content instanceof String || content instanceof Number) {
+    const exoticType = content instanceof Date ? 'Date' : content instanceof String ? 'String' : 'Number';
+    return { valid: false, errors: [`"${artifactType}": content deve ser um objeto plano, recebeu ${exoticType} (objeto exótico).`] };
   }
 
   const obj = content as Record<string, unknown>;
   const errors: string[] = [];
 
-  // Validar tipos dos campos conhecidos (properties) — best-effort.
-  // Se um campo conhecido está presente, seu tipo deve estar correto.
-  // Campos desconhecidos são aceitos (additionalProperties: true no v1).
+  // Validar tipos dos campos conhecidos (properties) + required + additionalProperties.
+  // AD-2 enforcement: required fields são obrigatórios, campos não declarados rejeitados.
   //
   // MERGE AD-2 / 3.2: quando um method-pack ativo adiciona propriedades ao tipo,
   // elas são mergeadas nas properties validadas (best-effort, mesma postura v1).
   const coreProps = schema['properties'] as Record<string, Record<string, unknown>> | undefined;
   const packSchema = packSchemas?.[normalized] as Record<string, unknown> | undefined;
-  const packProps = packSchema?.['properties'] as Record<string, Record<string, unknown>> | undefined;
+  // Extrai propriedades do pack schema — suporta tanto { properties: {...} } direto
+  // quanto { allOf: [{ $ref: ... }, { properties: {...} }] } (formato canônico de pack).
+  let packProps: Record<string, Record<string, unknown>> | undefined;
+  if (packSchema) {
+    if (packSchema['properties']) {
+      packProps = packSchema['properties'] as Record<string, Record<string, unknown>>;
+    } else if (Array.isArray(packSchema['allOf'])) {
+      const allOf = packSchema['allOf'] as Record<string, unknown>[];
+      for (const entry of allOf) {
+        if (entry && !entry['$ref'] && entry['properties']) {
+          const entryProps = entry['properties'] as Record<string, Record<string, unknown>>;
+          packProps = packProps ? { ...packProps, ...entryProps } : entryProps;
+        }
+      }
+    }
+  }
   const properties: Record<string, Record<string, unknown>> | undefined =
     coreProps || packProps ? { ...(coreProps ?? {}), ...(packProps ?? {}) } : undefined;
   if (properties) {
@@ -346,6 +351,26 @@ export function validateContent(
         if (max !== undefined && num > max) {
           errors.push(`"${artifactType}": campo "${field}" deve ser ≤ ${max}, recebeu ${num}.`);
         }
+      }
+    }
+  }
+
+  // 4) required: campos obrigatórios devem estar presentes.
+  const required = schema['required'] as string[] | undefined;
+  if (required) {
+    for (const field of required) {
+      if (!(field in obj) || obj[field] === undefined || obj[field] === null) {
+        errors.push(`"${artifactType}": campo obrigatório "${field}" está ausente.`);
+      }
+    }
+  }
+
+  // 5) additionalProperties: false — rejeitar campos não declarados.
+  const additionalProps = schema['additionalProperties'];
+  if (additionalProps === false && properties) {
+    for (const key of Object.keys(obj)) {
+      if (!(key in properties)) {
+        errors.push(`"${artifactType}": campo "${key}" não declarado no schema (additionalProperties: false).`);
       }
     }
   }
