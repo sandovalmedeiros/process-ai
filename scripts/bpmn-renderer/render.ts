@@ -14,6 +14,7 @@ import { chromium, Browser, Page } from 'playwright';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { autoLayout } from './auto-layout.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = path.join(__dirname, 'render.html');
@@ -49,6 +50,14 @@ export async function renderBpmn(
   let browser: Browser | null = null;
   const warnings: string[] = [];
 
+  // Se o XML não tem BPMNDiagram (comum em BPMN gerado por LLMs),
+  // aplica auto-layout para gerar coordenadas visuais básicas.
+  let finalXml = bpmnXml;
+  if (!/<bpmndi:BPMNDiagram/i.test(bpmnXml) && /<bpmn:process/i.test(bpmnXml)) {
+    finalXml = autoLayout(bpmnXml);
+    warnings.push('auto-layout: coordenadas BPMNDiagram geradas automaticamente');
+  }
+
   try {
     // 1. Launch headless Chromium
     browser = await chromium.launch({ headless: true });
@@ -63,7 +72,7 @@ export async function renderBpmn(
     // 3. Inject BPMN XML and wait for render
     await page.evaluate(
       (xml) => (window as unknown as Record<string, unknown>)['renderBpmn'](xml),
-      bpmnXml,
+      finalXml,
     );
 
     // Wait for the viewer to finish rendering (title is set to OK/WARN/ERROR)

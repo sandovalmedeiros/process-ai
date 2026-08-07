@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>process-ai — Renderizador BPMN</title>
-<!-- bpmn-js via CDN (versão estável) -->
+<!-- bpmn-js viewer via CDN — o auto-layout (render.ts) já gera BPMNDiagram -->
 <script src="https://unpkg.com/bpmn-js@17/dist/bpmn-viewer.development.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -55,8 +55,8 @@
       return;
     }
 
-    const BpmnViewer = window.BpmnJS;
-    viewer = new BpmnViewer({ container: '#canvas' });
+    const BpmnJS = window.BpmnJS;
+    viewer = new BpmnJS({ container: '#canvas' });
 
     try {
       const { warnings } = await viewer.importXML(xml);
@@ -64,7 +64,7 @@
       canvas.zoom('fit-viewport', 'auto');
 
       if (warnings.length) {
-        document.title = 'WARN:' + warnings.join('; ');
+        document.title = 'WARN:' + warnings.map(w => typeof w === 'string' ? w : (w.message || 'unknown')).join('; ');
       } else {
         document.title = 'OK';
       }
