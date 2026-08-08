@@ -14,7 +14,6 @@ import { chromium, Browser, Page } from 'playwright';
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { autoLayout } from './auto-layout.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = path.join(__dirname, 'render.html');
@@ -50,12 +49,23 @@ export async function renderBpmn(
   let browser: Browser | null = null;
   const warnings: string[] = [];
 
-  // Se o XML não tem BPMNDiagram (comum em BPMN gerado por LLMs),
-  // aplica auto-layout para gerar coordenadas visuais básicas.
+  // Extrai XML puro se o conteúdo estiver em markdown (heading + code block)
+  // ou for JSON { body: "..." } (schema enforcement 4.1+).
   let finalXml = bpmnXml;
-  if (!/<bpmndi:BPMNDiagram/i.test(bpmnXml) && /<bpmn:process/i.test(bpmnXml)) {
-    finalXml = autoLayout(bpmnXml);
-    warnings.push('auto-layout: coordenadas BPMNDiagram geradas automaticamente');
+  try {
+    const parsed = JSON.parse(bpmnXml);
+    if (parsed.body && typeof parsed.body === 'string') {
+      finalXml = parsed.body;
+      warnings.push('extraído de JSON { body: ... }');
+    }
+  } catch {
+    // Não é JSON — pode ser XML puro ou markdown
+  }
+  // Remove wrapper markdown: heading + ```xml ... ```
+  const mdMatch = finalXml.match(/```(?:xml)?\s*\n([\s\S]*?)\n```/);
+  if (mdMatch) {
+    finalXml = mdMatch[1];
+    warnings.push('extraído de code block markdown');
   }
 
   try {

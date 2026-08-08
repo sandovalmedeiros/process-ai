@@ -20,6 +20,27 @@ Resolvidos pelas stories do Épico 4 (4.1, 4.4, 4.5) ou já fechados em stories 
 
 ---
 
+## Decisões pendentes
+
+### D2: Instalação automática do Chromium (Guilherme)
+
+**Contexto:** O renderizador BPMN (Guilherme) usa Playwright + Chromium headless. O Playwright é instalado como dev dependency do npm, mas o navegador Chromium (~190 MB) precisa ser baixado separadamente via `npx playwright install chromium`. Em máquina nova, isso falha com "Executable doesn't exist".
+
+**Opções avaliadas (2026-08-08):**
+
+| Opção | Prós | Contras |
+|-------|------|---------|
+| **A: Bootstrap** — instala no `process-ai` install | Zero atrito | 190 MB, lento, exige rede |
+| **B: Lazy** — Guilherme detecta falta e instala | Só baixa quando usar | Falha na 1ª vez |
+| **C: Híbrida** — Bootstrap pergunta antes | Usuário decide | Mais um prompt |
+| **D: Manual** (atual) — documentado | Leve, rápido | Usuário esquece |
+
+**Recomendação preliminar:** Opção B (lazy). Custo: ~1 story.
+
+**Decisão:** Pendente. Reavaliar no próximo ciclo de features.
+
+---
+
 ## Mantidos em aberto — agrupados por arquivo-gatilho
 
 Cada grupo lista o arquivo que dispara a reavaliação. Itens mantidos como [Low] — custo/benefício não justifica ação agora.
