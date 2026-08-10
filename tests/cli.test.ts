@@ -16,7 +16,7 @@ import { promises as fs } from 'node:fs';
 import { mkdtempSync, rmSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { parseArgs, dispatch, HELP } from '../bin/process-ai.ts';
+import { parseArgs, dispatch, HELP, main } from '../bin/process-ai.ts';
 import type { ParsedCommand } from '../bin/process-ai.ts';
 import { ClaudeCodeAdapter } from '../toolkit/adapters/claude-code/adapter.ts';
 
@@ -348,9 +348,12 @@ test('AD-1: o dispatcher NÃO escreve diretamente — gate/stage só via checkpo
 });
 
 // ---- Smoke test de subprocesso (ponta-a-ponta real do bin) ----
+// SMOKE_ENV blinda contra a verificação de update (chamada real ao registro) —
+// mantém `npm test` hermético, sem rede e sem writes em ~/.process-ai.
+const SMOKE_ENV = { ...process.env, PROCESS_AI_SKIP_UPDATE_CHECK: '1' } as NodeJS.ProcessEnv;
 
 test('Smoke (subprocesso): process-ai --help → exit 0 e lista subcomandos', () => {
-  const res = spawnSync(NODE, [DISPATCHER, '--help'], { encoding: 'utf8' });
+  const res = spawnSync(NODE, [DISPATCHER, '--help'], { encoding: 'utf8', env: SMOKE_ENV });
   assert.equal(res.status, 0, `stdout: ${res.stdout}\nstderr: ${res.stderr}`);
   assert.match(res.stdout, /propose/);
   assert.match(res.stdout, /resume/);
@@ -359,7 +362,7 @@ test('Smoke (subprocesso): process-ai --help → exit 0 e lista subcomandos', ()
 test('Smoke (subprocesso): process-ai status em tmpdir → exit 0 e CheckpointState JSON', () => {
   const tmp = mkdtempSync(path.join(os.tmpdir(), 'pa-cli-smoke-'));
   try {
-    const res = spawnSync(NODE, [DISPATCHER, 'status'], { encoding: 'utf8', cwd: tmp });
+    const res = spawnSync(NODE, [DISPATCHER, 'status'], { encoding: 'utf8', cwd: tmp, env: SMOKE_ENV });
     assert.equal(res.status, 0, `stdout: ${res.stdout}\nstderr: ${res.stderr}`);
     const state = JSON.parse(res.stdout) as { stage: string };
     assert.equal(state.stage, 'init');
@@ -374,12 +377,172 @@ test('Smoke (subprocesso): process-ai gate em tmpdir registra gate e exit 0', ()
     const res = spawnSync(
       NODE,
       [DISPATCHER, 'gate', '--id', 'gate-0', '--decision', 'approved'],
-      { encoding: 'utf8', cwd: tmp },
+      { encoding: 'utf8', cwd: tmp, env: SMOKE_ENV },
     );
     assert.equal(res.status, 0, `stdout: ${res.stdout}\nstderr: ${res.stderr}`);
     const onDisk = JSON.parse(readFileSync(checkpointPath(tmp), 'utf8')) as { gates: Array<{ gateId: string }> };
     assert.ok(onDisk.gates.some((g) => g.gateId === 'gate-0'));
   } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+// ---- update check (warn-only, stderr; seams via opts.updateCheck) ----
+// Exercita runUpdateCheckSafely dentro de main() real. Não toca a rede: o
+// comportamento de fetch/cache é coberto em update-check.test.ts; aqui só
+// verificamos se o aviso (não) dispara e se stdout fica limpo.
+
+/** Captura stderr/stdout (main() escreve direto em process.*). */
+function captureStreams() {
+  const err: string[] = [];
+  const out: string[] = [];
+  const origErr = process.stderr.write.bind(process.stderr);
+  const origOut = process.stdout.write.bind(process.stdout);
+  process.stderr.write = ((s: string) => { err.push(s); return true; }) as typeof process.stderr.write;
+  process.stdout.write = ((s: string) => { out.push(s); return true; }) as typeof process.stdout.write;
+  return {
+    err: () => err.join(''),
+    out: () => out.join(''),
+    restore: () => {
+      process.stderr.write = origErr;
+      process.stdout.write = origOut;
+    },
+  };
+}
+
+/** Limpa env-guards de skip durante o teste (restaura ao fim). */
+function clearUpdateEnv() {
+  const saved = {
+    skip: process.env.PROCESS_AI_SKIP_UPDATE_CHECK,
+    ci: process.env.CI,
+  };
+  delete process.env.PROCESS_AI_SKIP_UPDATE_CHECK;
+  delete process.env.CI;
+  return {
+    restore: () => {
+      if (saved.skip !== undefined) process.env.PROCESS_AI_SKIP_UPDATE_CHECK = saved.skip;
+      if (saved.ci !== undefined) process.env.CI = saved.ci;
+    },
+  };
+}
+
+test('main + updateCheck: atrás → aviso no stderr; stdout NÃO contaminado', async () => {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'pa-cli-upd-'));
+  const cap = captureStreams();
+  const env = clearUpdateEnv();
+  try {
+    await main(['status'], {
+      cwd: tmp,
+      updateCheck: async () => ({ behind: true, local: '0.8.2', latest: '0.8.3' }),
+    });
+    assert.match(cap.err(), /npm i -g process-ai@latest/);
+    assert.match(cap.err(), /0\.8\.2/);
+    assert.match(cap.err(), /0\.8\.3/);
+    assert.doesNotMatch(cap.out(), /npm i -g process-ai@latest/, 'stdout deve estar limpo');
+  } finally {
+    cap.restore();
+    env.restore();
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('main + updateCheck: atualizado → sem aviso', async () => {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'pa-cli-upd-'));
+  const cap = captureStreams();
+  const env = clearUpdateEnv();
+  try {
+    await main(['status'], {
+      cwd: tmp,
+      updateCheck: async () => ({ behind: false, local: '0.8.3', latest: '0.8.3' }),
+    });
+    assert.doesNotMatch(cap.err(), /desatualizada/);
+  } finally {
+    cap.restore();
+    env.restore();
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('main + updateCheck: check retorna null → sem aviso', async () => {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'pa-cli-upd-'));
+  const cap = captureStreams();
+  const env = clearUpdateEnv();
+  try {
+    await main(['status'], { cwd: tmp, updateCheck: async () => null });
+    assert.doesNotMatch(cap.err(), /desatualizada/);
+  } finally {
+    cap.restore();
+    env.restore();
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('main + updateCheck: PROCESS_AI_SKIP_UPDATE_CHECK=1 → stub NÃO chamado', async () => {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'pa-cli-upd-'));
+  const cap = captureStreams();
+  process.env.PROCESS_AI_SKIP_UPDATE_CHECK = '1';
+  let called = false;
+  try {
+    await main(['status'], {
+      cwd: tmp,
+      updateCheck: async () => { called = true; return { behind: true, local: '0.8.2', latest: '0.8.3' }; },
+    });
+    assert.equal(called, false, 'env-skip deve impedir a chamada do check');
+    assert.doesNotMatch(cap.err(), /desatualizada/);
+  } finally {
+    cap.restore();
+    delete process.env.PROCESS_AI_SKIP_UPDATE_CHECK;
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('main + updateCheck: CI=true → stub NÃO chamado', async () => {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'pa-cli-upd-'));
+  const cap = captureStreams();
+  const env = clearUpdateEnv();
+  process.env.CI = 'true';
+  let called = false;
+  try {
+    await main(['status'], {
+      cwd: tmp,
+      updateCheck: async () => { called = true; return { behind: true, local: '0.8.2', latest: '0.8.3' }; },
+    });
+    assert.equal(called, false, 'CI deve impedir a chamada do check');
+  } finally {
+    cap.restore();
+    env.restore();
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('main + updateCheck: --version → stub NÃO chamado', async () => {
+  const cap = captureStreams();
+  const env = clearUpdateEnv();
+  let called = false;
+  try {
+    await main(['--version'], {
+      updateCheck: async () => { called = true; return { behind: true, local: '0.8.2', latest: '0.8.3' }; },
+    });
+    assert.equal(called, false, '--version deve pular o check');
+    assert.doesNotMatch(cap.err(), /desatualizada/);
+  } finally {
+    cap.restore();
+    env.restore();
+  }
+});
+
+test('main + updateCheck: stub lança → NÃO vira `✗ process-ai falhou`; output normal segue', async () => {
+  const tmp = mkdtempSync(path.join(os.tmpdir(), 'pa-cli-upd-'));
+  const cap = captureStreams();
+  const env = clearUpdateEnv();
+  try {
+    await main(['status'], { cwd: tmp, updateCheck: async () => { throw new Error('boom'); } });
+    assert.doesNotMatch(cap.err(), /✗ process-ai falhou/, 'erro do check deve ser silenciado');
+    // stdout ainda tem o output normal do status (JSON)
+    assert.ok(cap.out().length > 0, 'comando deve seguir normalmente apesar do erro no check');
+  } finally {
+    cap.restore();
+    env.restore();
     rmSync(tmp, { recursive: true, force: true });
   }
 });

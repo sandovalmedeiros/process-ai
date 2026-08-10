@@ -84,6 +84,19 @@ Flags de install: `--target <dir>` (default: cwd), `--ide <id>` (v1: `claude-cod
 > ```
 > O sufixo `@latest` é **importante**: sem ele, o npx pode usar uma versão em cache e não detectar que o framework foi atualizado. O update é **não-destrutivo** — preserva `.process-ai/config`, checkpoints, estado de sessão e artefatos já gerados.
 
+**Verificação automática de versão global:** a cada invocação, o CLI compara a versão instalada com a mais recente publicada no npm (`registry.npmjs.org`) e, se defasada, exibe um aviso no **stderr** — `⚠ Versão desatualizada: você está rodando a vX.Y.Z, mas a mais recente publicada no npm é a vX.Y.W. Atualize o instalador global com: npm i -g process-ai@latest`. Esse é exatamente o caso em que se publica uma versão nova no npm mas o instalador global local continua em uma versão antiga (com bugs já corrigidos). A verificação é **warn-only** — nunca bloqueia a execução.
+
+- Cacheada em `~/.process-ai/update-check.json` (busca no registro no máximo 1× a cada 24h; o caminho comum é uma leitura local);
+- Timeout de 3s e totalmente **fail-soft** — offline, DNS falhando ou atrás de proxy corporativo, simplesmente não avisa;
+- O aviso vai só para o **stderr** — o **stdout** permanece limpo para scripts/JSON.
+
+Variáveis de ambiente:
+
+| Variável | Efeito |
+|----------|--------|
+| `PROCESS_AI_SKIP_UPDATE_CHECK=1` | Desativa a verificação (ambientes restritos, sem rede, ou installs via git/folder que divergem legitimamente do `latest` do registro). |
+| `CI=true` | A verificação é **automaticamente** desativada em CI — evita chamadas ao registro durante builds e testes. |
+
 **Por que instalar?** O Claude Code (engine v1) descobre slash-commands pelos arquivos em `.claude/skills/` do projeto. O `npx process-ai` coloca as skills **fisicamente** em `.claude/skills/process-ai/SKILL.md` e faz o scaffolding do config. Em engines futuros (Codex, Cursor, Gemini CLI), cada adapter fará o equivalente — a porta `IdeSetup` (ver [`docs/toolkit.md`](./docs/toolkit.md)) isola esse conhecimento.
 
 Após a instalação, o slash-command `/process-ai` está disponível no Claude Code dentro do projeto (aceite o diálogo de workspace trust).

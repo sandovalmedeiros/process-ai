@@ -23,6 +23,9 @@ import os from 'node:os';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 const NODE = process.execPath;
+// Blinda as invocações do CLI contra a verificação de update (chamada real ao
+// registro) — mantém o smoke hermético: sem rede, sem writes em ~/.process-ai.
+const SMOKE_ENV = { ...process.env, PROCESS_AI_SKIP_UPDATE_CHECK: '1' } as NodeJS.ProcessEnv;
 
 /** Roda npm (shell: true — necessário no Windows onde npm é npm.cmd). */
 function npm(args: string[], cwd: string): { stdout: string; stderr: string } {
@@ -52,7 +55,7 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     const cli = path.join(consumer, 'node_modules', 'process-ai', 'dist', 'bin', 'process-ai.js');
     assert.ok(existsSync(cli), 'CLI compilado deve estar em node_modules/process-ai/dist/bin/');
 
-    const install = spawnSync(NODE, [cli], { encoding: 'utf8', cwd: consumer });
+    const install = spawnSync(NODE, [cli], { encoding: 'utf8', cwd: consumer, env: SMOKE_ENV });
     assert.equal(
       install.status,
       0,
@@ -88,12 +91,12 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     assert.match(manifest, /\[\[files\]\]/);
 
     // 5b. `install --status` relata o estado instalado (não escreve).
-    const status = spawnSync(NODE, [cli, 'install', '--status'], { encoding: 'utf8', cwd: consumer });
+    const status = spawnSync(NODE, [cli, 'install', '--status'], { encoding: 'utf8', cwd: consumer, env: SMOKE_ENV });
     assert.equal(status.status, 0, `install --status falhou: ${status.stdout}\n${status.stderr}`);
     assert.match(status.stdout, /instalado|atualizado/i);
 
     // 5c. `update` é exit 0 (idempotente neste cenário).
-    const update = spawnSync(NODE, [cli, 'update', '--target', consumer], { encoding: 'utf8', cwd: consumer });
+    const update = spawnSync(NODE, [cli, 'update', '--target', consumer], { encoding: 'utf8', cwd: consumer, env: SMOKE_ENV });
     assert.equal(update.status, 0, `update falhou: ${update.stdout}\n${update.stderr}`);
 
     // 5d. caminho explícito `install --target` também funciona no CLI compilado
@@ -101,6 +104,7 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     const explicit = spawnSync(NODE, [cli, 'install', '--target', consumer], {
       encoding: 'utf8',
       cwd: consumer,
+      env: SMOKE_ENV,
     });
     assert.equal(
       explicit.status,
@@ -111,7 +115,7 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
 
     // 6. idempotente + config.user PRESERVADO em re-run (nunca tocado pelo installer)
     writeFileSync(configUser, '# override do usuario\nactive_pack = "custom"\n', 'utf8');
-    const rerun = spawnSync(NODE, [cli], { encoding: 'utf8', cwd: consumer });
+    const rerun = spawnSync(NODE, [cli], { encoding: 'utf8', cwd: consumer, env: SMOKE_ENV });
     assert.equal(rerun.status, 0, `re-run bare process-ai falhou: ${rerun.stdout}\n${rerun.stderr}`);
     const preserved = readFileSync(configUser, 'utf8');
     assert.match(preserved, /override do usuario/, 'config.user deve ser preservado em re-run');
@@ -120,6 +124,7 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     const uninstall = spawnSync(NODE, [cli, 'uninstall', '--target', consumer], {
       encoding: 'utf8',
       cwd: consumer,
+      env: SMOKE_ENV,
     });
     assert.equal(uninstall.status, 0, `uninstall falhou: ${uninstall.stdout}\n${uninstall.stderr}`);
     assert.match(uninstall.stdout, /desinstalado/);
@@ -134,6 +139,7 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     const uninstall2 = spawnSync(NODE, [cli, 'uninstall', '--target', consumer], {
       encoding: 'utf8',
       cwd: consumer,
+      env: SMOKE_ENV,
     });
     assert.equal(uninstall2.status, 0);
     assert.match(uninstall2.stdout, /não está instalado|nada a desinstalar/i);
@@ -142,6 +148,7 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
     const purge = spawnSync(NODE, [cli, 'uninstall', '--target', consumer, '--purge'], {
       encoding: 'utf8',
       cwd: consumer,
+      env: SMOKE_ENV,
     });
     assert.equal(purge.status, 0, `uninstall --purge falhou: ${purge.stdout}\n${purge.stderr}`);
     assert.equal(

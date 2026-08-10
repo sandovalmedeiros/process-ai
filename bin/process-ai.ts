@@ -48,6 +48,8 @@ import { findPackageRoot } from '../toolkit/src/install.ts';
 import { ClaudeCodeIdeSetup } from '../toolkit/adapters/claude-code/ide-setup.ts';
 import { Installer, formatOutcome } from '../toolkit/src/installer/orchestrator.ts';
 import { getFrameworkVersion } from '../toolkit/src/installer/resource.ts';
+import { checkForUpdate, defaultDeps, formatUpdateWarning } from '../toolkit/src/installer/update-check.ts';
+import type { UpdateCheckResult } from '../toolkit/src/installer/update-check.ts';
 import type { InstallState } from '../toolkit/src/installer/state.ts';
 import { gatherInstallOptions } from '../toolkit/src/installer/prompts.ts';
 import * as readline from 'node:readline/promises';
@@ -559,6 +561,29 @@ async function runInteractive(
 export interface MainOptions {
   /** Raiz da sessão / projeto-alvo (default = process.cwd()). */
   cwd?: string;
+  /** Override da verificação de update (testes injetam stub; prod omite → check real no registro). */
+  updateCheck?: () => Promise<UpdateCheckResult | null>;
+}
+
+/**
+ * Verificação não-bloqueante de global defasado (warn-only). Compara a versão em
+ * execução contra o `latest` do registro npm (cache 24h) e, se atrás, emite um
+ * aviso pt-BR no STDERR. Fail-soft absoluto: qualquer erro é silenciado (nunca
+ * alcança o entry-guard). Pula com `PROCESS_AI_SKIP_UPDATE_CHECK=1`, em CI, e
+ * para `--version`/`--help`. `opts.updateCheck` é o seam de teste (stub).
+ */
+async function runUpdateCheckSafely(cmd: ParsedCommand, opts: MainOptions): Promise<void> {
+  if (process.env.PROCESS_AI_SKIP_UPDATE_CHECK === '1') return;
+  if (process.env.CI) return;
+  if (cmd.kind === 'version' || cmd.kind === 'help') return;
+  try {
+    const result = opts.updateCheck ? await opts.updateCheck() : await checkForUpdate(defaultDeps());
+    if (result?.behind) {
+      process.stderr.write(formatUpdateWarning(result.local, result.latest));
+    }
+  } catch {
+    // fail-soft: nunca propaga para o catch do entry-guard
+  }
 }
 
 /**
@@ -572,6 +597,8 @@ export async function main(argv: string[], opts: MainOptions = {}): Promise<void
   let cmd = parseArgs(argv);
   // AD-3: runtime depende da porta; ClaudeCodeAdapter é instanciado aqui.
   const adapter: EngineAdapter = new ClaudeCodeAdapter({ cwd: root });
+
+  await runUpdateCheckSafely(cmd, opts);
 
   // install interativo quando TTY e sem flags de install.
   if (cmd.kind === 'install' && !cmd.statusOnly && isInteractive(cmd)) {
