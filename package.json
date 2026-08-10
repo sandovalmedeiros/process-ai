@@ -7,8 +7,7 @@
     "node": ">=24.0.0"
   },
   "bin": {
-    "process-ai": "dist/bin/process-ai.js",
-    "process-ai-bootstrap": "dist/bin/bootstrap.js"
+    "process-ai": "dist/bin/process-ai.js"
   },
   "main": "dist/toolkit/src/commit.js",
   "files": [
@@ -16,7 +15,16 @@
     "bin/postinstall.js",
     "skills/",
     "method-packs/",
-    "scripts/",
+    "scripts/ingest_pdf.py",
+    "scripts/ingest_docx.py",
+    "scripts/ingest_pptx.py",
+    "scripts/ingest_xlsx.py",
+    "scripts/ingest_csv.py",
+    "scripts/ingest_xml.py",
+    "scripts/ingest_common.py",
+    "scripts/requirements-ingest.txt",
+    "scripts/bpmn-renderer/render.ts",
+    "scripts/bpmn-renderer/render.html",
     "README.md",
     "LICENSE"
   ],
@@ -24,7 +32,7 @@
     "build": "tsc -p tsconfig.build.json",
     "prepublishOnly": "npm run build",
     "postinstall": "node bin/postinstall.js",
-    "dev": "node bin/bootstrap.ts",
+    "dev": "node bin/process-ai.ts",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit"
   },

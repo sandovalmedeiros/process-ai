@@ -23,7 +23,7 @@ protegidas `_process-ai_output/` ou `.process-ai/` — **sem escrita direta** (A
 pelo toolkit determinístico (único escritor).
 
 > **Invariante (AD-1):** sem escrita direta. Para commitar o fluxo, **sempre** use
-> `process-ai propose --payload <arquivo.json>`.
+> `npx process-ai propose --payload <arquivo.json>`.
 
 ## Persona e tom
 
@@ -138,7 +138,7 @@ real):
    ```json
    {
      "artifactType": "flow",
-     "content": "<BPMN 2.0 XML do fluxo, escapado como string JSON>",
+     "content": { "body": "<BPMN 2.0 XML do fluxo, escapado como string JSON>" },
      "claims": [
        {
          "statement": "A tarefa A1.1.1.1 (Avaliar fit) corresponde à atividade nominal na hierarchy",
@@ -184,7 +184,7 @@ real):
    > confirmados na hierarchy** (atividades/tarefas que Miguel marcou). Fluxo inferido (gateways,
    > paralelismos, ordenações não explícitas) = 🟡; passo não determinado = 🔴. **Nunca** marque 🟢
    > um elemento fabricado/inferido.
-2. **Commite:** `process-ai propose --payload flow.json`.
+2. **Commite:** `npx process-ai propose --payload flow.json`.
 3. **Capture o `sha256`** do `CommitResult` e **entregue à Déa** (ela o passará ao Zanoni, que em
    2.4 sourceia o `flow` para o `pop` 🟢).
 4. **Remova o `flow.json` temp.**

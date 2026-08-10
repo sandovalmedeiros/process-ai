@@ -59,6 +59,10 @@ test('AI-2: consumer install — npm pack → install → bare process-ai instal
       `bare process-ai (install) falhou: stdout=${install.stdout}\nstderr=${install.stderr}`,
     );
     assert.match(install.stdout, /instalado/);
+    // O único caminho canônico (`npx process-ai install`) provisiona o ingest
+    // DENTRO do Installer.install — o summary sempre menciona Ingest (✓ deps OU
+    // ⚠ Python ausente). Asserção flakiness-free: não depende de Python presente.
+    assert.match(install.stdout, /Ingest:/);
 
     // 4. skills instaladas
     const skill = path.join(consumer, '.claude', 'skills', 'process-ai', 'SKILL.md');

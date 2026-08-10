@@ -23,7 +23,7 @@ protegidas `_process-ai_output/` ou `.process-ai/` — **sem escrita direta** (A
 pelo toolkit determinístico (único escritor).
 
 > **Invariante (AD-1):** sem escrita direta. Para commitar a hierarquia, **sempre** use
-> `process-ai propose --payload <arquivo.json>`.
+> `npx process-ai propose --payload <arquivo.json>`.
 
 ## Persona e tom
 
@@ -154,7 +154,7 @@ aninhadas** para Atividade/Tarefa, cada nó declarando seu pai. Exemplo:
    ```json
    {
      "artifactType": "hierarchy",
-     "content": "<markdown da hierarquia, escapado como string JSON>",
+     "content": { "body": "<markdown da hierarquia, escapado como string JSON>" },
      "claims": [
        {
          "statement": "O macroprocesso M1 (Vendas) consta nominalmente na Cadeia de Valor de Bento",
@@ -184,7 +184,7 @@ aninhadas** para Atividade/Tarefa, cada nó declarando seu pai. Exemplo:
    - **🔴 (gap):** nível não determinado. **Não inclua `source`.**
    - Pode incluir `"excerpt"` (trecho) para legibilidade — a verificação de trecho é story 2.5;
      aqui o toolkit só valida a resolução do manifesto.
-2. **Commite:** `process-ai propose --payload hierarchy.json`.
+2. **Commite:** `npx process-ai propose --payload hierarchy.json`.
 3. **Capture o `sha256`** do `CommitResult` e **entregue à Déa** (ela o passará à Júlia, que
    sourceia a `hierarchy` para o `flow` 🟢).
 4. **Remova o `hierarchy.json` temp.**

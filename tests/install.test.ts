@@ -1,19 +1,27 @@
 /**
- * tests/install.test.ts — scaffoldConfig + runInstall (toolkit/src/install.ts).
+ * tests/install.test.ts — scaffoldConfig + Installer.install (canônico pós-0.8.2).
  *
- * Cobre o installer consolidado (AD-7, espelho BMAD):
+ * Cobre:
  *  - scaffoldConfig: config installer-managed (regenerado) + config.user (preservado).
  *  - compatibilidade com readConfig do pack-loader (formato que o loader da 3.2 lê).
- *  - runInstall: instala skills + config; idempotente; não escreve fora do escopo.
+ *  - Installer.install (real adapter ClaudeCodeIdeSetup): cria só `.claude/`,
+ *    `.process-ai/` e `method-packs/` no target; não escreve fora do target.
+ *
+ * Antes do 0.8.2 isto testava `runInstall`/`formatInstallSummary` (instalador
+ * legado sem manifest). Essas funções foram removidas — o ÚNICO caminho canônico
+ * é `Installer.install` (`toolkit/src/installer/orchestrator.ts`). A máquina de
+ * estados (fresh/update/repair/uninstall) é coberta em `installer-orchestrator.test.ts`
+ * (com FakeIdeSetup); aqui cobrimos o adapter real + o invariant de escopo.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { scaffoldConfig, runInstall, formatInstallSummary } from '../toolkit/src/install.ts';
+import { scaffoldConfig } from '../toolkit/src/install.ts';
 import { readConfig } from '../toolkit/src/pack-loader.ts';
-import { ClaudeCodeAdapter } from '../toolkit/adapters/claude-code/adapter.ts';
+import { Installer } from '../toolkit/src/installer/orchestrator.ts';
+import { ClaudeCodeIdeSetup } from '../toolkit/adapters/claude-code/ide-setup.ts';
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 
@@ -118,57 +126,43 @@ test('scaffoldConfig: PRESERVA config.user em re-run (nunca tocado pelo installe
   }
 });
 
-// ---- runInstall ----
+// ---- Installer.install (adapter real) ----
 
-test('runInstall: instala skills + .process-ai/config; idempotente (2x run)', async () => {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-runinstall-'));
+test('Installer.install: cria só .claude/, .process-ai/ e method-packs/ no target', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-installer-scope-'));
   try {
-    const adapter = new ClaudeCodeAdapter({ cwd: tmp });
-    const r1 = await runInstall(adapter, tmp);
-    assert.ok(r1.skills.length >= 5, `esperado ≥5 skills, got ${r1.skills.length}`);
-    assert.ok(r1.skills.includes('process-ai'));
-    assert.ok(
-      (await fs.stat(path.join(tmp, '.claude', 'skills', 'process-ai', 'SKILL.md'))).isFile(),
-    );
-
-    // 2x run — idempotente: mesmo estado final; config.user passa a "existia" (preservado)
-    const r2 = await runInstall(adapter, tmp);
-    assert.equal(r2.configUserExisted, true);
-    assert.deepEqual(r1.skills, r2.skills);
-  } finally {
-    await fs.rm(tmp, { recursive: true, force: true });
-  }
-});
-
-test('runInstall: não escreve nada fora de .claude/, .process-ai/ e method-packs/ no target', async () => {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-runinstall-scope-'));
-  try {
-    const adapter = new ClaudeCodeAdapter({ cwd: tmp });
-    await runInstall(adapter, tmp);
+    const inst = new Installer(new ClaudeCodeIdeSetup());
+    const outcome = await inst.install({ targetDir: tmp, interactive: false });
+    assert.equal(outcome.outcome, 'installed');
+    assert.equal(outcome.ide, 'claude-code');
     const top = (await fs.readdir(tmp)).sort();
     assert.deepEqual(
       top,
       ['.claude', '.process-ai', 'method-packs'],
       `install só deve criar .claude/, .process-ai/ e method-packs/, got ${top.join(',')}`,
     );
+    // provisão de ingest sempre presente no outcome (summary)
+    assert.ok(outcome.ingest, 'outcome deve carregar o resultado do provisionamento de ingest');
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
 
-// ---- formatInstallSummary ----
-
-test('formatInstallSummary: contém target, skills, /process-ai e aviso de workspace trust', () => {
-  const out = formatInstallSummary({
-    targetDir: '/tmp/x',
-    skills: ['process-ai', 'process-ai-bento'],
-    configPath: '/tmp/x/.process-ai/config',
-    configUserPath: '/tmp/x/.process-ai/config.user',
-    configUserExisted: false,
-  });
-  assert.match(out, /process-ai instalado/);
-  assert.match(out, /\/tmp\/x/);
-  assert.match(out, /process-ai, process-ai-bento/);
-  assert.match(out, /\/process-ai/);
-  assert.match(out, /workspace trust/i);
+test('Installer.install: NÃO escreve nada fora do target (snapshot do dir-pai)', async () => {
+  // herda CR item 4e do antigo bootstrap.test.ts: o dir-pai deve conter só o alvo.
+  const parent = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-installer-pai-'));
+  const target = path.join(parent, 'alvo');
+  try {
+    await fs.mkdir(target, { recursive: true });
+    const inst = new Installer(new ClaudeCodeIdeSetup());
+    await inst.install({ targetDir: target, interactive: false });
+    const parentEntries = await fs.readdir(parent);
+    assert.deepEqual(
+      parentEntries,
+      ['alvo'],
+      'nada deve ser escrito fora do alvo (dir-pai deve conter só o alvo)',
+    );
+  } finally {
+    await fs.rm(parent, { recursive: true, force: true });
+  }
 });

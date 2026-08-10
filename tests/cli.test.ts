@@ -176,7 +176,7 @@ test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status/i
   assert.ok(HELP.includes('install'), 'HELP deve mencionar install (entry do usuário)');
 });
 
-// ---- dispatch install (integração: dispatcher → runInstall) ----
+// ---- dispatch install (integração: dispatcher → Installer.install) ----
 
 test('dispatch install: instala skills + .process-ai/config no target; output é o resumo', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cli-install-'));

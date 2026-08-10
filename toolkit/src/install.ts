@@ -1,5 +1,5 @@
 /**
- * toolkit/src/install.ts — scaffold de config + orquestração de install (AD-7).
+ * toolkit/src/install.ts — scaffold de config (AD-7) + resolução de package root.
  *
  * Espelho do padrão de install do BMAD (`_bmad/config.toml` installer-managed +
  * `_bmad/custom/` nunca tocado), adaptado ao process-ai:
@@ -7,30 +7,31 @@
  *    (cabeçalho read-only; edições diretas são sobrescritas no próximo install).
  *    Formato compatível com `readConfig` do pack-loader (TOML mínimo:
  *    `active_pack` + `pack_version`). Fecha o loop da story 3.2 ("config é
- *    criado pelo bootstrap ou pelo primeiro run").
+ *    criado pelo install ou pelo primeiro run").
  *  - `.process-ai/config.user` — overrides do usuário, **nunca tocado** pelo
  *    installer (criado como stub só se não existir; preservado em re-run).
  *
- * Duas exportações:
- *  1. `scaffoldConfig(targetDir, opts)` — escreve o config + config.user (puro,
- *     só `node:*`). Engine-agnostic.
- *  2. `runInstall(adapter, targetDir, opts)` — orquestra `adapter.installSkills`
- *     + `adapter.registerSlashCommands` (porta EngineAdapter) + `scaffoldConfig`.
- *     Reusado pelos 3 entry-points: bare `process-ai`, `process-ai install`,
- *     `process-ai-bootstrap` e o `postinstall.js` (que spawn o CLI compilado).
+ * Exportações:
+ *  - `findPackageRoot(startDir)` — caminha até o package root do framework
+ *    (usado por `resource.ts`, `pack-copy.ts` e aqui para ler a versão).
+ *  - `scaffoldConfig(targetDir, opts)` — escreve o config + config.user (puro,
+ *    só `node:*`). Engine-agnostic.
  *
- * AD-3: depende SÓ da porta `EngineAdapter` (nunca de adapter concreto) + `node:*`.
- * O teste de fronteira `tests/import-boundary.test.ts` materializa essa regra.
+ * O orquestrador de install completo (skills + packs + config + manifest + deps
+ * Python) vive em `toolkit/src/installer/orchestrator.ts` (`Installer.install`) —
+ * o ÚNICO caminho canônico de install (`npx process-ai install`). Este módulo
+ * fica com a peça reutilizável (config) + a resolução de package root.
+ *
+ * AD-3: depende SÓ de `node:*` + relativo (./installer/file-ops.ts). O teste de
+ * fronteira `tests/import-boundary.test.ts` materializa essa regra.
  *
  * Idempotente: re-run é seguro (config regenerado determinístico; config.user
- * preservado; installSkills já é idempotente por design).
+ * preservado).
  */
 import { promises as fs, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { EngineAdapter } from './engine-adapter.ts';
 import { atomicWrite, escapeTomlString } from './installer/file-ops.ts';
-import { installMethodPacks } from './installer/pack-copy.ts';
 
 /**
  * Encontra o package root do framework (dir com `package.json` name "process-ai")
@@ -65,8 +66,6 @@ const FRAMEWORK_VERSION: string = (() => {
     return '0.0.0';
   }
 })();
-
-// ---- scaffoldConfig ----
 
 /** Opções do scaffold de config. */
 export interface ScaffoldOptions {
@@ -146,106 +145,4 @@ export async function scaffoldConfig(
   }
 
   return { configPath, configUserPath, configUserExisted };
-}
-
-// ---- runInstall (orquestrador) ----
-
-/** Opções do install (estende scaffold). */
-export interface InstallOptions extends ScaffoldOptions {}
-
-/** Resultado do install (consumido pelo CLI/postinstall para imprimir resumo). */
-export interface InstallResult {
-  targetDir: string;
-  /** Skills instaladas (nomes), lidas pós-install de `<target>/.claude/skills/`. */
-  skills: string[];
-  configPath: string;
-  configUserPath: string;
-  configUserExisted: boolean;
-}
-
-/**
- * Orquestra o install completo no projeto-alvo:
- *  1. `adapter.installSkills(targetDir)` — copia skills (hardened, byte-a-byte).
- *  2. `adapter.registerSlashCommands(targetDir)` — no-op no Claude Code v1.
- *  3. `scaffoldConfig(targetDir)` — `.process-ai/config` + `.process-ai/config.user`.
- *
- * Não imprime nada (pure-ish) — o caller formata/imprime via `formatInstallSummary`.
- * Idempotente. Não conhece a engine (usa só a porta `EngineAdapter`).
- *
- * @deprecated Caminho legado sem manifest. Prefira `Installer.install`
- * (`toolkit/src/installer/orchestrator.ts`), que orquestra via porta `IdeSetup` +
- * escreve `.process-ai/install-manifest.toml` (detecção de update/repair). Retido
- * por compatibilidade (`install.test.ts` e callers que não precisam do manifest).
- */
-export async function runInstall(
-  adapter: EngineAdapter,
-  targetDir: string,
-  opts: InstallOptions = {},
-): Promise<InstallResult> {
-  // Skills + slash-commands via adapter (porta).
-  await adapter.installSkills(targetDir);
-  await adapter.registerSlashCommands(targetDir);
-
-  // Method-packs (framework-level, agnóstico à IDE).
-  await installMethodPacks(targetDir);
-
-  // Config installer-managed.
-  const scaffold = await scaffoldConfig(targetDir, opts);
-
-  // Skills instaladas (pós-install) — lê o target para relatar o que caiu.
-  const skills = await listInstalledSkills(targetDir);
-
-  return {
-    targetDir,
-    skills,
-    configPath: scaffold.configPath,
-    configUserPath: scaffold.configUserPath,
-    configUserExisted: scaffold.configUserExisted,
-  };
-}
-
-/** Lista skills `process-ai*` instaladas em `<target>/.claude/skills/`. */
-async function listInstalledSkills(targetDir: string): Promise<string[]> {
-  const skillsDir = path.join(targetDir, '.claude', 'skills');
-  let entries: string[];
-  try {
-    entries = await fs.readdir(skillsDir);
-  } catch {
-    return [];
-  }
-  const found: string[] = [];
-  for (const entry of entries) {
-    if (!/^process-ai(-.+)?$/.test(entry)) continue;
-    try {
-      const st = await fs.lstat(path.join(skillsDir, entry));
-      if (st.isDirectory()) found.push(entry);
-    } catch {
-      // entrada sumiu entre readdir e lstat — ignora.
-    }
-  }
-  return found.sort();
-}
-
-/**
- * Formata o resumo humano do install (stdout). Espelha o estilo do
- * `bootstrap.ts` original (✓ + caminho da skill + slash + aviso de workspace trust).
- */
-export function formatInstallSummary(result: InstallResult): string {
-  const skillsLine =
-    result.skills.length > 0
-      ? result.skills.join(', ')
-      : '(nenhuma — verifique o pacote)';
-  const configLine = result.configUserExisted
-    ? `${result.configPath} (config.user preservado)`
-    : `${result.configPath} (+ config.user)`;
-  return [
-    `✓ process-ai instalado no projeto-alvo: ${result.targetDir}`,
-    `  Skills instaladas: ${skillsLine}`,
-    `  Config: ${configLine}`,
-    `  Slash command disponível: /process-ai`,
-    ``,
-    `⚠  Workspace trust: abra o projeto-alvo no Claude Code e aceite o diálogo`,
-    `   de workspace trust para que a skill de projeto seja carregada.`,
-    ``,
-  ].join('\n');
 }

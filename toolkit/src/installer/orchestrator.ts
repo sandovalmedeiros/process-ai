@@ -23,6 +23,8 @@ import { backupFile } from './file-ops.ts';
 import { MANIFEST_REL_PATH, writeManifest } from './manifest.ts';
 import type { InstallType, Manifest } from './manifest.ts';
 import { installMethodPacks, uninstallMethodPacks } from './pack-copy.ts';
+import { ensureIngestDeps } from './python-deps.ts';
+import type { PythonDepResult } from './python-deps.ts';
 import { detectInstallationState } from './state.ts';
 import type { InstallState } from './state.ts';
 import { getFrameworkVersion, getPackageRoot } from './resource.ts';
@@ -53,6 +55,8 @@ export interface InstallOutcome {
   backed?: string[];
   /** Diretórios removidos no uninstall. */
   removed?: string[];
+  /** Resultado do provisionamento de deps Python do ingest (install/update only). */
+  ingest?: PythonDepResult;
   targetDir: string;
 }
 
@@ -80,11 +84,14 @@ export class Installer {
   async install(req: InstallRequest): Promise<InstallOutcome> {
     const targetDir = path.resolve(req.targetDir);
     assertNotSelfInstall(targetDir);
+    // Provisiona deps Python do ingest ANTES do early-return already-current — todo
+    // caminho de install (incl. re-run idempotente) deve deixar o ingest pronto.
+    const ingest = ensureIngestDeps();
     const version = getFrameworkVersion();
     const state = await detectInstallationState(targetDir, version);
 
     if (state.kind === 'installed-current') {
-      return { outcome: 'already-current', ide: state.manifest.install.ide, targetDir };
+      return { outcome: 'already-current', ide: state.manifest.install.ide, ingest, targetDir };
     }
 
     const installType: InstallType =
@@ -119,7 +126,7 @@ export class Installer {
 
     const outcome: InstallOutcome['outcome'] =
       installType === 'fresh' ? 'installed' : installType === 'update' ? 'updated' : 'repaired';
-    return { outcome, installType, ide: ideResult.ide, files: [...ideResult.files, ...packFiles], backed, targetDir };
+    return { outcome, installType, ide: ideResult.ide, files: [...ideResult.files, ...packFiles], backed, ingest, targetDir };
   }
 
   /** Atualiza uma instalação existente. Erro se não instalado; no-op se já atual. */
@@ -182,8 +189,8 @@ function assertNotSelfInstall(targetDir: string): void {
 }
 
 /**
- * Formata o resumo humano do outcome (stdout). Espelha o estilo de
- * `formatInstallSummary` (install.ts): ✓ + caminho + skills + slash + workspace trust.
+ * Formata o resumo humano do outcome (stdout): ✓ + caminho + skills + slash
+ * + workspace trust + status do provisionamento de deps Python do ingest.
  */
 export function formatOutcome(o: InstallOutcome): string {
   switch (o.outcome) {
@@ -196,6 +203,8 @@ export function formatOutcome(o: InstallOutcome): string {
         `  Skills: ${skills}  ·  IDE: ${o.ide ?? '?'}  ·  Slash: /process-ai`,
         `  Config: .process-ai/config (+ config.user preservado)  ·  Manifest: .process-ai/install-manifest.toml`,
       ];
+      const il = ingestLine(o.ingest);
+      if (il) lines.push(il);
       if (o.backed && o.backed.length > 0) {
         lines.push(`  Backups de arquivos modificados: ${o.backed.length} (.bak)`);
       }
@@ -207,8 +216,11 @@ export function formatOutcome(o: InstallOutcome): string {
       );
       return lines.join('\n');
     }
-    case 'already-current':
-      return `✓ process-ai já está instalado e atualizado em ${o.targetDir} (IDE: ${o.ide ?? '?'}). Nada a fazer.\n`;
+    case 'already-current': {
+      const base = `✓ process-ai já está instalado e atualizado em ${o.targetDir} (IDE: ${o.ide ?? '?'}). Nada a fazer.`;
+      const il = ingestLine(o.ingest);
+      return il ? `${base}\n${il}\n` : `${base}\n`;
+    }
     case 'uninstalled':
       return `✓ process-ai desinstalado de ${o.targetDir} (${o.removed?.length ?? 0} skill(s) removidas). Config e estado de sessão preservados (use --purge p/ remover tudo).\n`;
     case 'not-installed':
@@ -218,4 +230,11 @@ export function formatOutcome(o: InstallOutcome): string {
 
 function labelFor(outcome: InstallOutcome['outcome']): string {
   return outcome === 'installed' ? 'instalado' : outcome === 'updated' ? 'atualizado' : 'reparado';
+}
+
+/** Linha de resumo do provisionamento de ingest (✓ instalado / ⚠ ausência ou falha). */
+function ingestLine(ingest?: PythonDepResult): string | null {
+  if (!ingest) return null;
+  const marker = ingest.installed ? '✓' : '⚠';
+  return `  Ingest: ${marker} ${ingest.message}`;
 }

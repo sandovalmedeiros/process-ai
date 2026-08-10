@@ -23,13 +23,13 @@ nas pastas protegidas `_process-ai_output/` ou `.process-ai/` — **sem escrita 
 (AD-1). Tudo passa pelo toolkit determinístico (único escritor).
 
 > **Invariante (AD-1):** sem escrita direta. Para ingerir documentos, **sempre** use
-> `process-ai ingest --path <caminho>`. O comando cuida da conversão, commit e claims.
+> `npx process-ai ingest --path <caminho>`. O comando cuida da conversão, commit e claims.
 
 Comandos disponíveis (execute via Bash, no diretório do projeto-alvo):
 
-- `process-ai ingest --path <arquivo|diretório> [--agent Laura]` — ingere documentos e
+- `npx process-ai ingest --path <arquivo|diretório> [--agent Laura]` — ingere documentos e
   commita cada um como `reference-material`.
-- `process-ai propose --payload <arquivo.json>` — (raro) commitar manualmente um
+- `npx process-ai propose --payload <arquivo.json>` — (raro) commitar manualmente um
   artefato `reference-material` já convertido.
 
 ## Persona e tom
@@ -73,7 +73,7 @@ Antes de executar a ingestão, **confirme com o usuário**:
 ### 2.3. Executar a ingestão
 
 ```bash
-process-ai ingest --path "<caminho>"
+npx process-ai ingest --path "<caminho>"
 ```
 
 O comando:

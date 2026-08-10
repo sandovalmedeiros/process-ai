@@ -10,16 +10,16 @@
  * (`adapter.propose()`) exercitado em testes.
  *
  * Composition root (AD-3): o dispatcher depende SÓ da PORTA `EngineAdapter`;
- * `ClaudeCodeAdapter` é instanciado aqui (único ponto, além de `bootstrap.ts`,
- * que sabe que a engine v1 é o Claude Code). `cwd` = projeto-alvo (onde
- * `_process-ai_output/` + `.process-ai/` vivem).
+ * `ClaudeCodeAdapter` é instanciado aqui (único ponto que sabe que a engine
+ * v1 é o Claude Code). `cwd` = projeto-alvo (onde `_process-ai_output/` +
+ * `.process-ai/` vivem).
  *
  * Nenhuma escrita direta em `_process-ai_output/` ou `.process-ai/` — toda
  * mutação via `adapter.propose()` (commit, único escritor) ou `checkpointAdvance`
  * (gate/estágio, atômico via WAL). Escrita fora do escopo aborta (já enforceado
  * por `commit.ts:assertWithinScope`).
  *
- * Disciplina espelhada do `bootstrap.ts` (1.1): composition root tipada como
+ * Disciplina (desde 1.1): composition root tipado como
  * `EngineAdapter`, entry-guard por `realpath`, erros acionáveis em pt-BR.
  *
  * Uso:
@@ -153,7 +153,7 @@ direto pela skill ou pelo CLI.
  * Compara dois caminhos pelo destino real (resolve symlinks/junctions e case
  * canônico do filesystem). [CR-hardening R2, 1.1] — robusto a symlink/case de
  * drive no Windows para o entry-guard. Se qualquer lado não resolve, retorna
- * false (espelha `bootstrap.ts:sameRealpath`).
+ * false (espelha o `sameRealpath` do orquestrador).
  */
 function sameRealpath(a: string, b: string): boolean {
   try {

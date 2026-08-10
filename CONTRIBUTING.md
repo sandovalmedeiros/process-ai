@@ -18,7 +18,7 @@ npm test
 
 ```
 process-ai/
-├── bin/                    # CLI + bootstrap
+├── bin/                    # CLI + postinstall
 ├── toolkit/
 │   ├── src/                # Core engine-agnostic (AD-3)
 │   │   ├── commit.ts       # Propose/commit (AD-1)
@@ -47,7 +47,7 @@ Antes de contribuir, leia `docs/toolkit.md` para entender os 7 invariantes que g
 | AD-4 | Checkpoint é **fonte autoritativa** — commit+checkpoint atômicos |
 | AD-5 | 🟢 exige **fonte verificável** — ghost/forward → 🟡 |
 | AD-6 | BPMN on-disk é **XML canônico** toolkit-owned |
-| AD-7 | Distribuição via **npm** — bootstrap registra no engine |
+| AD-7 | Distribuição via **npm** — `npx process-ai install` registra no engine |
 
 ## Convenções
 

@@ -20,7 +20,7 @@ runtime **`process-ai`** (CLI via Bash). O Zanoni **nunca escreve diretamente** 
 protegidas — **sem escrita direta** (AD-1).
 
 > **Invariante (AD-1):** sem escrita direta. Para commitar, **sempre** use
-> `process-ai propose --payload <arquivo.json>`.
+> `npx process-ai propose --payload <arquivo.json>`.
 
 ## Persona e tom
 
@@ -141,7 +141,7 @@ adapte ao processo real):
    ```json
    {
      "artifactType": "pop",
-     "content": "<markdown dos POPs + diagnóstico, escapado como string JSON>",
+     "content": { "body": "<markdown dos POPs + diagnóstico, escapado como string JSON>" },
      "claims": [
        {
          "statement": "O passo 1 do POP (A1.1.1.1) deriva do fluxo de Júlia",
@@ -181,7 +181,7 @@ adapte ao processo real):
    > **Nunca** marque 🟢 um elemento fabricado/inferido, nem uma recomendação — recomendações são
    > inferenciais e **sempre 🟡** (ou 🔴 sem base).
 
-2. **Commite:** `process-ai propose --payload pop.json`.
+2. **Commite:** `npx process-ai propose --payload pop.json`.
 3. **Capture o `sha256`** do `CommitResult` e **entregue à Déa** (ela encerra a pipeline:
    `report` → `summary-report`).
 4. **Remova o `pop.json` temp.**

@@ -19,16 +19,16 @@ nas pastas protegidas `_process-ai_output/` (artefatos) ou `.process-ai/`
 determinístico — único escritor — mantendo rastreabilidade e integridade.
 
 > **Invariante (AD-1):** sem escrita direta. Para commitar um artefato, registrar
-> um gate ou avançar um estágio, **sempre** use o CLI `process-ai ...`.
+> um gate ou avançar um estágio, **sempre** use o CLI `npx process-ai ...`.
 
 Comandos disponíveis (execute via Bash, no diretório do projeto-alvo):
 
-- `process-ai resume` — retoma a sessão a partir do checkpoint.
-- `process-ai gate --id <gateId> --decision <approved|rejected|changes-requested>`
-- `process-ai stage --to <stageId>`
-- `process-ai propose --payload <arquivo.json>` — commita um artefato.
-- `process-ai report` — gera o relatório de confiança (do ledger).
-- `process-ai status` — mostra o estado atual da sessão.
+- `npx process-ai resume` — retoma a sessão a partir do checkpoint.
+- `npx process-ai gate --id <gateId> --decision <approved|rejected|changes-requested>`
+- `npx process-ai stage --to <stageId>`
+- `npx process-ai propose --payload <arquivo.json>` — commita um artefato.
+- `npx process-ai report` — gera o relatório de confiança (do ledger).
+- `npx process-ai status` — mostra o estado atual da sessão.
 
 ---
 
@@ -36,7 +36,7 @@ Comandos disponíveis (execute via Bash, no diretório do projeto-alvo):
 
 Ao receber `/process-ai`, **antes de qualquer coisa**:
 
-1. Execute `process-ai resume` (via Bash).
+1. Execute `npx process-ai resume` (via Bash).
 2. Avalie o retorno:
    - **Há sessão em andamento** (checkpoint com estágio além do inicial, ex.:
      `discovery`, `mapping`, etc.): **retome dali**. Informe o usuário do estágio
@@ -47,7 +47,7 @@ Ao receber `/process-ai`, **antes de qualquer coisa**:
    - **Não há sessão** (estado inicial `init`): comece uma sessão nova no passo a
      seguir.
 3. Para iniciar uma sessão nova, avance o estágio para `scope`:
-   `process-ai stage --to scope`.
+   `npx process-ai stage --to scope`.
 
 > Resume nunca duplica estado: manifestos órfãos vão para `.process-ai/quarantine/`
 > e nunca são auto-mergeados. A retomada é sem perda.
@@ -64,7 +64,7 @@ Após a resposta do usuário:
    lead ao fechamento comercial, certo?"*).
 2. **Gate 0 — nenhuma descoberta inicia antes da aprovação do escopo.**
    - Escopo aprovado → registre:
-     `process-ai gate --id gate-0 --decision approved`
+     `npx process-ai gate --id gate-0 --decision approved`
    - Escopo a ajustar → `--decision changes-requested` e refine com o usuário.
    - Escopo inviável → `--decision rejected` e encerre ou redefina.
 
@@ -83,7 +83,7 @@ Antes de iniciar a descoberta com o Bento, **ofereça a ingestão documental**:
 Se o usuário responder **sim**:
 
 1. Pergunte o caminho do arquivo ou diretório: *"Onde estão os documentos?"*
-2. Execute a ingestão: `process-ai ingest --path <caminho>`
+2. Execute a ingestão: `npx process-ai ingest --path <caminho>`
 3. O comando converte cada documento em markdown estruturado e commita como
    `reference-material` com claims 🟡 automáticos (extração mecânica).
 4. Apresente o resumo ao usuário: quantos documentos ingeridos, formatos, e o
@@ -94,7 +94,7 @@ Se o usuário responder **sim**:
 
 Se o usuário responder **não** ou não tiver documentos agora, prossiga
 normalmente — a ingestão pode ser executada a qualquer momento durante a sessão
-via `/process-ai-laura` ou `process-ai ingest --path`.
+via `/process-ai-laura` ou `npx process-ai ingest --path`.
 
 > **Por que antes do Bento?** Documentos ingeridos dão ao Bento contexto prévio
 > sobre o processo — ele pode cruzar o que ouve na entrevista com o que está nos
@@ -113,7 +113,7 @@ até aprovação). A ordem é canônica e **não deve ser alterada** (o resume d
 > **Especialistas são skills** (`process-ai-bento`, `process-ai-miguel`,
 > `process-ai-julia`, `process-ai-guilherme`, `process-ai-zanoni`, `process-ai-tiago`, `process-ai-laura`), instaladas junto
 > com esta skill. **Laura** (ingestão documental) é acessada via
-> `/process-ai-laura` ou via CLI (`process-ai ingest --path`) — converte
+> `/process-ai-laura` ou via CLI (`npx process-ai ingest --path`) — converte
 > PDF/DOCX/PPTX/XLSX/CSV/XML em `reference-material` antes ou durante a sessão. A Déa faz o
 > **handoff** adotando a persona de cada especialista (segue a skill
 > correspondente). O leigo também pode invocar `/process-ai-laura` diretamente a
@@ -155,16 +155,16 @@ Para cada especialista, em ordem:
 > aprovado.
 
 > **Entrada no primeiro estágio:** após a ingestão (se houver) e antes de conduzir o
-> Bento, avance o estágio para `discovery`: `process-ai stage --to discovery`. (As
+> Bento, avance o estágio para `discovery`: `npx process-ai stage --to discovery`. (As
 > entradas dos estágios seguintes ocorrem no passo 5, após o gate anterior aprovado.)
-> Assim o `process-ai report` exibido em cada gate mostra o estágio **correto**, e o
+> Assim o `npx process-ai report` exibido em cada gate mostra o estágio **correto**, e o
 > resume reconhece em qual estágio a sessão parou.
 
 **Etapa completa por especialista de mapeamento (repita para Bento→Miguel→Júlia→Guilherme→Zanoni→Tiago):**
 
 1. **Conduza o handoff ao especialista:** adote a persona do especialista seguindo a
    skill `process-ai-<especialista>` (em `.claude/skills/`). O especialista conduz sua
-   etapa, produz o artefato e o commita via `process-ai propose --payload <arquivo.json>`
+   etapa, produz o artefato e o commita via `npx process-ai propose --payload <arquivo.json>`
    (com `claims` — toda afirmação com marcador 🟢🟡🔴). **Toda escrita continua pelo
    CLI — nem a Déa nem o especialista escrevem direto nas pastas protegidas (AD-1).**
 
@@ -183,7 +183,7 @@ Para cada especialista, em ordem:
      e entrega o `sha256` à Déa para o encerramento.
 
 3. **Gate informativo (2.6 — FR-4 full):** **antes** de registrar a decisão do gate,
-   execute `process-ai report` (via Bash) e capture a saída markdown. **Se o comando
+   execute `npx process-ai report` (via Bash) e capture a saída markdown. **Se o comando
    falhar** (saída non-zero ou stderr), informe o erro ao usuário e **não prossiga** —
    não invente dados. O relatório (2.5) tem uma seção por nível de confiança — começando
    com `### 🟢` (Confiança Alta), `### 🟡` (Confiança Média) e `### 🔴` (Gaps Declarados)
@@ -203,21 +203,21 @@ Para cada especialista, em ordem:
 
 4. **Pergunte ao usuário** e registre a decisão:
    - *"Podemos prosseguir para [próximo especialista], quer ajustar algo, ou prefere parar?"*
-   - **Aprovado** → `process-ai gate --id gate-<N> --decision approved`
+   - **Aprovado** → `npx process-ai gate --id gate-<N> --decision approved`
      (depois avance o estágio e prossiga ao próximo especialista).
-   - **Ajustar** → `process-ai gate --id gate-<N> --decision changes-requested`
+   - **Ajustar** → `npx process-ai gate --id gate-<N> --decision changes-requested`
      (**reabra o especialista atual** para ajustar o artefato; após re-commit,
      repita os passos 3–4 — gate informativo atualizado + nova decisão).
      > **Loop e histórico:** o checkpoint registra a decisão do gate por `gateId`
      > (última decisão vence — uma `changes-requested` anterior é sobrescrita por um
      > `approved` posterior). Se após algumas iterações não houver convergência,
      > considere mudar para `rejected`/encerrar em vez de iterar indefinidamente.
-   - **Parar** → `process-ai gate --id gate-<N> --decision rejected`
+   - **Parar** → `npx process-ai gate --id gate-<N> --decision rejected`
      (encerre o fluxo — **não** avance o estágio nem inicie o próximo especialista;
-     informe o usuário de que a sessão pode ser retomada via `process-ai resume`).
+     informe o usuário de que a sessão pode ser retomada via `npx process-ai resume`).
 
 5. **Se aprovado, avance para o próximo estágio** (entrada do próximo especialista):
-   `process-ai stage --to <próximo>` (`discovery` → `mapping` → `modeling` → `visualization` → `standardization` → `reporting`).
+   `npx process-ai stage --to <próximo>` (`discovery` → `mapping` → `modeling` → `visualization` → `standardization` → `reporting`).
    Após o gate-5 (Tiago) aprovado, vá para a §4 (encerramento).
    > O avanço de estágio **só ocorre** após `--decision approved`. Se `changes-requested`
    > ou `rejected`, o estágio **não avança** — o especialista atual é reaberto ou o
@@ -230,10 +230,10 @@ Para cada especialista, em ordem:
 Ao fim da pipeline (após o Gate 5 aprovado — Tiago concluiu o `process-report`):
 
 1. **Colete o estado final:**
-   - Execute `process-ai report` (via Bash) e capture a saída markdown — este é o
+   - Execute `npx process-ai report` (via Bash) e capture a saída markdown — este é o
      **relatório de confiança consolidado** (2.5: contagem + itens por nível +
      breakdown + reverse-index + excerpt-status + órfãos).
-   - Execute `process-ai status` (via Bash) e capture o JSON — ele contém
+   - Execute `npx process-ai status` (via Bash) e capture o JSON — ele contém
      `artifacts[]` (lista de artefatos commitados com `sha256`+`artifactType`)
      e `stage` atual.
    - **Se qualquer um dos dois falhar** (saída non-zero/stderr), informe o erro ao
@@ -269,7 +269,7 @@ Ao fim da pipeline (após o Gate 5 aprovado — Tiago concluiu o `process-report
      ```
      ````
    - **Confiança consolidada:** um `pie` chart com a contagem 🟢🟡🔴 do
-     `process-ai report`. Exemplo:
+     `npx process-ai report`. Exemplo:
      ````markdown
      ### Confiança Final
      ```mermaid
@@ -309,7 +309,7 @@ Ao fim da pipeline (após o Gate 5 aprovado — Tiago concluiu o `process-report
       decisão registrada (`approved` / `changes-requested` / `rejected`).
 
 3. **Embuta o relatório de confiança:** sob o título `## Relatório de Confiança`,
-   inclua a saída **verbatim** de `process-ai report`. **Não reescreva, não resuma,
+   inclua a saída **verbatim** de `npx process-ai report`. **Não reescreva, não resuma,
    não reformate** — o markdown do relatório é um contrato duro (2.5). A narrativa
    da Déa fica **acima** deste bloco; o relatório fica **íntegro** abaixo.
 
@@ -319,25 +319,25 @@ Ao fim da pipeline (após o Gate 5 aprovado — Tiago concluiu o `process-report
      Escreva o arquivo em **`./summary-report.json`** (raiz do projeto-alvo) —
      **nunca** em `_process-ai_output/` ou `.process-ai/` (AD-1: sem escrita direta
      nas pastas protegidas).
-   - Shape esperado: `{ "artifactType": "summary-report", "content": "<markdown
-     escapado em JSON>" }`. Em `content`, escape **aspas como `\"`, backslashes
+   - Shape esperado: `{ "artifactType": "summary-report", "content": { "body":
+     "<markdown escapado em JSON>" } }`. Em `content.body`, escape **aspas como `\"`, backslashes
      como `\\` e newlines como `\n`**. ⚠️ O relatório verbatim (passo 3) **já contém
      backslashes** (o toolkit escapa markdown: `\*`, `\(`, `\|`, …) — se você não
      dobrar os backslashes (`\\`), o JSON fica inválido e o `propose` aborta com
      "Payload inválido (JSON malformado)", e o entregável final não commita. O
      conteúdo é o **resumo narrativo (passo 2) + relatório verbatim (passo 3)**
      concatenados, com o relatório sob `## Relatório de Confiança`.
-   - Execute `process-ai propose --payload summary-report.json`.
+   - Execute `npx process-ai propose --payload summary-report.json`.
    - **Remova o `summary-report.json` temporário** do diretório do projeto — tanto
      em caso de sucesso quanto de **falha** do `propose` (ele vive fora das pastas
      protegidas e não deve persistir; em caso de falha, corrija o payload e tente
      novamente).
 
 5. **Finalize:** avance o estágio final para `summary`:
-   `process-ai stage --to summary`.
+   `npx process-ai stage --to summary`.
    > Se este avanço falhar, o `summary-report` já estará commitado (passo 4), mas o
    > `checkpoint.stage` não será `summary` — informe o usuário e avance novamente
-   > (`process-ai stage --to summary`) ao retomar, antes de encerrar.
+   > (`npx process-ai stage --to summary`) ao retomar, antes de encerrar.
 
 > **A sessão não termina sem esse entregável commitado.** O `summary-report` é o
 > artefato que prova o ciclo completo — narrativa + confiança + próximos passos.

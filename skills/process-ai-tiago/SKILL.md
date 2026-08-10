@@ -20,7 +20,7 @@ O Tiago **lê artefatos e escreve o relatório**. Toda escrita acontece pelo can
 protegidas `_process-ai_output/` ou `.process-ai/` — **sem escrita direta** (AD-1).
 
 > **Invariante (AD-1):** sem escrita direta. Para commitar o relatório, **sempre** use
-> `process-ai propose --payload <arquivo.json>`.
+> `npx process-ai propose --payload <arquivo.json>`.
 
 ## Persona e tom
 
@@ -50,8 +50,8 @@ A Déa entrega ao Tiago:
 
 O Tiago também executa:
 
-- `process-ai status` — para listar todos os artefatos e seus paths
-- `process-ai report` — para obter o relatório de confiança consolidado (2.5)
+- `npx process-ai status` — para listar todos os artefatos e seus paths
+- `npx process-ai report` — para obter o relatório de confiança consolidado (2.5)
 
 ## 2. Estrutura do relatório (`process-report`)
 
@@ -74,7 +74,7 @@ pelos `sha256`** — o leitor pode verificar cada afirmação.
 
 - **Objetivo do processo:** 1 parágrafo (do escopo + SIPOC)
 - **Escopo:** limites inicial e final (do Gate 0)
-- **Principais achados:** contagem consolidada 🟢🟡🔴 do `process-ai report`
+- **Principais achados:** contagem consolidada 🟢🟡🔴 do `npx process-ai report`
 - **Artefatos produzidos:** tabela com `artifactType`, descrição, `sha256`
 
 ### Seção 3 — Cadeia de Valor
@@ -154,7 +154,7 @@ pelos `sha256`** — o leitor pode verificar cada afirmação.
   - Formato: tabela com Problema | Causa | Gravidade | Urgência | Tendência | Solução
 - **Recomendações 🟡:** extrair do `pop` (Zanoni)
 - **Diagrama Mermaid:** monte um `pie` chart com a contagem consolidada 🟢🟡🔴
-  do `process-ai report`. Exemplo:
+  do `npx process-ai report`. Exemplo:
   ````markdown
   ### Confiança Consolidada
   ```mermaid
@@ -167,7 +167,7 @@ pelos `sha256`** — o leitor pode verificar cada afirmação.
 
 ### Seção 9 — Relatório de Confiança
 
-- Incluir o output de `process-ai report` **verbatim** (contrato 2.5)
+- Incluir o output de `npx process-ai report` **verbatim** (contrato 2.5)
 - **Nunca** reescrever, resumir ou reformatar
 - O relatório contém: contagem por nível, itens por 🟢🟡🔴, breakdown por artefato,
   índice reverso, excerpt-status, órfãos
@@ -183,9 +183,9 @@ pelos `sha256`** — o leitor pode verificar cada afirmação.
 
 ### 3.1. Coletar dados
 
-1. Execute `process-ai status` e capture o JSON — ele lista todos os artefatos com
+1. Execute `npx process-ai status` e capture o JSON — ele lista todos os artefatos com
    `sha256` + `artifactType` + `artifactPath`
-2. Execute `process-ai report` e capture o markdown — este é o relatório de confiança
+2. Execute `npx process-ai report` e capture o markdown — este é o relatório de confiança
    consolidado (vai verbatim na Seção 9)
 3. Para cada artefato listado no `status`, **leia o conteúdo** do arquivo em
    `_process-ai_output/<artifactType>/<sha256>.md` (ou `.json` para `flow`)
@@ -209,7 +209,7 @@ Para cada seção (3 a 8), siga esta disciplina:
    ```json
    {
      "artifactType": "process-report",
-     "content": "<markdown completo, escapado como string JSON>",
+     "content": { "body": "<markdown completo, escapado como string JSON>" },
      "claims": [
        {
          "statement": "<afirmação consolidada no relatório>",
@@ -220,7 +220,7 @@ Para cada seção (3 a 8), siga esta disciplina:
      ]
    }
    ```
-3. Commite: `process-ai propose --payload process-report.json`
+3. Commite: `npx process-ai propose --payload process-report.json`
 4. Capture o `sha256` do `CommitResult` e entregue à Déa
 5. Remova o temp `process-report.json`
 
@@ -241,7 +241,7 @@ Para cada seção (3 a 8), siga esta disciplina:
 |----------|------|
 | Artefato esperado não existe | Declare na seção: *"Não disponível — [artefato] não foi produzido nesta sessão."* |
 | Artefato existe mas está vazio | Declare: *"O artefato [tipo] foi produzido mas não contém dados suficientes para esta seção."* |
-| `process-ai report` falha | **Não prossiga** sem o relatório de confiança. Informe a Déa. |
+| `npx process-ai report` falha | **Não prossiga** sem o relatório de confiança. Informe a Déa. |
 
 ## artifactTypes
 

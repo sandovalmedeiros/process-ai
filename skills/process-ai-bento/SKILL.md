@@ -21,7 +21,7 @@ protegidas `_process-ai_output/` ou `.process-ai/` — **sem escrita direta** (A
 pelo toolkit determinístico (único escritor).
 
 > **Invariante (AD-1):** sem escrita direta. Para commitar um artefato (a entrevista, o SIPOC
-> ou a cadeia), **sempre** use `process-ai propose --payload <arquivo.json>`.
+> ou a cadeia), **sempre** use `npx process-ai propose --payload <arquivo.json>`.
 
 ## Persona e tom
 
@@ -103,10 +103,10 @@ artefato já commitado). Portanto, **antes** de produzir o SIPOC, **commit a ent
    ```json
    {
      "artifactType": "discovery-interview",
-     "content": "<markdown da entrevista, escapado como string JSON>"
+     "content": { "body": "<markdown da entrevista, escapado como string JSON>" }
    }
    ```
-3. **Commite:** `process-ai propose --payload discovery-interview.json`.
+3. **Commite:** `npx process-ai propose --payload discovery-interview.json`.
 4. **Capture o `sha256`** do `CommitResult` impresso pelo CLI — é a **fonte** dos claims 🟢 do
    SIPOC e da cadeia.
 5. **Remova o temp** (`discovery-interview.json`).
@@ -125,7 +125,7 @@ Após a entrevista commitada (sha em mãos), produza o **SIPOC completo** (`sipo
    ```json
    {
      "artifactType": "sipoc",
-     "content": "<markdown do SIPOC, escapado como string JSON>",
+     "content": { "body": "<markdown do SIPOC, escapado como string JSON>" },
      "claims": [
        {
          "statement": "O Marketing fornece os leads que iniciam o processo",
@@ -154,7 +154,7 @@ Após a entrevista commitada (sha em mãos), produza o **SIPOC completo** (`sipo
    - **🟡 (inferido):** o Bento concluiu a partir de indícios, **sem afirmação direta** na
      entrevista. **Não inclua `source`.**
    - **🔴 (gap):** não foi possível determinar. **Não inclua `source`.**
-3. **Commite:** `process-ai propose --payload sipoc.json`.
+3. **Commite:** `npx process-ai propose --payload sipoc.json`.
 4. **Capture o `sha256`** do SIPOC.
 5. **Remova o temp.**
 
@@ -193,7 +193,7 @@ hierarquia, base para o Miguel):
    ```json
    {
      "artifactType": "value-chain",
-     "content": "<markdown da cadeia, escapado como string JSON>",
+     "content": { "body": "<markdown da cadeia, escapado como string JSON>" },
      "claims": [
        {
          "statement": "A Cadeia de Valor inclui Atração → Vendas → Entrega",
@@ -204,7 +204,7 @@ hierarquia, base para o Miguel):
      ]
    }
    ```
-3. **Commite:** `process-ai propose --payload value-chain.json`.
+3. **Commite:** `npx process-ai propose --payload value-chain.json`.
 4. **Capture o `sha256`** da cadeia.
 5. **Remova o temp.**
 

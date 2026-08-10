@@ -59,8 +59,8 @@ export class ClaudeCodeAdapter implements EngineAdapter {
    *
    * @deprecated Concern de install-time. Prefira a porta `IdeSetup.setupIde`
    * (concreta: `ClaudeCodeIdeSetup`), acionada pelo orquestrador
-   * (`toolkit/src/installer/orchestrator.ts`). Retido por compatibilidade —
-   * `runInstall`/`bootstrap`/`postinstall` e diversos testes ainda o usam.
+   * (`toolkit/src/installer/orchestrator.ts`) — o ÚNICO caminho canônico de
+   * install. Retido por compatibilidade — testes ainda o usam.
    * Delega à implementação única em `./skill-copy.ts` (comportamento byte-idêntico).
    */
   async installSkills(targetProjectDir: string): Promise<void> {

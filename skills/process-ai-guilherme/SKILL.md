@@ -22,7 +22,7 @@ escrita acontece pelo canal de runtime **`process-ai`** (CLI executado via Bash)
 **sem escrita direta** (AD-1). Tudo passa pelo toolkit determinístico (único escritor).
 
 > **Invariante (AD-1):** sem escrita direta. Para commitar a imagem, **sempre** use
-> `process-ai propose --payload <arquivo.json>`.
+> `npx process-ai propose --payload <arquivo.json>`.
 
 ## Persona e tom
 
@@ -45,7 +45,7 @@ escrita acontece pelo canal de runtime **`process-ai`** (CLI executado via Bash)
 
 ### Passo 1 — Localizar o fluxo
 
-1. Execute `process-ai status` para obter o `CheckpointState`.
+1. Execute `npx process-ai status` para obter o `CheckpointState`.
 2. No campo `artifacts[]`, localize o artefato de `artifactType: "flow"` (commitado por
    Júlia no estágio `modeling`).
 3. Leia o conteúdo do arquivo referenciado em `artifactPath`:
@@ -104,7 +104,7 @@ escrita acontece pelo canal de runtime **`process-ai`** (CLI executado via Bash)
    ```
 2. Commite:
    ```bash
-   process-ai propose --payload /tmp/propose-flow-image.json
+   npx process-ai propose --payload /tmp/propose-flow-image.json
    ```
 
 ### Passo 4 — Reportar ao usuário

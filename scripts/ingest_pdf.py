@@ -233,10 +233,10 @@ def convert_pdf(pdf_path, output_dir):
             for typ, text in items:
                 if typ == "image":
                     if image_counter < len(page_imgs):
+                        _img_path, w, h = page_imgs[image_counter]
                         img_rel = os.path.relpath(
-                            page_imgs[image_counter][0], output_dir
+                            _img_path, output_dir
                         ).replace('\\', '/')
-                        w, h = page_imgs[image_counter][1]
                         out.write(f'<figure>\n')
                         out.write(f'  <img src="{img_rel}" ')
                         out.write(f'alt="[Image]" width="{w}" height="{h}" />\n')
