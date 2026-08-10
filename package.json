@@ -1,6 +1,6 @@
 {
   "name": "process-ai",
-  "version": "0.8.2",
+  "version": "0.8.3",
   "description": "Framework method-agnóstico de mapeamento de processos ponta-a-ponta — equipe de 8 agentes IA (Déa+Bento+Miguel+Júlia+Guilherme+Zanoni+Laura+Tiago) que conduz o usuário por Q&A até documentar o processo completo (ingestão documental→SIPOC→hierarquia→BPMN→visualização→POPs→relatório final) com confiança 🟢🟡🔴 verificável, rastreabilidade bidirecional e renderização visual profissional.",
   "type": "module",
   "engines": {
