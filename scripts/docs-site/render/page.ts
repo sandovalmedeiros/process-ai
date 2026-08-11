@@ -89,7 +89,7 @@ export function wrapPage(opts: PageOptions): string {
       : '';
   const dataBlob =
     opts.embeddedData !== undefined
-      ? `<script type="application/json" id="pa-data">${escapeHtml(JSON.stringify(opts.embeddedData))}</script>`
+      ? `<script type="application/json" id="pa-data">${JSON.stringify(opts.embeddedData).replace(/<\/(script)/gi, '<\\/$1')}</script>`
       : '';
   const pageScriptTag = opts.pageScript ? `<script>${opts.pageScript}</script>` : '';
   // Telemetry local (opt-out via trackView:false). try/catch: localStorage pode
