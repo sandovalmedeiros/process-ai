@@ -330,6 +330,77 @@ test('status imprime o CheckpointState atual (JSON)', async () => {
   }
 });
 
+// ---- versionStatus: aviso de versão defasada no stdout estruturado ----
+// (campo ausente quando corrente → saída byte-idêntica à anterior; presente só
+//  quando behind, para que a Déa repasse ao usuário no início da sessão)
+
+test('versionStatus: dispatch(status) com updateInfo behind anexa versionStatus ao JSON', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cli-vs-behind-'));
+  try {
+    const adapter = new ClaudeCodeAdapter({ cwd: tmp });
+    const result = await dispatch(
+      parseArgs(['status']), adapter, tmp, undefined,
+      { behind: true, local: '0.8.3', latest: '0.8.4' },
+    );
+    const parsed = JSON.parse(result.output) as {
+      stage: string;
+      versionStatus?: { local: string; latest: string; behind: boolean };
+    };
+    assert.equal(parsed.stage, 'init');
+    assert.ok(parsed.versionStatus, 'versionStatus deve estar presente quando behind');
+    assert.equal(parsed.versionStatus!.local, '0.8.3');
+    assert.equal(parsed.versionStatus!.latest, '0.8.4');
+    assert.equal(parsed.versionStatus!.behind, true);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('versionStatus: saída inalterada quando updateInfo é null (backward-compat)', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cli-vs-null-'));
+  try {
+    const adapter = new ClaudeCodeAdapter({ cwd: tmp });
+    const result = await dispatch(parseArgs(['status']), adapter, tmp, undefined, null);
+    const parsed = JSON.parse(result.output) as { versionStatus?: unknown };
+    assert.equal(parsed.versionStatus, undefined, 'campo versionStatus NÃO deve aparecer quando indeterminado');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('versionStatus: saída inalterada quando behind=false (versão corrente)', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cli-vs-current-'));
+  try {
+    const adapter = new ClaudeCodeAdapter({ cwd: tmp });
+    const result = await dispatch(
+      parseArgs(['status']), adapter, tmp, undefined,
+      { behind: false, local: '0.8.4', latest: '0.8.4' },
+    );
+    const parsed = JSON.parse(result.output) as { versionStatus?: unknown };
+    assert.equal(parsed.versionStatus, undefined, 'campo versionStatus NÃO deve aparecer quando a versão está corrente');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
+test('versionStatus: dispatch(resume) com updateInfo behind também anexa', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-cli-vs-resume-'));
+  try {
+    const adapter = new ClaudeCodeAdapter({ cwd: tmp });
+    const result = await dispatch(
+      parseArgs(['resume']), adapter, tmp, undefined,
+      { behind: true, local: '0.8.3', latest: '0.8.4' },
+    );
+    const parsed = JSON.parse(result.output) as {
+      versionStatus?: { local: string; latest: string; behind: boolean };
+    };
+    assert.ok(parsed.versionStatus, 'resume deve carregar versionStatus quando behind');
+    assert.equal(parsed.versionStatus!.latest, '0.8.4');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 // ---- AD-1/AD-3: nenhuma escrita direta pelo dispatcher fora do toolkit ----
 
 test('AD-1: o dispatcher NÃO escreve diretamente — gate/stage só via checkpointAdvance (escrita só em .process-ai/)', async () => {

@@ -38,6 +38,12 @@ Ao receber `/process-ai`, **antes de qualquer coisa**:
 
 1. Execute `npx process-ai resume` (via Bash).
 2. Avalie o retorno:
+   - **Versão defasada** (campo `versionStatus` presente no JSON de `resume`):
+     avise o usuário **antes de qualquer outra coisa**: *"⚠ Você está rodando a
+     v{versionStatus.local} do process-ai, mas existe a v{versionStatus.latest}
+     publicada. Atualize para evitar bugs já corrigidos: `npm i -g
+     process-ai@latest`."* O aviso é não-bloqueante — após avisar, prossiga
+     normalmente. (Campo ausente = versão corrente; nada a dizer.)
    - **Há sessão em andamento** (checkpoint com estágio além do inicial, ex.:
      `discovery`, `mapping`, etc.): **retome dali**. Informe o usuário do estágio
      atual e dos gates já registrados, e continue na próxima etapa pendente.

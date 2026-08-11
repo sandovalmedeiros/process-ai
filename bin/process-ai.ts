@@ -369,6 +369,21 @@ async function readPayload(payloadPath: string): Promise<ProposePayload> {
   }
 }
 
+/**
+ * Anexa `versionStatus` ao payload JSON de status/resume quando a versão em
+ * execução está defasada (behind). Campo ausente caso contrário → saída
+ * byte-idêntica à atual quando o framework está corrente. Isto põe o aviso de
+ * versão defasada no canal (stdout estruturado) que os agentes capturam, em vez
+ * do stderr (que o agente não repassa ao usuário final).
+ */
+function withVersionStatus<T extends object>(
+  payload: T,
+  updateInfo: UpdateCheckResult | null,
+): T | (T & { versionStatus: UpdateCheckResult }) {
+  if (!updateInfo || !updateInfo.behind) return payload;
+  return { ...payload, versionStatus: updateInfo };
+}
+
 // ---- dispatch (orquestração; o adapter é injetado — testável/mockável) ----
 
 /**
@@ -376,13 +391,15 @@ async function readPayload(payloadPath: string): Promise<ProposePayload> {
  *  - propose  → adapter.propose() (commit, único escritor; AD-1).
  *  - gate     → checkpointAdvance com intent `gate` (apply no-op, atômico via WAL; AD-4).
  *  - stage    → checkpointAdvance com intent `stage-advance` (apply no-op; AD-4).
- *  - resume   → resume(root) (replay de WAL + quarentena de órfãos; AD-4).
+ *  - resume   → resume(root) (replay de WAL + quarentena de órfãos; AD-4). Anexa versionStatus se defasado.
  *  - report   → reportConfidence(root) (lê o ledger; AD-5).
- *  - status   → checkpointRead(root) (leitura pura).
+ *  - status   → checkpointRead(root) (leitura pura). Anexa versionStatus se defasado.
  *
  * @param cmd - Comando parseado.
  * @param adapter - Porta EngineAdapter (composition root o instancia).
  * @param root - Raiz da sessão (projeto-alvo).
+ * @param installer - Instalador (DI; default cria um novo).
+ * @param updateInfo - Resultado de checkForUpdate (null se pulso/indeterminado); anexa versionStatus a status/resume quando behind.
  * @returns DispatchResult com a saída canônica a imprimir.
  */
 export async function dispatch(
@@ -390,6 +407,7 @@ export async function dispatch(
   adapter: EngineAdapter,
   root: string,
   installer: Installer = new Installer(new ClaudeCodeIdeSetup()),
+  updateInfo: UpdateCheckResult | null = null,
 ): Promise<DispatchResult> {
   switch (cmd.kind) {
     case 'help':
@@ -471,7 +489,7 @@ export async function dispatch(
 
     case 'resume': {
       const result = await resume(root);
-      return { ok: true, output: JSON.stringify(result) };
+      return { ok: true, output: JSON.stringify(withVersionStatus(result, updateInfo)) };
     }
 
     case 'report': {
@@ -481,7 +499,7 @@ export async function dispatch(
 
     case 'status': {
       const state = await checkpointRead(root);
-      return { ok: true, output: JSON.stringify(state) };
+      return { ok: true, output: JSON.stringify(withVersionStatus(state, updateInfo)) };
     }
 
     case 'ingest': {
@@ -571,18 +589,24 @@ export interface MainOptions {
  * aviso pt-BR no STDERR. Fail-soft absoluto: qualquer erro é silenciado (nunca
  * alcança o entry-guard). Pula com `PROCESS_AI_SKIP_UPDATE_CHECK=1`, em CI, e
  * para `--version`/`--help`. `opts.updateCheck` é o seam de teste (stub).
+ *
+ * Retorna o resultado (ou null) para que `dispatch` o anexe ao JSON de
+ * status/resume — o aviso também precisa chegar ao usuário via stdout
+ * estruturado, não só via stderr (que agentes não repassam).
  */
-async function runUpdateCheckSafely(cmd: ParsedCommand, opts: MainOptions): Promise<void> {
-  if (process.env.PROCESS_AI_SKIP_UPDATE_CHECK === '1') return;
-  if (process.env.CI) return;
-  if (cmd.kind === 'version' || cmd.kind === 'help') return;
+async function runUpdateCheckSafely(cmd: ParsedCommand, opts: MainOptions): Promise<UpdateCheckResult | null> {
+  if (process.env.PROCESS_AI_SKIP_UPDATE_CHECK === '1') return null;
+  if (process.env.CI) return null;
+  if (cmd.kind === 'version' || cmd.kind === 'help') return null;
   try {
     const result = opts.updateCheck ? await opts.updateCheck() : await checkForUpdate(defaultDeps());
     if (result?.behind) {
       process.stderr.write(formatUpdateWarning(result.local, result.latest));
     }
+    return result ?? null;
   } catch {
     // fail-soft: nunca propaga para o catch do entry-guard
+    return null;
   }
 }
 
@@ -598,7 +622,7 @@ export async function main(argv: string[], opts: MainOptions = {}): Promise<void
   // AD-3: runtime depende da porta; ClaudeCodeAdapter é instanciado aqui.
   const adapter: EngineAdapter = new ClaudeCodeAdapter({ cwd: root });
 
-  await runUpdateCheckSafely(cmd, opts);
+  const updateInfo = await runUpdateCheckSafely(cmd, opts);
 
   // install interativo quando TTY e sem flags de install.
   if (cmd.kind === 'install' && !cmd.statusOnly && isInteractive(cmd)) {
@@ -606,7 +630,7 @@ export async function main(argv: string[], opts: MainOptions = {}): Promise<void
   }
 
   const installer = new Installer(new ClaudeCodeIdeSetup());
-  const result = await dispatch(cmd, adapter, root, installer);
+  const result = await dispatch(cmd, adapter, root, installer, updateInfo);
   process.stdout.write(result.output + '\n');
 }
 
