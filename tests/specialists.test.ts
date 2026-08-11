@@ -154,9 +154,11 @@ test('discoverSourceSkills: descobre só dirs process-ai* com SKILL.md regular (
   }
 });
 
-test('AC1: installSkills instala exatamente as 9 skills reais (condutor + 8 agentes)', async () => {
+test('AC1: installSkills instala exatamente as 13 skills reais (condutor + 9 agentes + 3 sub-agentes do time da Monique)', async () => {
   // Guarda de regressão: o install real (repo-fonte) instala exatamente o conjunto
-  // esperado — nenhum fantasma, nenhum arquivo solto.
+  // esperado — nenhum fantasma, nenhum arquivo solto. (Sub-agentes como o João,
+  // Mônica, Sarah e Victor entram no set instalado mas NÃO no SPECIALISTS const —
+  // não commitam artefato próprio; o guarda-chuva process-docs é da Monique.)
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-spec-set-'));
   try {
     const adapter = new ClaudeCodeAdapter();
@@ -164,8 +166,8 @@ test('AC1: installSkills instala exatamente as 9 skills reais (condutor + 8 agen
     const installed = (await fs.readdir(path.join(tmp, '.claude', 'skills'))).sort();
     assert.deepEqual(
       installed,
-      ['process-ai', 'process-ai-bento', 'process-ai-guilherme', 'process-ai-julia', 'process-ai-laura', 'process-ai-miguel', 'process-ai-monique', 'process-ai-tiago', 'process-ai-zanoni'],
-      'installSkills deve instalar exatamente as 9 skills com SKILL.md',
+      ['process-ai', 'process-ai-bento', 'process-ai-guilherme', 'process-ai-julia', 'process-ai-laura', 'process-ai-miguel', 'process-ai-monique', 'process-ai-monique-joao', 'process-ai-monique-monica', 'process-ai-monique-sarah', 'process-ai-monique-victor', 'process-ai-tiago', 'process-ai-zanoni'],
+      'installSkills deve instalar exatamente as 13 skills com SKILL.md',
     );
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });

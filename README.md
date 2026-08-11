@@ -6,7 +6,7 @@ Voltado para **Pequenas e Médias Empresas**, o process-ai coloca uma equipe de 
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-348%20passing-brightgreen)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-375%20passing-brightgreen)](./tests/)
 
 ---
 
@@ -41,6 +41,10 @@ O **process-ai** é a quarta via: herda o **rigor do Reversa** (confiança 🟢�
 | **Tiago** ✍️ | Escritor — consolida todos os artefatos no relatório final de documentação (10 seções) | `process-report` |
 | **Laura** 🗄️ | Arquivista — ingestão de documentos (PDF/DOCX/PPTX/XLSX/CSV/XML) como material de referência | `reference-material` |
 | **Monique** 🖥️ *(opcional)* | Editora do mini-site — gera o site HTML interativo (offline, `file://`) pós-pipeline, com selo gerativo rastreável | `process-docs` |
+| └ *João* 🗺️ *(time da Monique)* | Cartógrafo — regenera isoladamente o grafo de fornecedores↔clientes (D3) e a árvore 3D da hierarquia (Three.js) | `fornecedores-clientes.html`, `hierarquia-3d.html` |
+| └ *Mônica* 📊 *(time da Monique)* | Analista — regenera isoladamente o painel de métricas (ECharts) e o cronograma | `metricas.html`, `cronograma.html` |
+| └ *Sarah* 📖 *(time da Monique)* | Narradora — regenera isoladamente o glossário, o deck e as páginas de procedimentos (POPs) | `glossario.html`, `deck.html`, `processos/` |
+| └ *Victor* 🏛️ *(time da Monique)* | Publicador — regenera isoladamente a capa do minisite (selo, navegação, telemetry) | `index.html` |
 
 ---
 
@@ -56,7 +60,7 @@ npx process-ai
 
 O que o install faz:
 
-- copia as skills (condutora Déa + 8 agentes: Bento, Miguel, Júlia, Guilherme, Zanoni, Tiago, Laura e Monique) para `.claude/skills/`;
+- copia as skills (condutora Déa + 8 agentes: Bento, Miguel, Júlia, Guilherme, Zanoni, Tiago, Laura e Monique + o time da Monique: João, Mônica, Sarah e Victor) para `.claude/skills/`;
 - cria `.process-ai/config` (installer-managed, regenerado a cada install) e `.process-ai/config.user` (seus overrides — nunca sobrescritos pelo installer);
 - escreve `.process-ai/install-manifest.toml` — o **manifest de instalação** (versão, IDE, pack ativo, e cada arquivo com seu SHA-256), que habilita `update`/`status` e a detecção de arquivos modificados.
 
@@ -216,7 +220,7 @@ Cada pack declara schemas **aditivos** (estendem o schema-núcleo sem redefinir)
 git clone https://github.com/sandovalmedeiros/process-ai.git
 cd process-ai
 npm install
-npm test          # 348 testes, 0 falhas
+npm test          # 375 testes, 0 falhas
 npm run typecheck # tsc --noEmit
 ```
 
@@ -231,7 +235,7 @@ process-ai/
 ├── skills/                 # Skills dos agentes
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1
-├── tests/                  # Testes determinísticos (348)
+├── tests/                  # Testes determinísticos (375)
 └── docs/                   # Documentação
 ```
 

@@ -22,6 +22,18 @@ export interface PageOptions {
   /** Dado serializado em <script type="application/json" id="pa-data">. */
   embeddedData?: unknown;
   description?: string;
+  /**
+   * Prefixo de caminho relativo para páginas em subpasta (ex.: '../' para
+   * processos/<id>.html). Default ''. Prefixa nav, brand link e vendorDeps.
+   */
+  relPrefix?: string;
+  /**
+   * Telemetry local (localStorage): quando truthy (default), registra a visita
+   * desta página em `pa:views` para o index mostrar "últimas páginas vistas".
+   * 100% local — nada é enviado para fora. try/catch: silencioso se o navegador
+   * bloquear storage. O index (hub) passa trackView:false p/ não se auto-registrar.
+   */
+  trackView?: boolean;
 }
 
 const STYLES = `
@@ -62,15 +74,23 @@ export function escapeHtml(s: string): string {
 }
 
 export function wrapPage(opts: PageOptions): string {
+  const rel = opts.relPrefix ?? '';
   const vendorTags =
     opts.vendorDeps && opts.vendorDeps.length
-      ? opts.vendorDeps.map((d) => `<script src="assets/vendor/${d}" defer></script>`).join('\n  ')
+      ? opts.vendorDeps.map((d) => `<script src="${rel}assets/vendor/${d}" defer></script>`).join('\n  ')
       : '';
   const dataBlob =
     opts.embeddedData !== undefined
       ? `<script type="application/json" id="pa-data">${escapeHtml(JSON.stringify(opts.embeddedData))}</script>`
       : '';
   const pageScriptTag = opts.pageScript ? `<script>${opts.pageScript}</script>` : '';
+  // Telemetry local (opt-out via trackView:false). try/catch: localStorage pode
+  // estar bloqueado (modo privado / restrições de file://) — silencioso se falhar.
+  // Registra {href, title, ts}; dedupe por href (move a página ao topo); cap 12.
+  const trackerTag =
+    opts.trackView === false
+      ? ''
+      : `<script>try{var k='pa:views';var raw=localStorage.getItem(k);var a=raw?JSON.parse(raw):[];if(!Array.isArray(a))a=[];var h=location.href;a=a.filter(function(v){return v&&v.href!==h;});a.unshift({href:h,title:document.title,ts:Date.now()});if(a.length>12)a.length=12;localStorage.setItem(k,JSON.stringify(a));}catch(e){}</script>`;
   return `<!doctype html>
 <html lang="pt-BR">
 <head>
@@ -83,17 +103,18 @@ export function wrapPage(opts: PageOptions): string {
 </head>
 <body>
 <header class="top"><div class="bar">
-  <a class="brand" href="index.html">◀ process-ai</a>
+  <a class="brand" href="${rel}index.html">◀ process-ai</a>
   <nav>
-    <a href="index.html">Visão geral</a>
-    <a href="topologia.html">Topologia</a>
-    <a href="glossario.html">Glossário</a>
+    <a href="${rel}index.html">Visão geral</a>
+    <a href="${rel}topologia.html">Topologia</a>
+    <a href="${rel}glossario.html">Glossário</a>
   </nav>
 </div></header>
 <main>
 ${opts.bodyHtml}
 </main>
   ${dataBlob}
+  ${trackerTag}
   ${vendorTags}
   ${pageScriptTag}
 </body>
