@@ -1,5 +1,6 @@
 """Extract all images from both PDFs and save them as PNG files."""
-import fitz, os
+import pymupdf as fitz  # avoid deprecated `import fitz` (prints warning to stdout — see ingest_pdf.py)
+import os
 
 base = "D:/process-ai-prj/docs"
 pdfs = [

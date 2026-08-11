@@ -173,6 +173,44 @@ function resolveScriptsDir(): string {
   return path.join(pkgRoot, 'scripts');
 }
 
+// ---- Parse defensivo do contrato JSON ----
+
+/**
+ * Extrai o contrato JSON da stdout de um script Python de ingest.
+ *
+ * Defensivo: algumas libs Python (ex.: PyMuPDF >=1.24 ao fazer o `import fitz`
+ * depreciado) escrevem avisos direto na **stdout** — não no stderr, e não via
+ * módulo `warnings` (por isso `PYTHONWARNINGS=ignore` não os silencia). Tais
+ * avisos podem prefixar/sufixar o JSON do contrato e quebrar `JSON.parse`. Este
+ * parser recupera o objeto JSON mais externo antes de falhar, mantendo o caminho
+ * feliz (JSON puro) sem custo extra.
+ *
+ * Exportado para teste direto (tests/ingest.test.ts).
+ *
+ * @throws {IngestError} se stdout não contiver um JSON válido.
+ */
+export function parseIngestJson(stdout: string): IngestResult {
+  // Caminho feliz: stdout é JSON puro (contrato normal).
+  try {
+    return JSON.parse(stdout) as IngestResult;
+  } catch {
+    // Recuperação: localiza o objeto JSON mais externo (do primeiro '{' ao
+    // último '}'). Caso comum: aviso prefixado ("warning: ...\n{...json...}").
+    const start = stdout.indexOf('{');
+    const end = stdout.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      try {
+        return JSON.parse(stdout.slice(start, end + 1)) as IngestResult;
+      } catch {
+        // Aviso pode conter chaves — cai para o erro original abaixo.
+      }
+    }
+    throw new IngestError(
+      `Script Python retornou saída não-JSON. stdout (primeiros 300 chars): ${stdout.slice(0, 300)}`,
+    );
+  }
+}
+
 // ---- Execução do script Python ----
 
 /**
@@ -209,14 +247,12 @@ function runIngestScript(
         return;
       }
 
-      // Parse JSON output
+      // Parse JSON output (defensivo — tolera avisos não-JSON na stdout; ver parseIngestJson)
       let result: IngestResult;
       try {
-        result = JSON.parse(stdout) as IngestResult;
-      } catch {
-        reject(new IngestError(
-          `Script Python retornou saída não-JSON. stdout (primeiros 300 chars): ${stdout.slice(0, 300)}`,
-        ));
+        result = parseIngestJson(stdout);
+      } catch (e) {
+        reject(e);
         return;
       }
 

@@ -13,7 +13,13 @@ import os
 import re
 from collections import Counter
 
-import fitz  # pymupdf
+# Import as `pymupdf` (aliased to `fitz` for API compatibility) instead of
+# `import fitz`. PyMuPDF >=1.24 prints a deprecation warning to **stdout**
+# when the legacy `fitz` name is imported — and that warning breaks the Node
+# wrapper (ingest.ts), which expects pure JSON on stdout. The warning is NOT
+# emitted via Python's `warnings` module, so `PYTHONWARNINGS=ignore` cannot
+# suppress it. `import pymupdf` is the migration the warning itself recommends.
+import pymupdf as fitz
 
 # Import shared helpers from sibling script
 from ingest_common import (
