@@ -38,20 +38,24 @@ export interface PageOptions {
 
 const STYLES = `
 :root { color-scheme: light dark;
-  --bg:#0e1116; --card:#161b22; --ink:#c9d1d9; --muted:#8b949e; --accent:#58a6ff; --line:#30363d; --warn:#f85149; }
+  /* Light-first (default). Tokens redefinidos só no @media dark abaixo. */
+  --bg:#ffffff; --card:#f8fafc; --ink:#0f172a; --muted:#475569; --accent:#2563eb; --accent-strong:#1d4ed8; --line:#e2e8f0; --warn:#dc2626;
+  --header-bg:rgba(255,255,255,.9); --header-border:#e2e8f0;
+}
 * { box-sizing: border-box; }
 body { margin:0; font:15px/1.6 system-ui,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--ink); }
-header.top { position:sticky; top:0; z-index:5; background:rgba(14,17,22,.85); backdrop-filter:blur(6px); border-bottom:1px solid var(--line); }
-header.top .bar { max-width:1000px; margin:0 auto; padding:.6rem 1rem; display:flex; align-items:center; gap:1rem; }
-header.top a.brand { color:var(--accent); text-decoration:none; font-weight:700; }
-header.top nav { margin-left:auto; }
-header.top nav a { color:var(--muted); text-decoration:none; margin-left:.9rem; font-size:.9rem; }
-header.top nav a:hover, header.top nav a.active { color:var(--ink); }
+header.top { position:sticky; top:0; z-index:5; background:var(--header-bg); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); border-bottom:1px solid var(--header-border); }
+header.top .bar { max-width:1000px; margin:0 auto; padding:.55rem 1rem; display:flex; align-items:center; gap:1rem; }
+header.top a.brand { color:var(--accent-strong); text-decoration:none; font-weight:700; white-space:nowrap; }
+header.top nav { margin-left:auto; display:flex; gap:.2rem; flex-wrap:wrap; }
+header.top nav a { color:var(--muted); text-decoration:none; padding:.35rem .6rem; font-size:.9rem; border-radius:6px; border-bottom:2px solid transparent; }
+header.top nav a:hover { color:var(--ink); background:var(--card); }
+header.top nav a.active { color:var(--accent-strong); border-bottom-color:var(--accent); font-weight:600; }
 main { max-width:1000px; margin:0 auto; padding:2rem 1rem 4rem; }
 h1 { font-size:1.8rem; margin-top:0; }
 h2 { border-bottom:1px solid var(--line); padding-bottom:.3rem; }
 a { color:var(--accent); }
-code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:.9em; }
+code { background:var(--card); padding:.1em .35em; border:1px solid var(--line); border-radius:4px; font-size:.9em; }
 .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:1rem 1.2rem; }
 .grid { display:grid; gap:1rem; }
 .row { display:grid; gap:1rem; }
@@ -59,9 +63,13 @@ code { background:var(--card); padding:.1em .35em; border-radius:4px; font-size:
 .tag { display:inline-block; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:.1em .7em; font-size:.8rem; color:var(--muted); margin:.1em .2em; }
 table { border-collapse:collapse; width:100%; }
 th,td { border:1px solid var(--line); padding:.5rem .7rem; text-align:left; vertical-align:top; }
-input { background:var(--card); border:1px solid var(--line); color:var(--ink); padding:.55rem .7rem; border-radius:6px; width:100%; font:inherit; }
-@media (prefers-color-scheme: light){
-  :root{ --bg:#ffffff; --card:#f6f8fa; --ink:#1f2328; --muted:#57606a; --accent:#0969da; --line:#d0d7de; --warn:#cf222e; }
+input { background:var(--bg); border:1px solid var(--line); color:var(--ink); padding:.55rem .7rem; border-radius:6px; width:100%; font:inherit; }
+input:focus { outline:2px solid var(--accent); outline-offset:-1px; border-color:var(--accent); }
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#0d1117; --card:#161b22; --ink:#e6edf3; --muted:#8b949e; --accent:#58a6ff; --accent-strong:#79b8ff; --line:#30363d; --warn:#f85149;
+    --header-bg:rgba(13,17,23,.85); --header-border:#30363d;
+  }
 }
 `;
 
@@ -108,6 +116,7 @@ export function wrapPage(opts: PageOptions): string {
     <a href="${rel}index.html">Visão geral</a>
     <a href="${rel}topologia.html">Topologia</a>
     <a href="${rel}glossario.html">Glossário</a>
+    <a href="${rel}diagramas.html">Diagramas</a>
   </nav>
 </div></header>
 <main>
@@ -116,6 +125,7 @@ ${opts.bodyHtml}
   ${dataBlob}
   ${trackerTag}
   ${vendorTags}
+  <script>try{var here=location.pathname.replace(/.*\\//,'');Array.prototype.forEach.call(document.querySelectorAll('header.top nav a'),function(a){var href=a.getAttribute('href')||'';if(href.replace(/.*\\//,'')===here)a.classList.add('active');});}catch(e){}</script>
   ${pageScriptTag}
 </body>
 </html>`;

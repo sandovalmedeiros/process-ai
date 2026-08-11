@@ -4,13 +4,14 @@ Este diretório abriga as bibliotecas JS **vendoradas** (offline) usadas pelo
 minisite. Cada lib é pinada e documentada aqui com fonte, versão, SHA-256 e
 licença. O minisite abre via `file://` — **nenhuma lib pode vir de CDN**.
 
-## Status (P4)
+## Status (P5)
 
 | Lib    | Versão  | Licença    | Página                       | Estado |
 | ------ | ------- | ---------- | ---------------------------- | ------ |
 | d3     | 7.9.0   | ISC        | `fornecedores-clientes.html` | ✅ P2  |
 | three  | 0.137.0 | MIT        | `hierarquia-3d.html`         | ✅ P3  |
 | echarts | 5.5.0  | Apache-2.0 | `metricas.html`              | ✅ P4  |
+| mermaid | 11.16.1 | MIT       | `diagramas.html`             | ✅ P5  |
 
 ## Como adicionar uma lib
 
@@ -81,6 +82,23 @@ scripts de `file://`). Ver nota do three r137 abaixo.
   `DOMContentLoaded`, igual ao d3 e ao three). A build ESM (`dist/echarts.esm.min.js`)
   via `<script type=module>` quebra em `file://` no Firefox. A API usada aqui
   (`echarts.init`, `setOption`, séries `treemap`/`pie`/`bar`) é estável desde 5.0.
+
+## mermaid — 11.16.1
+
+- **Arquivo:** `vendor/mermaid/11.16.1/mermaid.min.js` (3 566 058 bytes)
+- **Fonte:** https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/mermaid.min.js
+- **SHA-256:** `18327bef70d96fb505fe7287d9f6a7362ebf07ff6576ddfaffb1a06f3e1a2954`
+- **Cabeçalho do arquivo:** `"use strict";var __esbuild_esm_mermaid_nm;(__esbuild_esm_mermaid_nm||={}).mermaid=(()=>{` (bundle esbuild ESM→IIFE)
+- **Licença:** MIT — https://github.com/mermaid-js/mermaid/blob/develop/LICENSE
+- **Uso:** `diagramas.html` (renderiza os blocos ``` ```mermaid ``` ``` embebidos nos artefatos pelo Miguel/Tiago/Bento/Zanoni — fluxos, hierarquias, cadeias)
+- **Por que o build `dist/mermaid.min.js` (e não ESM `+import`):** o `dist/mermaid.min.js` é um
+  bundle esbuild ESM→IIFE sem **nenhum** `import()` dinâmico (verificado: 0 ocorrências) —
+  essencial para `file://`, onde `import()` de specifiers relativos quebra por CORS de módulos.
+  Em `<script defer>` (script clássico), o `var __esbuild_esm_mermaid_nm` de topo vira global
+  do `window`, e a última linha `globalThis["mermaid"]=…default` anexa `window.mermaid`
+  (`initialize`/`run`/`render`). Confirmado em contexto browser-like (`vm.runInThisContext`).
+  Sem `type="module"` (não há `import`/`export` de topo), evita o bloqueio de module scripts
+  no Firefox sob `file://`. Degrada para `<pre>` (código bruto) se a lib não carregar.
 
 <!-- Template por lib (preencher ao adicionar):
 ## <lib> — <versão>

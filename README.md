@@ -6,7 +6,7 @@ Voltado para **Pequenas e Médias Empresas**, o process-ai coloca uma equipe de 
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-421%20passing-brightgreen)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-428%20passing-brightgreen)](./tests/)
 
 ---
 
@@ -228,7 +228,7 @@ Cada pack declara schemas **aditivos** (estendem o schema-núcleo sem redefinir)
 git clone https://github.com/sandovalmedeiros/process-ai.git
 cd process-ai
 npm install
-npm test          # 421 testes, 0 falhas
+npm test          # 428 testes, 0 falhas
 npm run typecheck # tsc --noEmit
 ```
 
@@ -243,7 +243,7 @@ process-ai/
 ├── skills/                 # Skills dos agentes
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1
-├── tests/                  # Testes determinísticos (421)
+├── tests/                  # Testes determinísticos (428)
 └── docs/                   # Documentação
 ```
 

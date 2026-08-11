@@ -65,36 +65,64 @@ function pushTerm(
   if (!t || t.length < 3 || seen.has(key)) return;
   // Filtra "ruído" de headings genéricos.
   if (/^(gloss[áa]rio|introdu[cç][ãa]o|resumo|observa[cç][õo]es|anexo)s?$/i.test(t)) return;
+  // Filtra headings estruturais (não são termos): ID hierárquico (M1./E1.1./A1.1.1.1.),
+  // heading de POP, ou linha com marcador "— pai:" da hierarquia. Necessário desde que a
+  // mineração passou a rodar sobre TODOS os artefatos (antes só 3 tipos narrativos).
+  if (/^[MEST]\d+(\.\d+)*\./.test(t)) return;
+  if (/^pop\b/i.test(t)) return;
+  if (/—\s*pai\s*:/i.test(t)) return;
   seen.add(key);
   out.push({ term: t, definition: definition.replace(/\*\*/g, '').trim(), source });
 }
 
-/** Extrai termos de glossário de bodies markdown (padrões **Termo**: def e ##/### Termo). */
+/** Extrai termos de glossário de bodies markdown. Padrões (em QUALQUER artefato):
+ *  - `##/### Termo` (heading = termo puro; definição = próxima linha de conteúdo).
+ *  - `**Termo**: definição` (bold + separador, em qualquer lugar do body).
+ *  - dentro de seção `## Glossário`/`## Glossary`: `### Termo` + item de lista `- Termo: def`. */
 export function extractGlossaryTerms(
   items: ReadonlyArray<{ body: string; source: string }>,
 ): GlossaryTerm[] {
   const seen = new Set<string>();
   const out: GlossaryTerm[] = [];
+  // Só headings de nível 1–2 abrem/fecham seção (h3+ pertencem à seção corrente).
+  const SECTION_HEAD = /^#{1,2}\s+(.+)$/i;
+  const GLOSS_HEAD = /^gloss[áa]rio|^glossary/i;
+  const H3_TERM = /^#{3,6}\s+([^#\n]{2,80})$/;
+  const LI_TERM = /^[-*]\s+([^*\n[:{`#][^\n:]{1,80})\s*[:：—–-]\s+([^\n]{2,300})$/;
+  const nextDefLine = (lines: string[], from: number): string => {
+    for (let j = from + 1; j < lines.length; j++) {
+      const lt = lines[j].trim();
+      if (lt && !lt.startsWith('#')) return lt;
+    }
+    return '';
+  };
   for (const it of items) {
     const body = it.body;
     if (!body) continue;
     const lines = body.split(/\r?\n/);
-    // ## Termo  → termo = heading; definição = próxima linha de conteúdo.
+    let inGloss = false;
     for (let i = 0; i < lines.length; i++) {
-      const hm = HEADING_TERM.exec(lines[i].trim());
-      if (!hm) continue;
-      const term = hm[1].trim();
-      let def = '';
-      for (let j = i + 1; j < lines.length; j++) {
-        const lineT = lines[j].trim();
-        if (lineT && !lineT.startsWith('#')) {
-          def = lineT;
-          break;
-        }
+      const lineT = lines[i].trim();
+      const sec = SECTION_HEAD.exec(lineT);
+      if (sec) inGloss = GLOSS_HEAD.test(sec[1].trim());
+      // (1) Heading solto "##/### Termo" (heading = termo puro).
+      const hm = HEADING_TERM.exec(lineT);
+      if (hm) {
+        const def = nextDefLine(lines, i);
+        if (def) pushTerm(out, seen, hm[1].trim(), def, it.source);
       }
-      if (def) pushTerm(out, seen, term, def, it.source);
+      // (2) Dentro de seção ## Glossário: sub-heading ### Termo + item de lista "- Termo: def".
+      if (inGloss) {
+        const h3 = H3_TERM.exec(lineT);
+        if (h3) {
+          const def = nextDefLine(lines, i);
+          if (def) pushTerm(out, seen, h3[1].trim(), def, it.source);
+        }
+        const li = LI_TERM.exec(lineT);
+        if (li) pushTerm(out, seen, li[1].trim(), li[2], it.source);
+      }
     }
-    // **Termo**: definição (qualquer lugar do body).
+    // (3) **Termo**: definição (qualquer lugar do body — incl. dentro da seção de glossário).
     BOLD_TERM.lastIndex = 0;
     let m: RegExpExecArray | null = BOLD_TERM.exec(body);
     while (m !== null) {
@@ -103,6 +131,57 @@ export function extractGlossaryTerms(
     }
   }
   return out.sort((a, b) => a.term.localeCompare(b.term, 'pt-BR'));
+}
+
+export interface MermaidBlock {
+  /** artifactType de origem (rastreabilidade). */
+  source: string;
+  /** Título = heading `#`–`####` imediatamente anterior ao fence, ou "Diagrama <n>". */
+  title: string;
+  /** Conteúdo do fence ``` ```mermaid ``` ``` (sem os fences). */
+  code: string;
+}
+
+/** Extrai blocos ``` ```mermaid ``` ``` de bodies markdown. Linha-a-linha: mantém o
+ *  último heading como título e captura o conteúdo entre o fence aberto e o fechamento. */
+export function extractMermaidBlocks(
+  items: ReadonlyArray<{ body: string; source: string }>,
+): MermaidBlock[] {
+  const out: MermaidBlock[] = [];
+  const FENCE_OPEN = /^\s*```mermaid\s*$/i;
+  const FENCE_CLOSE = /^\s*```\s*$/;
+  const HEADING = /^#{1,4}\s+(.+)$/;
+  for (const it of items) {
+    if (!it.body) continue;
+    const lines = it.body.split(/\r?\n/);
+    let lastHeading = '';
+    let i = 0;
+    while (i < lines.length) {
+      const trimmed = lines[i].trim();
+      const hm = HEADING.exec(trimmed);
+      if (hm) lastHeading = hm[1].trim();
+      if (FENCE_OPEN.test(lines[i])) {
+        const codeLines: string[] = [];
+        let j = i + 1;
+        while (j < lines.length && !FENCE_CLOSE.test(lines[j])) {
+          codeLines.push(lines[j]);
+          j++;
+        }
+        const code = codeLines.join('\n').trim();
+        if (code) {
+          out.push({
+            source: it.source,
+            title: lastHeading || `Diagrama ${out.length + 1}`,
+            code,
+          });
+        }
+        i = j + 1; // depois do fence de fechamento
+        continue;
+      }
+      i++;
+    }
+  }
+  return out;
 }
 
 /** Contagem de artefatos por tipo (resumo p/ index). */

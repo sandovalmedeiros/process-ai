@@ -8,6 +8,9 @@
  *  - checkpoint ausente ⇒ site vazio + warning, sem lançtar.
  *  - extract.ts (pure functions): resolveBody, extractTitle, extractGlossaryTerms, countByType.
  *  - escape hatch: validateContent('process-docs', …) → válido (process-docs fora do SCHEMAS).
+ *  - P5: glossário ampliado (todos os tipos + seção ## Glossário + filtro structural),
+ *    extractMermaidBlocks, diagramas.html (+ mermaid vendorada), resolveVendorDir
+ *    (fix do blocker 3D/D3/ECharts), header light-first + nav com Diagramas.
  *
  * O gerador vive em scripts/docs-site/ (fora do core — AD-3); o teste o importa
  * diretamente. validateContent é importado do core para confirmar o escape hatch
@@ -19,11 +22,12 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import crypto from 'node:crypto';
-import { generateDocs } from '../scripts/docs-site/generate.ts';
+import { generateDocs, resolveVendorDir } from '../scripts/docs-site/generate.ts';
 import {
   resolveBody,
   extractTitle,
   extractGlossaryTerms,
+  extractMermaidBlocks,
   countByType,
   parseProvenance,
   gateDecisionPt,
@@ -918,4 +922,305 @@ test('docs-site: skill do Victor tem frontmatter + escopo --only index + sem pro
   assert.ok(skill.includes('--only index'), 'escopo do Victor');
   assert.ok(skill.includes('index.html'), 'skill referencia index.html');
   assert.ok(/não propõe|n[oã]o.*propor|Nenhum.*prop[oõ]e/i.test(skill), 'declara que não propõe artefato');
+});
+
+// ---- P5: glossário ampliado (todos os tipos + seção ## Glossário + filtro structural) ----
+
+test('extract: extractGlossaryTerms ampliado — bold de sipoc, seção ## Glossário, não vaza ## M1.', () => {
+  // (a) bold agora é minerado de QUALQUER tipo (antes só discovery/pop/report).
+  const fromSipoc = extractGlossaryTerms([
+    {
+      body: '# SIPOC\n\n**Lead**: potencial cliente.\n**MQL**: lead qualificado pelo marketing.',
+      source: 'sipoc',
+    },
+  ]);
+  const sipocNames = fromSipoc.map((t) => t.term);
+  assert.ok(sipocNames.includes('Lead'), 'bold extraído de sipoc (tipo não-narrativo)');
+  assert.ok(sipocNames.includes('MQL'), 'segundo bold de sipoc extraído');
+
+  // (b) seção ## Glossário com ### Termo e item de lista "- Termo: def".
+  const withSection = extractGlossaryTerms([
+    {
+      body: [
+        '# Relatório',
+        '',
+        '## Glossário',
+        '',
+        '### SLA',
+        'Prazo de resposta ao cliente.',
+        '',
+        '- Churn: taxa de cancelamento de clientes.',
+        '- LTV: receita total esperada de um cliente.',
+        '',
+        '## Outra seção',
+        'Não deve virar termo.',
+      ].join('\n'),
+      source: 'process-report',
+    },
+  ]);
+  const secNames = withSection.map((t) => t.term);
+  assert.ok(secNames.includes('SLA'), '### Termo dentro de ## Glossário extraído');
+  assert.ok(secNames.includes('Churn'), 'item de lista "- Termo: def" extraído');
+  assert.ok(secNames.includes('LTV'), 'segundo item de lista extraído');
+
+  // (c) NÃO vaza headings estruturais da hierarquia (regressão da ampliação).
+  const fromHierarchy = extractGlossaryTerms([
+    {
+      body: [
+        '# Hierarquia',
+        '',
+        '## M1. Vendas (Macroprocesso) — pai: Cadeia de Valor',
+        'Gerir o ciclo.',
+        '',
+        '### E1.1. Lead-to-Cash (Processo) — pai: M1',
+        'Ciclo do lead.',
+      ].join('\n'),
+      source: 'hierarchy',
+    },
+  ]);
+  const hierNames = fromHierarchy.map((t) => t.term);
+  assert.ok(
+    !hierNames.some((n) => /^M1\b/.test(n)),
+    'heading hierárquico M1. NÃO vira termo',
+  );
+  assert.ok(
+    !hierNames.some((n) => /^E1\.1\b/.test(n)),
+    'heading hierárquico E1.1 NÃO vira termo',
+  );
+});
+
+// ---- P5: extractMermaidBlocks ----
+
+test('extract: extractMermaidBlocks captura fence + título do heading anterior + múltiplos', () => {
+  const blocks = extractMermaidBlocks([
+    {
+      body: [
+        '# Fluxo do processo',
+        '',
+        '## Visão geral',
+        'Texto antes do diagrama.',
+        '',
+        '```mermaid',
+        'graph TD',
+        '  A[Início] --> B[Fim]',
+        '```',
+        '',
+        '## Cadeia de aprovação',
+        '',
+        '```mermaid',
+        'sequenceDiagram',
+        '  participant U as Usuário',
+        '  U->>G: solicita',
+        '```',
+        '',
+        'sem mais diagramas',
+      ].join('\n'),
+      source: 'flow',
+    },
+  ]);
+  assert.equal(blocks.length, 2, 'dois blocos mermaid');
+  assert.equal(blocks[0].source, 'flow', 'source = artifactType');
+  assert.equal(blocks[0].title, 'Visão geral', 'title = heading imediatamente anterior');
+  assert.ok(blocks[0].code.includes('graph TD'), 'código do 1º bloco capturado (sem fences)');
+  assert.ok(!blocks[0].code.includes('```'), 'código sem os fences');
+  assert.equal(blocks[1].title, 'Cadeia de aprovação', 'title do 2º bloco');
+  assert.ok(blocks[1].code.includes('sequenceDiagram'), 'código do 2º bloco capturado');
+
+  // sem fence → vazio (honesto).
+  assert.equal(extractMermaidBlocks([{ body: '# Só texto\nsem diagrama.', source: 'pop' }]).length, 0);
+  assert.equal(extractMermaidBlocks([{ body: '', source: 'pop' }]).length, 0);
+  // fence sem heading anterior → title default "Diagrama N".
+  const noHeading = extractMermaidBlocks([
+    { body: 'texto\n```mermaid\npie\n  "A": 1\n```', source: 'flow' },
+  ]);
+  assert.equal(noHeading.length, 1);
+  assert.match(noHeading[0].title, /Diagrama 1/, 'title default quando não há heading anterior');
+});
+
+// ---- P5: generate (diagramas.html + mermaid vendorada) ----
+
+/** Fixture mínimo com um artefato flow contendo um bloco mermaid. */
+async function buildMermaidFixture(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-docssite-mmd-'));
+  const manDir = path.join(root, '.process-ai', 'manifests');
+  await fs.mkdir(manDir, { recursive: true });
+  const body = [
+    '# Fluxo — Processo de Vendas',
+    '',
+    '## Cadeia de aprovação',
+    '',
+    '```mermaid',
+    'graph TD',
+    '  A[Proposta] --> B[Aprovação]',
+    '  B --> C[Contrato]',
+    '```',
+    '',
+  ].join('\n');
+  const h = sha(body + 'flow');
+  const short = h.slice(0, 12);
+  const relFile = `_process-ai_output/flow/${short}.md`;
+  await fs.mkdir(path.join(root, '_process-ai_output/flow'), { recursive: true });
+  await fs.writeFile(path.join(root, relFile), body, 'utf8');
+  const manPath = `.process-ai/manifests/flow-${short}.json`;
+  await fs.writeFile(
+    path.join(root, manPath),
+    JSON.stringify({ sha256: h, artifactType: 'flow', artifactPath: relFile }),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(root, '.process-ai', 'checkpoint.json'),
+    JSON.stringify({ stage: 'flow', artifacts: [{ sha256: h, artifactType: 'flow', path: manPath }] }),
+    'utf8',
+  );
+  return root;
+}
+
+test('docs-site: diagramas.html emitida quando há bloco mermaid + dep mermaid vendorada', async () => {
+  const root = await buildMermaidFixture();
+  try {
+    const result = await generateDocs({ root, only: ['diagramas'] });
+    assert.ok(
+      result.pages.includes('_process-ai_output/docs/diagramas.html'),
+      'diagramas.html deve ser gerada',
+    );
+    // mermaid entra em vendoredLibs (advisory honesto — só libs usadas).
+    assert.ok(
+      result.vendoredLibs.some(
+        (v) => v.name === 'mermaid' && v.license === 'MIT' && v.version === '11.16.1',
+      ),
+      'mermaid 11.16.1 MIT em vendoredLibs',
+    );
+    const html = await fs.readFile(path.join(root, '_process-ai_output/docs/diagramas.html'), 'utf8');
+    assert.match(html, /<title>Diagramas/, 'título da página');
+    // referencia mermaid vendorada por caminho relativo.
+    assert.ok(html.includes('assets/vendor/mermaid/11.16.1/mermaid.min.js'), 'script src mermaid vendorado');
+    // código do bloco embutido no div .pa-mermaid (escapado) + <pre> de fallback.
+    assert.ok(html.includes('class="pa-mermaid"'), 'container .pa-mermaid presente');
+    assert.ok(html.includes('pa-fallback'), 'fallback <pre> presente');
+    assert.ok(html.includes('graph TD'), 'código mermaid embutido');
+    // título do heading anterior aparece.
+    assert.ok(html.includes('Cadeia de aprovação'), 'título do diagrama renderizado');
+    // pageScript chama mermaid.run dentro de DOMContentLoaded (invariante p/ lib defer).
+    assert.ok(html.includes('mermaid.run'), 'script chama mermaid.run');
+    assert.ok(html.includes("window.addEventListener('DOMContentLoaded'"), 'DOMContentLoaded wrap');
+    // a lib mermaid foi copiada para o output (file:// offline).
+    const mmdOut = path.join(root, '_process-ai_output/docs/assets/vendor/mermaid/11.16.1/mermaid.min.js');
+    const st = await fs.stat(mmdOut);
+    assert.ok(st.isFile(), 'mermaid.min.js copiado para assets/vendor');
+    assert.ok(st.size > 3_000_000, 'mermaid.min.js tem tamanho esperado (~3.5 MB)');
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test('docs-site: diagramas suprimida (warning) quando não há bloco mermaid', async () => {
+  const root = await buildFixture(); // fixture canônico sem blocos mermaid
+  try {
+    const result = await generateDocs({ root, only: ['diagramas'] });
+    assert.ok(
+      !result.pages.includes('_process-ai_output/docs/diagramas.html'),
+      'diagramas.html NÃO deve ser gerada sem blocos mermaid',
+    );
+    assert.ok(
+      result.warnings.some((w) => /mermaid/i.test(w)),
+      'deve registrar warning de ausência de blocos mermaid',
+    );
+    assert.ok(
+      !result.vendoredLibs.some((v) => v.name === 'mermaid'),
+      'mermaid NÃO entra em vendoredLibs (página não gerada)',
+    );
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+// ---- P5: resolveVendorDir (fix do blocker 3D/D3/ECharts) ----
+
+test('generate: resolveVendorDir — dev (source), dist-like (publicado) e ausência', async () => {
+  // (a) dev: o diretório vendor ao lado do gerador (source) existe.
+  const here = path.resolve(import.meta.dirname, '..', 'scripts', 'docs-site');
+  const dev = resolveVendorDir(here);
+  assert.ok(dev, 'dev: encontra vendor ao lado do source');
+  assert.ok(dev.endsWith(path.join('scripts', 'docs-site', 'vendor')), 'dev: caminho esperado');
+
+  // (b) dist-like (publicado): here numa subárvore dist/scripts/docs-site com vendor
+  //     só em <raiz>/scripts/docs-site/vendor — modelo do pacote npm (vendor shipado via
+  //     files: scripts/docs-site/, NÃO copiado para dist/). Reproduz o bug de campo.
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-vendor-dist-'));
+  try {
+    const vendorRoot = path.join(tmp, 'scripts', 'docs-site', 'vendor', 'three', '0.137.0');
+    await fs.mkdir(vendorRoot, { recursive: true });
+    await fs.writeFile(path.join(vendorRoot, 'three.min.js'), '// dummy', 'utf8');
+    const hereDist = path.join(tmp, 'dist', 'scripts', 'docs-site');
+    await fs.mkdir(hereDist, { recursive: true });
+    const found = resolveVendorDir(hereDist);
+    assert.ok(found, 'dist-like: encontra vendor subindo até <raiz>/scripts/docs-site/vendor');
+    assert.equal(
+      found,
+      path.join(tmp, 'scripts', 'docs-site', 'vendor'),
+      'dist-like: resolve exatamente o vendor da raiz do pacote',
+    );
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+
+  // (c) ausência: nenhum vendor em lugar nenhum → null (caller avisa, não anuncia libs).
+  const empty = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-vendor-empty-'));
+  try {
+    const hereEmpty = path.join(empty, 'dist', 'scripts', 'docs-site');
+    await fs.mkdir(hereEmpty, { recursive: true });
+    assert.equal(resolveVendorDir(hereEmpty), null, 'ausência: retorna null');
+  } finally {
+    await fs.rm(empty, { recursive: true, force: true });
+  }
+});
+
+test('docs-site: vendor copiado para assets/vendor no layout dev (three/d3/echarts/mermaid)', async () => {
+  // Smoke do fix: rodando pelo source (dev), as 4 libs são copiadas para o outDir.
+  const root = await buildFixture();
+  try {
+    await generateDocs({ root });
+    const base = path.join(root, '_process-ai_output/docs/assets/vendor');
+    for (const rel of [
+      'three/0.137.0/three.min.js',
+      'd3/7/d3.min.js',
+      'echarts/5.5.0/echarts.min.js',
+      'mermaid/11.16.1/mermaid.min.js',
+    ]) {
+      const st = await fs.stat(path.join(base, rel));
+      assert.ok(st.isFile(), `${rel} copiado para assets/vendor`);
+    }
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+// ---- P5: header light-first + nav com Diagramas ----
+
+test('docs-site: header light-first — tokens claros no CSS base + nav inclui Diagramas', async () => {
+  const root = await buildFixture();
+  try {
+    await generateDocs({ root, only: ['glossario'] });
+    const html = await fs.readFile(path.join(root, '_process-ai_output/docs/glossario.html'), 'utf8');
+    // CSS base (light-first): tokens claros definidos em :root ANTES do @media dark.
+    const styleOpen = html.indexOf('<style>');
+    const styleClose = html.indexOf('</style>');
+    assert.ok(styleOpen > -1 && styleClose > styleOpen, 'bloco <style> presente');
+    const style = html.slice(styleOpen, styleClose);
+    const mediaDark = style.indexOf('@media (prefers-color-scheme: dark)');
+    assert.ok(mediaDark > -1, 'bloco @media dark presente (override, não base)');
+    const baseStyle = style.slice(0, mediaDark);
+    // base (light-first) define fundo claro e ink escuro.
+    assert.ok(/--bg:\s*#fff/.test(baseStyle), 'base light-first: --bg claro (#fff…)');
+    assert.ok(/--ink:\s*#0f172a/.test(baseStyle), 'base light-first: --ink escuro (#0f172a)');
+    // o override dark está DEPOIS da base (dark-first original foi invertido).
+    const darkStyle = style.slice(mediaDark);
+    assert.ok(/--bg:\s*#0d1117/.test(darkStyle), 'override dark: --bg escuro');
+    // nav base inclui Diagramas (descoberta da página).
+    assert.ok(html.includes('Diagramas'), 'nav base inclui link Diagramas');
+    // active-detection script presente (marca o link da página corrente).
+    assert.ok(html.includes('classList.add'), 'script de active-nav presente');
+  } finally {
+    await fs.rm(root, { recursive: true, force: true });
+  }
 });

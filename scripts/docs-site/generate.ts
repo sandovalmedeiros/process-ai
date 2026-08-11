@@ -18,7 +18,7 @@
  * páginas geradas — padrão Guilherme two-step (AD-1 preservado).
  */
 
-import { promises as fs } from 'node:fs';
+import { promises as fs, existsSync } from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -26,6 +26,7 @@ import {
   resolveBody,
   extractTitle,
   extractGlossaryTerms,
+  extractMermaidBlocks,
   countByType,
   parseProvenance,
   gateDecisionPt,
@@ -41,6 +42,7 @@ import {
 import { renderIndexPage } from './render/index.ts';
 import { renderTopologiaPage } from './render/topologia.ts';
 import { renderGlossaryPage } from './render/glossary.ts';
+import { renderDiagramasPage } from './render/diagramas.ts';
 import { renderCronogramaPage, type TimelineEntry } from './render/cronograma.ts';
 import { renderDeckPage, type DeckSlide } from './render/deck.ts';
 import { renderProcessoPage, renderProcessoIndex } from './render/processo.ts';
@@ -66,6 +68,8 @@ export interface VendoredLib {
   version: string;
   license: string;
   sourceUrl: string;
+  /** Caminho relativo em vendor/ (ex.: 'd3/7/d3.min.js') — casa com `vendorDeps` e com o que `copyVendor` copiou. */
+  vendorPath: string;
 }
 
 export interface GenerateResult {
@@ -86,15 +90,18 @@ const DOCS_SITE_VERSION = 'process-ai-docs-site/v0.1.0';
  * foi efetivamente gerada (honesto — não anuncia o que não usou).
  */
 const VENDOR_REGISTRY: Record<string, VendoredLib> = {
-  d3: { name: 'd3', version: '7.9.0', license: 'ISC', sourceUrl: 'https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js' },
+  d3: { name: 'd3', version: '7.9.0', license: 'ISC', sourceUrl: 'https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js', vendorPath: 'd3/7/d3.min.js' },
   // r137 = último build UMD limpo (sem console.warn de deprecation). r160+ é ESM-only
   // (sem global window.THREE), o que quebraria o padrão offline file:// + <script defer>.
   // API usada (Scene/Camera/WebGLRenderer/BufferGeometry/LineSegments/…) estável desde ~r100.
-  three: { name: 'three', version: '0.137.0', license: 'MIT', sourceUrl: 'https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js' },
+  three: { name: 'three', version: '0.137.0', license: 'MIT', sourceUrl: 'https://cdn.jsdelivr.net/npm/three@0.137.0/build/three.min.js', vendorPath: 'three/0.137.0/three.min.js' },
   // echarts 5.5.0: build UMD expõe global `window.echarts` (compatível com o
   // padrão offline file:// + <script defer> + DOMContentLoaded). API usada
   // (init/setOption, series treemap/pie/bar) estável desde 5.0.
-  echarts: { name: 'echarts', version: '5.5.0', license: 'Apache-2.0', sourceUrl: 'https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js' },
+  echarts: { name: 'echarts', version: '5.5.0', license: 'Apache-2.0', sourceUrl: 'https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js', vendorPath: 'echarts/5.5.0/echarts.min.js' },
+  // mermaid 11.16.1: bundle esbuild ESM→IIFE sem dynamic import() (viable em file://).
+  // Em <script defer> clássico, anexa window.mermaid (initialize/run/render). Degrada p/ <pre>.
+  mermaid: { name: 'mermaid', version: '11.16.1', license: 'MIT', sourceUrl: 'https://cdn.jsdelivr.net/npm/mermaid@11.16.1/dist/mermaid.min.js', vendorPath: 'mermaid/11.16.1/mermaid.min.js' },
 };
 
 interface LoadedArtifact {
@@ -141,8 +148,8 @@ function shortSha(sha: string): string {
   return (sha || '').slice(0, 12);
 }
 
-/** Copia recursivamente *.js de vendor/ → outDir/assets/vendor/ (no-op se vazio). */
-async function copyVendor(vendorSrc: string, vendorOut: string): Promise<string[]> {
+/** Copia recursivamente *.js de vendor/ → outDir/assets/vendor/ (no-op se vazio). Retorna caminhos RELATIVOS a vendorSrc. */
+async function copyVendor(vendorSrc: string, vendorOut: string, rel = ''): Promise<string[]> {
   const copied: string[] = [];
   let entries: import('node:fs').Dirent[];
   try {
@@ -153,15 +160,44 @@ async function copyVendor(vendorSrc: string, vendorOut: string): Promise<string[
   for (const e of entries) {
     const src = path.join(vendorSrc, e.name);
     const dst = path.join(vendorOut, e.name);
+    const childRel = rel ? `${rel}/${e.name}` : e.name;
     if (e.isDirectory()) {
-      copied.push(...(await copyVendor(src, dst)));
+      copied.push(...(await copyVendor(src, dst, childRel)));
     } else if (e.isFile() && e.name.endsWith('.js')) {
       await fs.mkdir(path.dirname(dst), { recursive: true });
       await fs.copyFile(src, dst);
-      copied.push(e.name);
+      copied.push(childRel);
     }
   }
   return copied;
+}
+
+/**
+ * Resolve o diretório vendor nos dois layouts de execução:
+ *  - dev: roda de scripts/docs-site/ → vendor ao lado (./vendor).
+ *  - publicado/CLI: roda de dist/scripts/docs-site/ → vendor NÃO está ao lado
+ *    (copy-assets.cjs não o copia para dist/); é shipado em <raiz>/scripts/docs-site/vendor
+ *    via o campo `files`. Sobe até a raiz do pacote e procura scripts/docs-site/vendor.
+ * Prova cada candidato pela presença de three/0.137.0/three.min.js (lib canônica).
+ * Retorna null se nenhum existir — caller avisa (warnings) e NÃO anuncia libs (honesto).
+ */
+export function resolveVendorDir(here: string): string | null {
+  const probe = (dir: string): boolean => existsSync(path.join(dir, 'three', '0.137.0', 'three.min.js'));
+  const candidates = [
+    path.join(here, 'vendor'), // dev
+    path.join(here, '..', '..', '..', 'scripts', 'docs-site', 'vendor'), // publicado: dist/scripts/docs-site → <raiz>/scripts/docs-site/vendor
+  ];
+  for (const c of candidates) if (probe(c)) return c;
+  // walk-up: cobre layouts node_modules/... aninhados.
+  let dir = here;
+  for (let i = 0; i < 10; i++) {
+    const cand = path.join(dir, 'scripts', 'docs-site', 'vendor');
+    if (probe(cand)) return cand;
+    const parent = path.dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return null;
 }
 
 export async function generateDocs(opts: GenerateOptions): Promise<GenerateResult> {
@@ -245,6 +281,7 @@ export async function generateDocs(opts: GenerateOptions): Promise<GenerateResul
       { key: 'hierarquia-3d', href: 'hierarquia-3d.html', label: 'Hierarquia 3D', hint: 'Árvore 3D interativa (Three.js): Macro → Tarefa' },
       { key: 'fornecedores-clientes', href: 'fornecedores-clientes.html', label: 'Fornecedores & clientes', hint: 'Grafo interativo (D3): fornecedores → cadeia → clientes' },
       { key: 'metricas', href: 'metricas.html', label: 'Métricas', hint: 'Cobertura, níveis e composição (ECharts)' },
+      { key: 'diagramas', href: 'diagramas.html', label: 'Diagramas', hint: 'Fluxos e hierarquias Mermaid dos artefatos' },
       { key: 'cronograma', href: 'cronograma.html', label: 'Cronograma', hint: 'Linha do tempo da sessão (gates + commits)' },
       { key: 'glossario', href: 'glossario.html', label: 'Glossário', hint: 'Termos do processo, com busca' },
       { key: 'deck', href: 'deck.html', label: 'Deck', hint: 'Apresentação navegável para stakeholders' },
@@ -350,12 +387,25 @@ export async function generateDocs(opts: GenerateOptions): Promise<GenerateResul
   }
 
   if (want('glossario')) {
+    // Mineração ampliada: BOLD_TERM/HEADING_TERM/seção ## Glossário sobre TODOS os
+    // artefatos (antes só 3 tipos — frágil, saía vazio se o pipeline não os gerou).
     const terms = extractGlossaryTerms(
-      loaded
-        .filter((l) => l.artifactType === 'discovery-interview' || l.artifactType === 'pop' || l.artifactType === 'process-report')
-        .map((l) => ({ body: l.body, source: l.artifactType })),
+      loaded.map((l) => ({ body: l.body, source: l.artifactType })),
     );
-    await emit('glossario.html', renderGlossaryPage(terms));
+    await emit('glossario.html', renderGlossaryPage(terms, loaded.length));
+  }
+
+  // 4a-quin. Diagramas Mermaid (blocos ```mermaid embebidos nos artefatos).
+  if (want('diagramas')) {
+    const diagrams = extractMermaidBlocks(
+      loaded.map((l) => ({ body: l.body, source: l.artifactType })),
+    );
+    if (diagrams.length) {
+      await emit('diagramas.html', renderDiagramasPage({ diagrams }));
+      usedVendors.add('mermaid'); // advisory: mermaid efetivamente usada por esta página.
+    } else {
+      warnings.push('Nenhum bloco ```mermaid encontrado nos artefatos — página diagramas.html suprimida.');
+    }
   }
 
   // 4b. Cronograma (timeline de gates + commits, com ts do provenance).
@@ -477,13 +527,27 @@ export async function generateDocs(opts: GenerateOptions): Promise<GenerateResul
     );
   }
 
-  // 5. Copiar vendor (P0: dir existe mas sem *.js → no-op).
+  // 5. Copiar vendor. resolveVendorDir cobre dev (scripts/docs-site/vendor) e o layout
+  // publicado (vendor shipado em <raiz>/scripts/docs-site/vendor, NÃO em dist/). Sem isso,
+  // o pacote publicado copia 0 arquivos → os <script src=assets/vendor/…> falham sob file://
+  // e os visuais 3D/D3/ECharts caem no fallback (bug de campo, fix 0.12.0).
   const here = path.dirname(fileURLToPath(import.meta.url));
-  const copied = await copyVendor(path.join(here, 'vendor'), path.join(outDir, 'assets', 'vendor'));
+  const vendorSrc = resolveVendorDir(here);
+  const copied = vendorSrc
+    ? await copyVendor(vendorSrc, path.join(outDir, 'assets', 'vendor'))
+    : [];
   if (copied.length) pages.push(`${OUTPUT_REL}/assets/vendor/`);
-  // vendoredLibs: só libs efetivamente usadas por páginas geradas (advisory honesto).
+  if (!vendorSrc) {
+    warnings.push(
+      'Diretório vendor não encontrado — visuais 3D/grafo/métricas/diagramas podem não carregar. ' +
+        'Reinstale o módulo: npm install process-ai@latest.',
+    );
+  }
+  // vendoredLibs: libs (a) usadas por páginas geradas E (b) efetivamente copiadas para o
+  // outDir. Honestidade dupla — não anuncia o que não usou nem o que não shipou.
   const vendoredLibs: VendoredLib[] = Object.keys(VENDOR_REGISTRY)
     .filter((name) => usedVendors.has(name))
+    .filter((name) => copied.includes(VENDOR_REGISTRY[name].vendorPath))
     .map((name) => VENDOR_REGISTRY[name]);
 
   const indexUrl =
