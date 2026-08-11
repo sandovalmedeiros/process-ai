@@ -65,14 +65,24 @@ function pushTerm(
   if (!t || t.length < 3 || seen.has(key)) return;
   // Filtra "ruído" de headings genéricos.
   if (/^(gloss[áa]rio|introdu[cç][ãa]o|resumo|observa[cç][õo]es|anexo)s?$/i.test(t)) return;
-  // Filtra headings estruturais (não são termos): ID hierárquico (M1./E1.1./A1.1.1.1.),
-  // heading de POP, ou linha com marcador "— pai:" da hierarquia. Necessário desde que a
-  // mineração passou a rodar sobre TODOS os artefatos (antes só 3 tipos narrativos).
-  if (/^[MEST]\d+(\.\d+)*\./.test(t)) return;
+  // Filtra headings estruturais (não são termos): ID hierárquico (M1./E1.1./…),
+  // heading de POP, ou linha com marcador "— pai:" da hierarquia.
+  if (/^[MEST]\d+(\.\d+)*\.(?:\s|$)/.test(t)) return;
   if (/^pop\b/i.test(t)) return;
   if (/—\s*pai\s*:/i.test(t)) return;
+  // Filtros de qualidade: ruído de artefatos de relatório (process-report, summary-report).
+  // (a) Claim IDs: sipoc-fbd1386e…-N, flow-8d66edd9…-N, hierarchy-212735ab…-N, etc.
+  if (/^(sipoc|value-chain|hierarchy|flow-image|flow|process-report|summary-report|discovery-interview|reference-material)-[0-9a-f]{12,}/i.test(t)) return;
+  // (b) Marcadores de confiança no início do termo — cabeçalhos de seção de claims.
+  if (/^[🟢🟡🔴]/.test(t)) return;
+  // (c) Definição é fence de código, linha de tabela, ou começa com ref de claim.
+  const df = definition.trim();
+  if (/^`{3,}/.test(df)) return;
+  if (/^\|.+\|$/.test(df)) return;
+  // (d) Termo é linha de sumário numérica ("4 gargalos, 5 gaps…").
+  if (/^\d+\s+(gargalos|gaps|recomendações|afirmações|claims?|itens)\b/i.test(t)) return;
   seen.add(key);
-  out.push({ term: t, definition: definition.replace(/\*\*/g, '').trim(), source });
+  out.push({ term: t, definition: df.replace(/\*\*/g, ''), source });
 }
 
 /** Extrai termos de glossário de bodies markdown. Padrões (em QUALQUER artefato):
