@@ -52,7 +52,8 @@ escrita acontece pelo canal de runtime **`process-ai`** (CLI executado via Bash)
    ```bash
    cat _process-ai_output/flow/<sha>.md
    ```
-4. Extraia o BPMN 2.0 XML do campo `body`.
+4. O arquivo já contém o BPMN 2.0 XML puro — use-o diretamente. (Se o conteúdo
+   vier como `{"body":"..."}`, extraia o XML do campo `body` — formato legado.)
 
 ### Passo 2 — Renderizar
 

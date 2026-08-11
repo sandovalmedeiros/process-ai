@@ -74,10 +74,16 @@ test('AC4: propose() é pass-through e delega ao commit (CommitResult, sem muta�
       norm(result.artifactPath).startsWith(norm(tmp)),
       'artifactPath deve estar sob o cwd injetado (não no repo do framework)',
     );
-    // (c) conteúdo lido de _process-ai_output/ é deep-equal ao payload.content
+    // (c) conteúdo lido de _process-ai_output/ é o body markdown cru (não envelope JSON).
+    // O artefato em disco é o `body` extraído pelo commit (artifactBytes); campos
+    // estruturados (suppliers/outputs) são validados pelo schema mas não persistem.
     // P12: fs.readFile aceita paths com `/` no Windows
-    const committed = JSON.parse(await fs.readFile(result.artifactPath, 'utf8'));
-    assert.deepEqual(committed, payload.content, 'conteúdo commitado deve igualar payload.content');
+    const committed = await fs.readFile(result.artifactPath, 'utf8');
+    assert.equal(
+      committed,
+      (payload.content as { body: string }).body,
+      'artefato deve conter o body markdown cru (não envelope JSON {"body":...})',
+    );
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
   }

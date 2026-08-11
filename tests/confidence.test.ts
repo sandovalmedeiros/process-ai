@@ -716,9 +716,10 @@ test('AC1+AC3: commit com claims válidos → artefato + ledger gravados', async
     assert.equal(e1.validated, '🟡');
     assert.equal(e1.degradationReason, undefined);
 
-    // Manifesto + artefato devem existir
-    const files = await listFiles(path.join(root, '_process-ai_output'));
-    assert.ok(files.some((f) => f.includes(result.sha256)), 'artefato deve existir');
+    // Manifesto + artefato devem existir (result.artifactPath é a fonte de verdade do nome;
+    // desde os "nomes legíveis" o arquivo é <slug>--<hash12>.md, não <sha64>.md).
+    await fs.access(result.artifactPath);
+    await fs.access(path.join(root, '.process-ai', 'manifests', `sipoc-${result.sha256}.json`));
   } finally {
     await fs.rm(root, { recursive: true, force: true });
   }

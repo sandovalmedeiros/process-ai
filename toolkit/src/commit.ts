@@ -121,6 +121,31 @@ export function sha256(canonical: string): string {
   return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
 
+/**
+ * Bytes do artefato: o que é hashado (→ digest do manifesto) E escrito no arquivo
+ * `.md` em `_process-ai_output/`. A mesma string nos dois lados preserva o AC2
+ * (re-hash do arquivo no disco == sha do manifesto) por construção.
+ *
+ * Regra:
+ *  - objeto com `body` string (schema-núcleo v1.1 — todo artifactType conhecido
+ *    exige `body`): o artefato é o markdown/XML do `body`, legível e renderizável.
+ *  - string (tipos desconhecidos/futuros que não passam por schema): passa direta.
+ *  - objeto sem `body`: fallback canônico JSON (stableStringify).
+ *
+ * NOTA arquitetural: campos estruturados opcionais (`suppliers`, `levels`,
+ * `source_file`, `links`, ...) são VALIDADOS pelo schema-core mas NÃO persistem
+ * no arquivo nem no hash — o artefato em disco é o `body`. Hoje nenhum consumidor
+ * (verifyExcerpt, report) lê esses campos de volta; eles são advisory-only.
+ */
+function artifactBytes(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (content !== null && typeof content === 'object' && !Array.isArray(content)) {
+    const obj = content as Record<string, unknown>;
+    if (typeof obj.body === 'string') return obj.body;
+  }
+  return canonicalize(content);
+}
+
 // ---- T2: paths + escopo + sanitização do artifactType (AC1, AC3) ----
 
 /** Resolve a raiz da sessão (default = cwd onde a sessão roda = projeto-alvo). */
@@ -586,9 +611,11 @@ export async function commit(
     }
   }
 
-  // 2) CANONICALIZAÇÃO + SHA-256 determinístico (zero IO) — AC2/AC5
-  const canonical = canonicalize(payload.content);
-  const digest = sha256(canonical);
+  // 2) BYTES DO ARTEFATO + SHA-256 determinístico (zero IO) — AC2/AC5.
+  // artifactBytes extrai o `body` (markdown/XML cru) quando content é {body};
+  // os mesmos bytes são hashados e escritos → sha do manifesto == sha do arquivo.
+  const bytes = artifactBytes(payload.content);
+  const digest = sha256(bytes);
 
   // 3) SANITIZAÇÃO do artifactType (zero IO) — AC3
   const artifactType = sanitizeArtifactType(payload.artifactType);
@@ -638,8 +665,8 @@ export async function commit(
       } satisfies WalIntent,
       async () => {
         // Escritas (atômicas por arquivo) — só aqui há IO.
-        // Artefato: bytes canônicos (hash == sha do manifesto).
-        await atomicWriteFile(artifactPath, canonical);
+        // Artefato: bytes do body markdown/XML (hash == sha do manifesto — AC2 por construção).
+        await atomicWriteFile(artifactPath, bytes);
         // Manifesto: byte-estável (sem timestamp) → idempotente em re-commit.
         const manifest: Record<string, unknown> = {
           sha256: digest,
