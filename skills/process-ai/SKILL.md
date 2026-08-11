@@ -1,6 +1,6 @@
 ---
 name: process-ai
-description: Déa conduz o mapeamento ponta-a-ponta de um processo (escopo → SIPOC → hierarquia → BPMN → visualização → POP → relatório), com gates de qualidade, sessão resumível e entregável final commitado. Framework process-ai (walking skeleton).
+description: Déa conduz o mapeamento ponta-a-ponta de um processo (escopo → SIPOC → hierarquia → BPMN → visualização → POP → relatório), com gates de qualidade, sessão resumível e entregável final commitado. Gerencia o portfólio de N processos de um projeto (cada processo = entidade; pastas autossuficientes). Framework process-ai.
 ---
 
 # process-ai — Déa, a condutora
@@ -32,9 +32,56 @@ Comandos disponíveis (execute via Bash, no diretório do projeto-alvo):
 
 ---
 
+## 0. Portfólio de processos (um projeto mapeia N processos)
+
+Um projeto de mapeamento geralmente cobre **vários processos** — cada um atrelado
+a uma entidade (empresa, setor, órgão, etc.). O framework organiza cada processo
+na sua própria pasta autossuficiente `processos/<nome-reduzido>/`, com checkpoint,
+artefatos e mini-site próprios. A Déa **gerencia esse portfólio**: levanta os
+processos, rastreia o progresso de cada um e conduz um de cada vez — para que
+nenhum processo do projeto fique esquecido.
+
+**Ao receber `/process-ai`, PRIMEIRO determine o modo** (sempre na **raiz do projeto**):
+
+1. Execute `npx process-ai process list` (via Bash, na raiz do projeto).
+2. Avalie o retorno (JSON: lista de `{ slug, name, stage, path }`):
+   - **Lista NÃO-VAZIA** → **modo portfólio**. Mostre ao usuário os processos com
+     o stage de cada um (ex.: ✅ `summary` mapeado · ⏳ `mapping` em andamento ·
+     ⬜ `nao-iniciado`). Pergunte: *qual processo continuar?* ou *adicionar um novo?*
+   - **Lista VAZIA**:
+     - Se existir `.process-ai/checkpoint.json` na raiz → **modo legado** (projeto
+       single-process-at-root, anterior ao portfólio). Siga a Seção 1+ **na raiz**,
+       sem portfólio. Não force a migração.
+     - Se não houver checkpoint na raiz → **ofereça criar o 1º processo**:
+       > **Déa pergunta:** *"Qual processo vamos mapear primeiro? (entidade +
+       > processo — ex.: 'Vendas — Lead-to-Cash', 'Compras — Pagamento')"*
+       Crie com `npx process-ai process add "<nome>"` (na raiz) e capture o
+       `slug` e `path` do JSON retornado.
+3. **No modo portfólio**, definido o processo ativo `<slug>`: TODAS as seções
+   seguintes (1–N: gates, descoberta, SIPOC, hierarquia, BPMN, render, POP,
+   relatório, site) rodam **escopadas à pasta `processos/<slug>/`**. Execute cada
+   comando `npx process-ai …` precedido de `cd processos/<slug> &&` (ou rode a
+   partir daquela pasta). Os `artifactPath`/`manifestPath` retornados já são
+   relativos à pasta do processo.
+4. **Ao concluir um processo** (stage `summary` ou final): volte à raiz, rode
+   `npx process-ai process list` e ofereça o próximo processo pendente — ou
+   encerre o engajamento se todos estiverem mapeados.
+
+> **Invariante (AD-1):** o ledger `.process-ai/portfolio.json` e as pastas
+> `processos/<slug>/` só são criados pelo toolkit (`process add`). A Déa nunca
+> escreve diretamente. Dentro de cada pasta de processo valem todas as invariantes
+> habituais (AD-1..AD-6) — o processo é um mini-projeto completo, e o toolkit
+> existente roda inalterado (root = cwd = a pasta do processo).
+
+---
+
 ## 1. Início — retomar ou começar (AC5)
 
-Ao receber `/process-ai`, **antes de qualquer coisa**:
+> **Contexto de diretório:** esta seção roda no diretório decidido na Seção 0 — a
+> pasta `processos/<slug>/` no **modo portfólio**, ou a raiz do projeto no **modo
+> legado**. Em modo portfólio, prefixe os comandos com `cd processos/<slug> &&`.
+
+Ao receber `/process-ai`, **após a Seção 0 definir o processo ativo**:
 
 1. Execute `npx process-ai resume` (via Bash).
 2. Avalie o retorno:

@@ -6,7 +6,7 @@ Voltado para **Pequenas e Médias Empresas**, o process-ai coloca uma equipe de 
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-381%20passing-brightgreen)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-421%20passing-brightgreen)](./tests/)
 
 ---
 
@@ -76,7 +76,11 @@ npx process-ai uninstall [--target <dir>] [--purge]  # remove skills + manifest
 npx process-ai ingest   --path <arquivo|diretório>   # ingere PDF/DOCX/PPTX/XLSX/CSV/XML como reference-material
 npx process-ai render-flow --input <flow.md>          # renderiza o artefato flow como PNG+SVG (Guilherme)
 npx process-ai generate-site [--only <a,b,c>]         # gera/regenera o mini-site HTML (Monique + sub-agentes)
+npx process-ai process add "<nome>"                   # cria um processo no portfólio (pasta autossuficiente processos/<slug>/)
+npx process-ai process list                           # lista os processos do projeto + stage de cada um
 ```
+
+> **🗂️ Portfólio de processos:** um projeto mapeia **N processos** (cada um = uma entidade: empresa/setor/órgão). `process add` cria `processos/<nome-reduzido>/` — um mini-projeto autossuficiente com próprio `_process-ai_output/` + `.process-ai/checkpoint.json`. A Déa conduz cada processo ponta-a-ponta dentro da sua pasta (o toolkit roda inalterado, escopado via cwd). `process list` mostra o portfólio e o stage de cada processo. Projetos legados (single-process-at-root) seguem funcionando — o portfólio é opt-in.
 
 > **🎨 Renderização do fluxo (opcional):** `render-flow` exige o runtime **Playwright** (`npm i playwright`). No Windows, o Edge do sistema é usado automaticamente (sem download do Chromium de ~150 MB); em outros SOs, rode `npx playwright install chromium`. Sobrescreva o navegador com `PA_BROWSER=msedge|chrome|chromium`. Sem Playwright, o comando sai com 🔴 e uma mensagem pt-BR — o **BPMN XML canônico (AD-6) permanece salvo** e pode ser renderizado depois.
 
@@ -224,7 +228,7 @@ Cada pack declara schemas **aditivos** (estendem o schema-núcleo sem redefinir)
 git clone https://github.com/sandovalmedeiros/process-ai.git
 cd process-ai
 npm install
-npm test          # 381 testes, 0 falhas
+npm test          # 421 testes, 0 falhas
 npm run typecheck # tsc --noEmit
 ```
 
@@ -239,7 +243,7 @@ process-ai/
 ├── skills/                 # Skills dos agentes
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1
-├── tests/                  # Testes determinísticos (381)
+├── tests/                  # Testes determinísticos (421)
 └── docs/                   # Documentação
 ```
 

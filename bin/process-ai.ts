@@ -55,6 +55,7 @@ import { gatherInstallOptions } from '../toolkit/src/installer/prompts.ts';
 import * as readline from 'node:readline/promises';
 import { ingest, supportedFormats } from '../toolkit/src/ingest.ts';
 import { ensureRenderDeps } from '../toolkit/src/installer/playwright-deps.ts';
+import { addProcess, listProcesses } from '../toolkit/src/portfolio.ts';
 
 // ---- Tipos ----
 
@@ -96,6 +97,13 @@ export type ParsedCommand =
       only?: string[];
       /** Força um seed determinístico (default: derivado dos artefatos pelo gerador). */
       seed?: string;
+    }
+  | {
+      kind: 'process';
+      /** Ação do portfólio de processos. */
+      action: 'add' | 'list';
+      /** Nome humano do processo (apenas para `add`). */
+      name?: string;
     };
 
 /** Resultado canônico de um dispatch (o que `main` imprime em stdout). */
@@ -177,6 +185,14 @@ Subcomandos (o agente invoca via Bash; TODA escrita passa pelo toolkit):
       cwd; --only regenera só páginas específicas (sub-agentes: index,
       fornecedores-clientes, hierarquia-3d, metricas, cronograma, glossario, deck,
       processos); --seed força um seed determinístico. Imprime o GenerateResult (JSON).
+  process add "<nome>" | process list
+      Portfólio de processos do projeto (multi-processo). 'add' cria
+      processos/<slug>/ (slug derivado do nome) — um mini-projeto autossuficiente
+      com próprio _process-ai_output/ + .process-ai/checkpoint.json — e registra no
+      ledger .process-ai/portfolio.json. 'list' mostra cada processo + stage
+      corrente (deriva do checkpoint de cada um). Roda na RAIZ do projeto; o
+      pipeline de cada processo roda escopado via cwd (cd processos/<slug>).
+      Imprime {slug,name,path} (add) ou [{slug,name,stage,path}] (list) em JSON.
 
 Pastas protegidas: escrita só em _process-ai_output/ (artefatos) e .process-ai/
 (manifestos, checkpoint, WAL, ledger, provenance) — sempre via toolkit, nunca
@@ -356,6 +372,34 @@ export function parseArgs(argv: string[]): ParsedCommand {
         only: only && only.length > 0 ? only : undefined,
         seed: flags.get('--seed'),
       };
+    }
+    case 'process': {
+      // Ação posicional (add|list) + nome posicional p/ `add`. NÃO usa parseFlags
+      // (que rejeita positionals). `process add "<nome>"` / `process list`.
+      // Roda na raiz do PROJETO (root = cwd); cada processo é um mini-projeto
+      // autossuficiente em processos/<slug>/ (o pipeline roda escopado via cwd).
+      const action = rest[0];
+      if (action === 'list') {
+        if (rest.length > 1) {
+          throw new Error(
+            `O subcomando "process list" não aceita argumentos (recebeu: ${rest.slice(1).join(' ')}).\n\n${HELP}`,
+          );
+        }
+        return { kind: 'process', action: 'list' };
+      }
+      if (action === 'add') {
+        // Junta positionais pós-`add` num único nome (permui uso sem aspas no shell).
+        const name = rest.slice(1).join(' ').trim();
+        if (!name) {
+          throw new Error(
+            `O subcomando "process add" exige o nome do processo. Use: process-ai process add "<nome>" (ex.: "Vendas — Lead-to-Cash").\n\n${HELP}`,
+          );
+        }
+        return { kind: 'process', action: 'add', name };
+      }
+      throw new Error(
+        `Ação inválida para "process": "${action ?? ''}". Esperado: process add "<nome>" | process list.\n\n${HELP}`,
+      );
     }
     case 'install': {
       // --target (default cwd), --ide (v1 só claude-code), --pack, --full, --status.
@@ -693,6 +737,23 @@ export async function dispatch(
         seed: cmd.seed,
       });
       return { ok: true, output: JSON.stringify(result) };
+    }
+
+    case 'process': {
+      // Portfólio de processos (raiz do PROJETO = root). Cada processo é um
+      // mini-projeto autossuficiente em processos/<slug>/; o pipeline roda
+      // escopado via cwd (commit/checkpoint/resume inalterados). AD-1: o ledger
+      // só é escrito pelo toolkit (aqui).
+      if (cmd.action === 'add') {
+        const name = cmd.name;
+        if (!name) {
+          throw new Error('process add exige o nome do processo (erro interno: parseArgs deveria garantir).');
+        }
+        const added = await addProcess(root, name);
+        return { ok: true, output: JSON.stringify(added) };
+      }
+      const list = await listProcesses(root);
+      return { ok: true, output: JSON.stringify(list) };
     }
   }
 }

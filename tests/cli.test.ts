@@ -220,6 +220,46 @@ test('parseArgs: generate-site flag desconhecida → erro', () => {
   assert.throws(() => parseArgs(['generate-site', '--pages', 'x']), /desconhecid/i);
 });
 
+// ---- parseArgs: process (portfólio de processos) ----
+
+test('parseArgs: process add "<nome>" → {action:add, name}', () => {
+  const cmd = parseArgs(['process', 'add', 'Vendas (Lead-to-Cash)']);
+  assert.equal(cmd.kind, 'process');
+  if (cmd.kind !== 'process') return; // type narrow
+  assert.equal(cmd.action, 'add');
+  assert.equal(cmd.name, 'Vendas (Lead-to-Cash)');
+});
+
+test('parseArgs: process add sem aspas junta positionais num nome', () => {
+  const cmd = parseArgs(['process', 'add', 'Vendas', 'Lead', 'to', 'Cash']);
+  assert.equal(cmd.kind, 'process');
+  if (cmd.kind !== 'process') return;
+  assert.equal(cmd.action, 'add');
+  assert.equal(cmd.name, 'Vendas Lead to Cash');
+});
+
+test('parseArgs: process list → {action:list}', () => {
+  const cmd = parseArgs(['process', 'list']);
+  assert.equal(cmd.kind, 'process');
+  if (cmd.kind !== 'process') return;
+  assert.equal(cmd.action, 'list');
+  assert.equal(cmd.name, undefined);
+});
+
+test('parseArgs: process add sem nome → erro', () => {
+  assert.throws(() => parseArgs(['process', 'add']), /exige o nome/i);
+  assert.throws(() => parseArgs(['process', 'add', '   ']), /exige o nome/i);
+});
+
+test('parseArgs: process list com args extras → erro', () => {
+  assert.throws(() => parseArgs(['process', 'list', 'foo']), /não aceita argumentos/i);
+});
+
+test('parseArgs: process sem ação / ação inválida → erro', () => {
+  assert.throws(() => parseArgs(['process']), /ação inválida|esperado/i);
+  assert.throws(() => parseArgs(['process', 'foo']), /ação inválida|esperado/i);
+});
+
 test('parseArgs: subcomando desconhecido → erro pt-BR', () => {
   assert.throws(() => parseArgs(['inexistente']), /subcomando|desconhecido/i);
 });
@@ -228,8 +268,8 @@ test('parseArgs: flag duplicada → erro', () => {
   assert.throws(() => parseArgs(['gate', '--id', 'gate-0', '--id', 'gate-1', '--decision', 'approved']), /duplicad/i);
 });
 
-test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status/ingest/render-flow/generate-site) + install', () => {
-  for (const sub of ['propose', 'gate', 'stage', 'resume', 'report', 'status', 'ingest', 'render-flow', 'generate-site']) {
+test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status/ingest/render-flow/generate-site/process) + install', () => {
+  for (const sub of ['propose', 'gate', 'stage', 'resume', 'report', 'status', 'ingest', 'render-flow', 'generate-site', 'process']) {
     assert.ok(HELP.includes(sub), `HELP deve listar o subcomando ${sub}`);
   }
   assert.ok(HELP.includes('install'), 'HELP deve mencionar install (entry do usuário)');

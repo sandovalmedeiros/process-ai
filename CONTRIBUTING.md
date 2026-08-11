@@ -26,7 +26,8 @@ process-ai/
 │   │   ├── confidence.ts   # Confiança 🟢🟡🔴 (AD-5)
 │   │   ├── report.ts       # Relatório de confiança
 │   │   ├── schema-core.ts  # Schema-núcleo (AD-2)
-│   │   └── pack-loader.ts  # Loader de method-packs
+│   │   ├── pack-loader.ts  # Loader de method-packs
+│   │   └── portfolio.ts    # Portfólio de processos (multi-processo por projeto; AD-3)
 │   └── adapters/
 │       └── claude-code/    # ClaudeCodeAdapter (v1)
 ├── skills/                 # Skills dos agentes (Déa+Bento+Miguel+Júlia+Guilherme+Zanoni+Laura+Tiago+Monique + time da Monique: João+Mônica+Sarah+Victor)
@@ -40,6 +41,8 @@ process-ai/
 ```
 
 > **Subcomandos que importam scripts de `scripts/`:** `render-flow` e `generate-site` resolvem o gerador pela **raiz do pacote** (`findPackageRoot`) — path absoluto, **independente do cwd** (fix do bug de campo de 0.9.2). Em produção importam o `.js` **compilado** em `dist/scripts/...` (o build os emite via `tsconfig.scripts.json` + `bin/copy-assets.cjs`): o Node 24 **recusa** type-strip de `.ts` sob `node_modules`, então o `.ts` source não roda direto num install consumidor. Em dev (repo, fora de `node_modules`) o dispatch cai para o `.ts` source via strip-only. Esses scripts vivem fora de `toolkit/src/`, então o boundary AD-3 (só `node:*` + relativos) é preservado.
+
+> **Portfólio de processos (multi-processo):** um projeto mapeia **N processos**. `process add "<nome>"` (em `toolkit/src/portfolio.ts`) cria `processos/<slug>/` — um mini-projeto autossuficiente (próprio `_process-ai_output/` + `.process-ai/checkpoint.json`) — e registra no ledger `.process-ai/portfolio.json` (AD-1: só o toolkit escreve). **O core existente (commit/checkpoint/resume/generators) roda inalterado** dentro de cada pasta de processo, pois o toolkit resolve `root = cwd` — escopar = rodar com `cwd = processos/<slug>/`. Projetos legados (single-process-at-root) seguem funcionando; o portfólio é opt-in.
 
 ## Invariantes de arquitetura (AD-1..7)
 
