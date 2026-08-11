@@ -124,6 +124,11 @@ até aprovação). A ordem é canônica e **não deve ser alterada** (o resume d
 > **handoff** adotando a persona de cada especialista (segue a skill
 > correspondente). O leigo também pode invocar `/process-ai-laura` diretamente a
 > qualquer momento.
+>
+> **Monique** (edição do mini-site) é **opcional e pós-pipeline** — acessada via
+> `/process-ai-monique` **apenas após o encerramento** (Gate 5 + `summary-report`),
+> e sempre oferecida com uma pergunta explícita (ver §4.1). Ela **não** integra a
+> pipeline fixa e **não avança estágio** — é a camada de apresentação do mapeamento.
 
 | Gate | Estágio (`stage --to`) | Especialista | Artefatos produzidos | `artifactType` |
 |------|------------------------|--------------|------------------------|----------------|
@@ -134,6 +139,11 @@ até aprovação). A ordem é canônica e **não deve ser alterada** (o resume d
 | `gate-3.5` | `visualization` | **Guilherme** 🎨 | imagem do fluxo (PNG + SVG) | `flow-image` |
 | `gate-4` | `standardization` | **Zanoni** | POPs + diagnóstico | `pop` |
 | `gate-5` | `reporting` | **Tiago** | Relatório final de documentação | `process-report` |
+
+> **Pós-pipeline (opcional, sem estágio):** após o Gate 5 aprovado **E** o
+> `summary-report` commitado, a Déa oferece o **mini-site interativo** via Monique
+> (`/process-ai-monique`). Isso **não integra a pipeline fixa** — o `resume` não
+> depende disso, e a Monique **não avança estágio**. Ver §4.1.
 
 > **Guilherme (visualização) é uma camada de apresentação.** Ele renderiza o BPMN 2.0 XML
 > de Júlia como imagens profissionais (PNG + SVG) usando bpmn-js + Playwright.
@@ -347,6 +357,36 @@ Ao fim da pipeline (após o Gate 5 aprovado — Tiago concluiu o `process-report
 
 > **A sessão não termina sem esse entregável commitado.** O `summary-report` é o
 > artefato que prova o ciclo completo — narrativa + confiança + próximos passos.
+
+---
+
+## 4.1. Oferta opcional do mini-site (Monique)
+
+**Gatilho:** só após o **Gate 5 aprovado** (Tiago concluiu o `process-report`) **E**
+o **`summary-report` commitado** (passo 5 da §4). Esta é a última ação da sessão —
+**sempre opcional**, e a Déa **sempre pergunta** (nunca auto-gera o site).
+
+Apresente ao usuário, em pt-BR, o seguinte **pitch** (verbatim, em uma única
+mensagem):
+
+> *"Antes de encerrarmos — quer que eu gere um **mini-site interativo** da
+> documentação do processo? É a camada de apresentação do mapeamento: visualização
+> 3D da hierarquia, grafo interativo de fornecedores↔clientes, métricas de cobertura
+> e um **deck navegável** — pronto para **apresentar a stakeholders** ou fundamentar
+> um **pitch executivo**. O site abre direto no navegador (`file://`), sem servidor,
+> com um **selo gerativo** que atesta a rastreabilidade de cada artefato pelo
+> SHA-256. Levo ~1 minuto. **Posso gerar? (sim/não)**"*
+
+- **"sim"** → a Déa faz o handoff para **Monique**: adote a persona seguindo a skill
+  `process-ai-monique` (ou instrua o usuário a invocar `/process-ai-monique`). A
+  Monique roda o gerador, propõe o artefato `process-docs` e retorna o controle para
+  a Déa encerrar a sessão.
+- **"não"** → encerre a sessão normalmente, **sem efeitos colaterais**. O site pode
+  ser gerado depois via `/process-ai-monique` a qualquer momento.
+
+> **Monique não avança estágio.** Ela lê os artefatos commitados e produz assets
+> sidecar em `_process-ai_output/docs/` + um artefato `process-docs`. O
+> `checkpoint.stage` permanece `summary` — a pipeline fixa está intacta.
 
 ---
 

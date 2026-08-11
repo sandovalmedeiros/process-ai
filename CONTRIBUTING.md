@@ -29,7 +29,7 @@ process-ai/
 │   │   └── pack-loader.ts  # Loader de method-packs
 │   └── adapters/
 │       └── claude-code/    # ClaudeCodeAdapter (v1)
-├── skills/                 # Skills dos agentes (Déa+Bento+Miguel+Júlia+Zanoni)
+├── skills/                 # Skills dos agentes (Déa+Bento+Miguel+Júlia+Guilherme+Zanoni+Laura+Tiago+Monique)
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1
 └── tests/                  # Testes determinísticos (node --test)

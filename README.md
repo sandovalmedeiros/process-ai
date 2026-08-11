@@ -2,11 +2,11 @@
 
 **Framework de mapeamento de processos para PMEs — com agentes de IA.**
 
-Voltado para **Pequenas e Médias Empresas**, o process-ai coloca uma equipe de 7 agentes de IA — Déa, Bento, Miguel, Júlia, Zanoni, Laura e Tiago — para conduzir qualquer pessoa, por perguntas e respostas, até a documentação completa de um processo: cadeia de valor, SIPOC, hierarquia, diagramas BPMN, POPs e relatório final. **O usuário não precisa ser especialista em processos nem em metodologia; os agentes sabem — e conduzem.**
+Voltado para **Pequenas e Médias Empresas**, o process-ai coloca uma equipe de 8 agentes de IA — Déa, Bento, Miguel, Júlia, Guilherme, Zanoni, Laura e Tiago — para conduzir qualquer pessoa, por perguntas e respostas, até a documentação completa de um processo: cadeia de valor, SIPOC, hierarquia, diagramas BPMN, POPs e relatório final. **O usuário não precisa ser especialista em processos nem em metodologia; os agentes sabem — e conduzem.** Ao final do mapeamento, a **Monique** pode gerar um **mini-site interativo** opcional (offline, `file://`) para apresentar o resultado a stakeholders.
 
 [![Node.js](https://img.shields.io/badge/node-%3E%3D24.0.0-brightgreen)](https://nodejs.org/)
 [![License](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
-[![Tests](https://img.shields.io/badge/tests-313%20passing-brightgreen)](./tests/)
+[![Tests](https://img.shields.io/badge/tests-348%20passing-brightgreen)](./tests/)
 
 ---
 
@@ -36,9 +36,11 @@ O **process-ai** é a quarta via: herda o **rigor do Reversa** (confiança 🟢�
 | **Bento** 🔍 | Descoberta — entrevista guiada, SIPOC, cadeia de valor | `discovery-interview`, `sipoc`, `value-chain` |
 | **Miguel** 🏗️ | Mapeamento — hierarquia Macro→Tarefa (5 níveis) | `hierarchy` |
 | **Júlia** 📐 | Modelagem — fluxo BPMN 2.0 XML + gargalos | `flow` |
+| **Guilherme** 🎨 | Visualização — renderiza o fluxo BPMN como imagem profissional (PNG + SVG) | `flow-image` |
 | **Zanoni** 📋 | Padronização — POPs + diagnóstico consolidado | `pop` |
 | **Tiago** ✍️ | Escritor — consolida todos os artefatos no relatório final de documentação (10 seções) | `process-report` |
 | **Laura** 🗄️ | Arquivista — ingestão de documentos (PDF/DOCX/PPTX/XLSX/CSV/XML) como material de referência | `reference-material` |
+| **Monique** 🖥️ *(opcional)* | Editora do mini-site — gera o site HTML interativo (offline, `file://`) pós-pipeline, com selo gerativo rastreável | `process-docs` |
 
 ---
 
@@ -54,7 +56,7 @@ npx process-ai
 
 O que o install faz:
 
-- copia as skills (condutora Déa + 6 especialistas: Bento, Miguel, Júlia, Zanoni, Tiago e Laura) para `.claude/skills/`;
+- copia as skills (condutora Déa + 8 agentes: Bento, Miguel, Júlia, Guilherme, Zanoni, Tiago, Laura e Monique) para `.claude/skills/`;
 - cria `.process-ai/config` (installer-managed, regenerado a cada install) e `.process-ai/config.user` (seus overrides — nunca sobrescritos pelo installer);
 - escreve `.process-ai/install-manifest.toml` — o **manifest de instalação** (versão, IDE, pack ativo, e cada arquivo com seu SHA-256), que habilita `update`/`status` e a detecção de arquivos modificados.
 
@@ -214,7 +216,7 @@ Cada pack declara schemas **aditivos** (estendem o schema-núcleo sem redefinir)
 git clone https://github.com/sandovalmedeiros/process-ai.git
 cd process-ai
 npm install
-npm test          # 313 testes, 0 falhas
+npm test          # 348 testes, 0 falhas
 npm run typecheck # tsc --noEmit
 ```
 
@@ -229,7 +231,7 @@ process-ai/
 ├── skills/                 # Skills dos agentes
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1
-├── tests/                  # Testes determinísticos (313)
+├── tests/                  # Testes determinísticos (348)
 └── docs/                   # Documentação
 ```
 

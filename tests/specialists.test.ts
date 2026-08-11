@@ -20,13 +20,14 @@ import { ClaudeCodeAdapter, discoverSourceSkills } from '../toolkit/adapters/cla
 
 const REPO_ROOT = path.resolve(import.meta.dirname, '..');
 
-/** Os 4 especialistas: skill-dir name, artifactType(s) canônicos, persona. */
+/** Especialistas: skill-dir name, artifactType(s) canônicos, persona. (Laura/Tiago são skills reais mas não constam aqui — tech debt.) */
 const SPECIALISTS = [
   { skill: 'process-ai-bento', persona: 'Bento', types: ['discovery-interview', 'sipoc', 'value-chain'] },
   { skill: 'process-ai-miguel', persona: 'Miguel', types: ['hierarchy'] },
   { skill: 'process-ai-julia', persona: 'Júlia', types: ['flow'] },
   { skill: 'process-ai-guilherme', persona: 'Guilherme', types: ['flow-image'] },
   { skill: 'process-ai-zanoni', persona: 'Zanoni', types: ['pop'] },
+  { skill: 'process-ai-monique', persona: 'Monique', types: ['process-docs'] },
 ] as const;
 
 function sourceSkillPath(skillName: string): string {
@@ -82,7 +83,7 @@ for (const s of SPECIALISTS) {
 
 // ---- Instalação (AC1, AD-7) — exige T2 (installSkills generalizado) ----
 
-test('AC1: installSkills instala as 8 skills (condutor + 7 especialistas) byte-a-byte', async () => {
+test('AC1: installSkills instala as 9 skills (condutor + 8 agentes) byte-a-byte', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-spec-install-'));
   try {
     const adapter = new ClaudeCodeAdapter();
@@ -153,7 +154,7 @@ test('discoverSourceSkills: descobre só dirs process-ai* com SKILL.md regular (
   }
 });
 
-test('AC1: installSkills instala exatamente as 8 skills reais (condutor + 7 especialistas)', async () => {
+test('AC1: installSkills instala exatamente as 9 skills reais (condutor + 8 agentes)', async () => {
   // Guarda de regressão: o install real (repo-fonte) instala exatamente o conjunto
   // esperado — nenhum fantasma, nenhum arquivo solto.
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-spec-set-'));
@@ -163,8 +164,8 @@ test('AC1: installSkills instala exatamente as 8 skills reais (condutor + 7 espe
     const installed = (await fs.readdir(path.join(tmp, '.claude', 'skills'))).sort();
     assert.deepEqual(
       installed,
-      ['process-ai', 'process-ai-bento', 'process-ai-guilherme', 'process-ai-julia', 'process-ai-laura', 'process-ai-miguel', 'process-ai-tiago', 'process-ai-zanoni'],
-      'installSkills deve instalar exatamente as 8 skills com SKILL.md',
+      ['process-ai', 'process-ai-bento', 'process-ai-guilherme', 'process-ai-julia', 'process-ai-laura', 'process-ai-miguel', 'process-ai-monique', 'process-ai-tiago', 'process-ai-zanoni'],
+      'installSkills deve instalar exatamente as 9 skills com SKILL.md',
     );
   } finally {
     await fs.rm(tmp, { recursive: true, force: true });
