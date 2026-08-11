@@ -74,7 +74,11 @@ npx process-ai@latest install --status               # estado da instalação (f
 npx process-ai@latest update [--target <dir>]        # atualiza/repara instalação existente
 npx process-ai uninstall [--target <dir>] [--purge]  # remove skills + manifest
 npx process-ai ingest   --path <arquivo|diretório>   # ingere PDF/DOCX/PPTX/XLSX/CSV/XML como reference-material
+npx process-ai render-flow --input <flow.md>          # renderiza o artefato flow como PNG+SVG (Guilherme)
+npx process-ai generate-site [--only <a,b,c>]         # gera/regenera o mini-site HTML (Monique + sub-agentes)
 ```
+
+> **🎨 Renderização do fluxo (opcional):** `render-flow` exige o runtime **Playwright** (`npm i playwright`). No Windows, o Edge do sistema é usado automaticamente (sem download do Chromium de ~150 MB); em outros SOs, rode `npx playwright install chromium`. Sobrescreva o navegador com `PA_BROWSER=msedge|chrome|chromium`. Sem Playwright, o comando sai com 🔴 e uma mensagem pt-BR — o **BPMN XML canônico (AD-6) permanece salvo** e pode ser renderizado depois.
 
 Flags de install: `--target <dir>` (default: cwd), `--ide <id>` (v1: `claude-code`), `--pack <id>` (default: `bpmn-sipoc`), `--full` (instala tudo, não-interativo), `--status` (apenas relata estado).
 

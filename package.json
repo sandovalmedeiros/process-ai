@@ -1,6 +1,6 @@
 {
   "name": "process-ai",
-  "version": "0.9.1",
+  "version": "0.10.0",
   "description": "Framework method-agnóstico de mapeamento de processos ponta-a-ponta — equipe de 9 agentes IA (Déa+Bento+Miguel+Júlia+Guilherme+Zanoni+Laura+Tiago+Monique) que conduz o usuário por Q&A até documentar o processo completo (ingestão documental→SIPOC→hierarquia→BPMN→visualização→POPs→relatório final) com confiança 🟢🟡🔴 verificável, rastreabilidade bidirecional, renderização visual profissional e mini-site HTML interativo opcional (offline, file://) para apresentação a stakeholders.",
   "type": "module",
   "engines": {
@@ -25,12 +25,13 @@
     "scripts/requirements-ingest.txt",
     "scripts/bpmn-renderer/render.ts",
     "scripts/bpmn-renderer/render.html",
+    "scripts/bpmn-renderer/playwright-probe.cjs",
     "scripts/docs-site/",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.scripts.json && node bin/copy-assets.cjs",
     "prepublishOnly": "npm run build",
     "postinstall": "node bin/postinstall.js",
     "dev": "node bin/process-ai.ts",

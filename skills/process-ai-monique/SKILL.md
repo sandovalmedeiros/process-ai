@@ -77,14 +77,13 @@ executado via Bash).
 
 ### Passo 2 — Rodar o gerador
 
-1. Execute o gerador a partir da raiz do projeto-alvo:
+1. Execute o gerador via subcomando CLI (ele resolve o script pela raiz do pacote —
+   funciona no install do consumidor, **não depende do cwd**):
    ```bash
-   npx tsx -e "
-     const { generateDocs } = await import('./scripts/docs-site/generate.ts');
-     const result = await generateDocs({ root: process.cwd() });
-     console.log(JSON.stringify(result, null, 2));
-   "
+   npx process-ai generate-site
    ```
+   > Para regenerar só páginas específicas (sub-agentes), use `--only`:
+   > `npx process-ai generate-site --only metricas,cronograma`.
 2. Capture o JSON de saída (`GenerateResult`): `indexUrl`, `pages[]`,
    `sourceArtifacts[]`, `seed`, `rendererEngine`, `vendoredLibs[]`, `warnings[]`.
 3. O gerador escreve as páginas em `_process-ai_output/docs/` (assets sidecar):
@@ -140,7 +139,7 @@ executado via Bash).
    navegador (duplo clique) para ver o mini-site."*
 2. Se houve `warnings`, descreva-os honestamente: *"🟡 Gerado sem o artefato X — a
    página Y ficou parcial."*
-3. Se o gerador falhou (sem `tsx`, checkpoint ilegível), reporte 🔴 e sugira:
+3. Se o gerador falhou (falha no subcomando `generate-site`, checkpoint ilegível), reporte 🔴 e sugira:
    *"Não foi possível gerar o site neste ambiente. Os artefatos seguem commitados e
    o site pode ser regerado quando as dependências estiverem disponíveis."*
 
@@ -156,7 +155,7 @@ executado via Bash).
 |-------|-------------|
 | 🟢 | Site gerado sem warnings, a partir de todos os artefatos esperados. |
 | 🟡 | Site gerado com warnings (artefato ausente, página parcial, lib vendorada faltando). |
-| 🔴 | Geração indisponível (sem `tsx`, checkpoint ilegível) ou payload inválido. |
+| 🔴 | Geração indisponível (falha no subcomando `generate-site`, checkpoint ilegível) ou payload inválido. |
 
 ## O que NÃO é da Monique
 
@@ -172,7 +171,7 @@ executado via Bash).
 ## Sub-agentes (fases futuras)
 
 O time da Monique terá 4 especialistas (cada um regenera um subconjunto isolado de
-páginas via `generateDocs({ only: […] })`): **João** (cartógrafo — 3D + grafo),
+páginas via `generate-site --only <páginas>`): **João** (cartógrafo — 3D + grafo),
 **Mônica** (analista — métricas ECharts), **Sarah** (narradora — glossário + deck +
 páginas por processo), **Victor** (publicador — index + selo). Eles entram em
 P1–P4; em P0 a própria Monique roda o gerador completo.

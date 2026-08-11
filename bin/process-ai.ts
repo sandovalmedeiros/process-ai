@@ -32,8 +32,8 @@
  *   process-ai --help | -h
  */
 import path from 'node:path';
-import { promises as fs, realpathSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { promises as fs, realpathSync, existsSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { ClaudeCodeAdapter } from '../toolkit/adapters/claude-code/adapter.ts';
 import type { EngineAdapter, ProposePayload } from '../toolkit/src/engine-adapter.ts';
 import {
@@ -54,6 +54,7 @@ import type { InstallState } from '../toolkit/src/installer/state.ts';
 import { gatherInstallOptions } from '../toolkit/src/installer/prompts.ts';
 import * as readline from 'node:readline/promises';
 import { ingest, supportedFormats } from '../toolkit/src/ingest.ts';
+import { ensureRenderDeps } from '../toolkit/src/installer/playwright-deps.ts';
 
 // ---- Tipos ----
 
@@ -77,7 +78,25 @@ export type ParsedCommand =
   | { kind: 'resume' }
   | { kind: 'report' }
   | { kind: 'status' }
-  | { kind: 'ingest'; path: string; agent?: string };
+  | { kind: 'ingest'; path: string; agent?: string }
+  | {
+      kind: 'render-flow';
+      /** Artefato `flow` (BPMN 2.0 XML, JSON {body} ou markdown c/ code block). */
+      input: string;
+      /** Diretório de saída (default: <root>/_process-ai_output/flow). */
+      outputDir?: string;
+      /** Nome base dos arquivos (default: basename do input sem extensão). */
+      baseName?: string;
+    }
+  | {
+      kind: 'generate-site';
+      /** Raiz do projeto-alvo (default: cwd/root). */
+      target?: string;
+      /** Regenera só páginas específicas (sub-agentes; undefined = site completo). */
+      only?: string[];
+      /** Força um seed determinístico (default: derivado dos artefatos pelo gerador). */
+      seed?: string;
+    };
 
 /** Resultado canônico de um dispatch (o que `main` imprime em stdout). */
 export interface DispatchResult {
@@ -143,6 +162,21 @@ Subcomandos (o agente invoca via Bash; TODA escrita passa pelo toolkit):
       automáticos de extração mecânica. --path aceita arquivo ou diretório
       (processa recursivamente). --agent default: "Laura".
       Formatos aceitos: .pdf, .docx, .pptx, .xlsx, .csv, .xml.
+  render-flow --input <flow.md> [--output-dir <dir>] [--base-name <nome>]
+      Renderiza o artefato flow (BPMN 2.0 XML canônico, Guilherme) como PNG + SVG
+      via Playwright + bpmn-js. Resolve o renderizador pela raiz do pacote (funciona
+      no install do consumidor, não depende de cwd). --input é o artefato flow
+      (XML/JSON/markdown); --output-dir default _process-ai_output/flow; --base-name
+      default derivado do input. Exige Playwright (npm i playwright); no Windows
+      prefere o Edge do sistema (PA_BROWSER=msedge|chrome|chromium).
+      Indisponível sem Playwright → exit 1 c/ msg pt-BR (o XML canônico fica salvo).
+      Imprime o RenderResult (JSON: pngPath, svgPath, warnings).
+  generate-site [--target <dir>] [--only <a,b,c>] [--seed <hex>]
+      Gera o mini-site HTML interativo (Monique) a partir dos artefatos commitados.
+      Resolve o gerador pela raiz do pacote (não depende de cwd). --target default
+      cwd; --only regenera só páginas específicas (sub-agentes: index,
+      fornecedores-clientes, hierarquia-3d, metricas, cronograma, glossario, deck,
+      processos); --seed força um seed determinístico. Imprime o GenerateResult (JSON).
 
 Pastas protegidas: escrita só em _process-ai_output/ (artefatos) e .process-ai/
 (manifestos, checkpoint, WAL, ledger, provenance) — sempre via toolkit, nunca
@@ -300,6 +334,29 @@ export function parseArgs(argv: string[]): ParsedCommand {
       const ingestPath = requireFlag(flags, 'path', 'ingest');
       return { kind: 'ingest', path: ingestPath, agent: flags.get('--agent') };
     }
+    case 'render-flow': {
+      const flags = parseFlags(rest, ['input', 'output-dir', 'base-name'], 'render-flow');
+      return {
+        kind: 'render-flow',
+        input: requireFlag(flags, 'input', 'render-flow'),
+        outputDir: flags.get('--output-dir'),
+        baseName: flags.get('--base-name'),
+      };
+    }
+    case 'generate-site': {
+      const flags = parseFlags(rest, ['target', 'only', 'seed'], 'generate-site');
+      const onlyRaw = flags.get('--only');
+      const only = onlyRaw
+        ?.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return {
+        kind: 'generate-site',
+        target: flags.get('--target'),
+        only: only && only.length > 0 ? only : undefined,
+        seed: flags.get('--seed'),
+      };
+    }
     case 'install': {
       // --target (default cwd), --ide (v1 só claude-code), --pack, --full, --status.
       // install NÃO é invocado pela skill (é entry do usuário) — fora dos subcomandos runtime.
@@ -382,6 +439,49 @@ function withVersionStatus<T extends object>(
 ): T | (T & { versionStatus: UpdateCheckResult }) {
   if (!updateInfo || !updateInfo.behind) return payload;
   return { ...payload, versionStatus: updateInfo };
+}
+
+/**
+ * Importa dinamicamente o renderizador BPMN. pathToFileURL é o formato canônico
+ * para importação dinâmica de caminho absoluto (robusto em Windows). Rede
+ * secundária: se a carga do Playwright falhar apesar do gate `ensureRenderDeps`,
+ * traduz o erro cru para a mensagem pt-BR de indisponibilidade.
+ */
+async function loadRenderer(scriptPath: string, hint: string): Promise<{
+  renderBpmn: (
+    xml: string,
+    outputDir: string,
+    baseName: string,
+  ) => Promise<{ pngPath: string; svgPath: string; warnings: string[] }>;
+}> {
+  try {
+    return (await import(pathToFileURL(scriptPath).href)) as {
+      renderBpmn: (
+        xml: string,
+        outputDir: string,
+        baseName: string,
+      ) => Promise<{ pngPath: string; svgPath: string; warnings: string[] }>;
+    };
+  } catch (e) {
+    throw new Error(
+      `Renderização indisponível — não foi possível carregar o Playwright. ${hint} ` +
+        `Detalhe: ${(e as Error).message}`,
+    );
+  }
+}
+
+/**
+ * Resolve o caminho de um script gerador (render/generate). [0.9.2]
+ *
+ * Prefere o `.js` COMPILADO em `dist/scripts/...` (produção): o pacote publicado
+ * vive sob `node_modules/process-ai/`, e o Node 24 RECUSA type-strip de `.ts` sob
+ * `node_modules` ("Stripping types is currently unsupported for files under
+ * node_modules"). Cai para o `.ts` SOURCE em `scripts/...` apenas no dev (repo,
+ * fora de `node_modules`, onde strip-only funciona). Os generators são compilados
+ * pelo build (`tsconfig.build.json` + `bin/copy-assets.cjs`).
+ */
+function resolveGenScript(distPath: string, srcPath: string): string {
+  return existsSync(distPath) ? distPath : srcPath;
 }
 
 // ---- dispatch (orquestração; o adapter é injetado — testável/mockável) ----
@@ -517,6 +617,82 @@ export async function dispatch(
         manifestPath: r.commit.manifestPath.split(path.sep).join('/'),
       }));
       return { ok: true, output: JSON.stringify(output) };
+    }
+
+    case 'render-flow': {
+      // Resolve o renderizador pela raiz do PACOTE (path absoluto — funciona no
+      // install do consumidor, NÃO depende de cwd). Espelha resolveScriptsDir do
+      // ingest.ts. Prefere o .js compilado em dist/scripts/ (Node recusa strip de
+      // .ts sob node_modules); cai p/ o .ts source só em dev — ver resolveGenScript.
+      if (!PACKAGE_ROOT) {
+        throw new Error(
+          'Não foi possível localizar a raiz do framework (package.json do process-ai). ' +
+            'Reinstale o módulo: npm install process-ai@latest',
+        );
+      }
+      const renderScriptPath = resolveGenScript(
+        path.join(PACKAGE_ROOT, 'dist', 'scripts', 'bpmn-renderer', 'render.js'),
+        path.join(PACKAGE_ROOT, 'scripts', 'bpmn-renderer', 'render.ts'),
+      );
+
+      // Gate de runtime: Playwright + navegador usável? (O install avisou; aqui é
+      // hard gate → 🔴 honesto se ausente. O XML canônico segue salvo — AD-6.)
+      const renderDeps = ensureRenderDeps();
+      if (!renderDeps.available) {
+        throw new Error(renderDeps.message);
+      }
+
+      // Lê o artefato `flow` (XML puro, JSON {body} ou markdown c/ code block — o
+      // renderizador normaliza os três).
+      const inputPath = path.resolve(cmd.input);
+      let bpmnContent: string;
+      try {
+        bpmnContent = await fs.readFile(inputPath, 'utf8');
+      } catch (e) {
+        if ((e as NodeJS.ErrnoException).code === 'ENOENT') {
+          throw new Error(`Artefato de fluxo não encontrado: ${inputPath}.`);
+        }
+        throw e;
+      }
+
+      const outputDir = path.resolve(cmd.outputDir ?? path.join(root, '_process-ai_output', 'flow'));
+      const baseName = cmd.baseName ?? path.basename(inputPath, path.extname(inputPath));
+
+      // Importa dinamicamente o renderizador (rede secundária: se a carga do
+      // Playwright falhar apesar do gate, traduz p/ msg pt-BR de indisponibilidade).
+      const renderMod = await loadRenderer(renderScriptPath, renderDeps.message);
+      const result = await renderMod.renderBpmn(bpmnContent, outputDir, baseName);
+      return { ok: true, output: JSON.stringify(result) };
+    }
+
+    case 'generate-site': {
+      // Resolve o gerador pela raiz do PACOTE (path absoluto — funciona no install
+      // do consumidor). O gerador é puro node:* (sem runtime externo) — sem gate.
+      if (!PACKAGE_ROOT) {
+        throw new Error(
+          'Não foi possível localizar a raiz do framework (package.json do process-ai). ' +
+            'Reinstale o módulo: npm install process-ai@latest',
+        );
+      }
+      const genScriptPath = resolveGenScript(
+        path.join(PACKAGE_ROOT, 'dist', 'scripts', 'docs-site', 'generate.js'),
+        path.join(PACKAGE_ROOT, 'scripts', 'docs-site', 'generate.ts'),
+      );
+      const siteRoot = path.resolve(cmd.target ?? root);
+
+      const genMod = (await import(pathToFileURL(genScriptPath).href)) as {
+        generateDocs: (opts: {
+          root: string;
+          only?: string[];
+          seed?: string;
+        }) => Promise<unknown>;
+      };
+      const result = await genMod.generateDocs({
+        root: siteRoot,
+        only: cmd.only,
+        seed: cmd.seed,
+      });
+      return { ok: true, output: JSON.stringify(result) };
     }
   }
 }

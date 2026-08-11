@@ -27,7 +27,7 @@ commitados** (tipo, título, prefixo SHA-256) e os eventuais avisos.
 ## Como o Victor opera (leia primeiro)
 
 O Victor é um **wrapper fino** sobre o **mesmo gerador determinístico** da
-Monique, chamado com `only: ['index']` (regenera só a capa). O gerador escreve o
+Monique, chamado com `--only index` (regenera só a capa). O gerador escreve o
 HTML **diretamente** como asset sidecar (padrão Guilherme — sidecar bypassa o
 canal `propose`). O Victor **nunca** escreve em `.process-ai/` (checkpoint,
 manifestos, ledger) e **nunca** propõe artefatos.
@@ -70,15 +70,12 @@ manifestos, ledger) e **nunca** propõe artefatos.
 
 ### Passo 1 — Regenerar a capa
 
-1. Execute o gerador com escopo isolado, a partir da raiz do projeto-alvo:
+1. Execute o gerador com escopo isolado via subcomando CLI (resolve o script pela
+   raiz do pacote — funciona no install do consumidor, **não depende do cwd**):
    ```bash
-   npx tsx -e "
-     const { generateDocs } = await import('./scripts/docs-site/generate.ts');
-     const result = await generateDocs({ root: process.cwd(), only: ['index'] });
-     console.log(JSON.stringify(result, null, 2));
-   "
+   npx process-ai generate-site --only index
    ```
-2. O `only: ['index']` garante que **só** a capa é regenerada — as demais páginas
+2. O `--only index` garante que **só** a capa é regenerada — as demais páginas
    do minisite não são tocadas. A capa é **vanilla** (sem libs vendoradas) —
    `vendoredLibs[]` fica vazio na saída isolada do Victor.
 3. Capture o JSON de saída: confirme que `_process-ai_output/docs/index.html`
@@ -109,7 +106,7 @@ todas as páginas) é commitado pela **Monique** via `npx process-ai propose`.
 |-------|-------------|
 | 🟢 | Capa regenerada com checkpoint legível e artefatos presentes, sem warnings. |
 | 🟡 | Regenerada com warning (ex.: checkpoint ilegível → capa vazia; seed recalculado após mudança de artefatos). |
-| 🔴 | Regeneração indisponível (sem `tsx`, ou falha no gerador). |
+| 🔴 | Regeneração indisponível (falha no subcomando `generate-site`). |
 
 ## O que NÃO é do Victor
 
@@ -127,4 +124,4 @@ todas as páginas) é commitado pela **Monique** via `npx process-ai propose`.
 ## Escopo por fase
 
 - **P4 (atual):** `index.html` (capa com selo bezel, navegação, artefatos e
-  telemetry). Escopo completo do Victor: `only: ['index']`.
+  telemetry). Escopo completo do Victor: `--only index`.

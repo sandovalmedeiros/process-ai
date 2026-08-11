@@ -25,6 +25,8 @@ import type { InstallType, Manifest } from './manifest.ts';
 import { installMethodPacks, uninstallMethodPacks } from './pack-copy.ts';
 import { ensureIngestDeps } from './python-deps.ts';
 import type { PythonDepResult } from './python-deps.ts';
+import { ensureRenderDeps } from './playwright-deps.ts';
+import type { RenderDepResult } from './playwright-deps.ts';
 import { detectInstallationState } from './state.ts';
 import type { InstallState } from './state.ts';
 import { getFrameworkVersion, getPackageRoot } from './resource.ts';
@@ -57,6 +59,8 @@ export interface InstallOutcome {
   removed?: string[];
   /** Resultado do provisionamento de deps Python do ingest (install/update only). */
   ingest?: PythonDepResult;
+  /** Resultado da detecção de Playwright/render (install/update only, não-bloqueante). */
+  render?: RenderDepResult;
   targetDir: string;
 }
 
@@ -87,11 +91,13 @@ export class Installer {
     // Provisiona deps Python do ingest ANTES do early-return already-current — todo
     // caminho de install (incl. re-run idempotente) deve deixar o ingest pronto.
     const ingest = ensureIngestDeps();
+    // Detecta o runtime de renderização (Playwright) — opt-in do usuário, aviso não-bloqueante.
+    const render = ensureRenderDeps();
     const version = getFrameworkVersion();
     const state = await detectInstallationState(targetDir, version);
 
     if (state.kind === 'installed-current') {
-      return { outcome: 'already-current', ide: state.manifest.install.ide, ingest, targetDir };
+      return { outcome: 'already-current', ide: state.manifest.install.ide, ingest, render, targetDir };
     }
 
     const installType: InstallType =
@@ -126,7 +132,7 @@ export class Installer {
 
     const outcome: InstallOutcome['outcome'] =
       installType === 'fresh' ? 'installed' : installType === 'update' ? 'updated' : 'repaired';
-    return { outcome, installType, ide: ideResult.ide, files: [...ideResult.files, ...packFiles], backed, ingest, targetDir };
+    return { outcome, installType, ide: ideResult.ide, files: [...ideResult.files, ...packFiles], backed, ingest, render, targetDir };
   }
 
   /** Atualiza uma instalação existente. Erro se não instalado; no-op se já atual. */
@@ -205,6 +211,8 @@ export function formatOutcome(o: InstallOutcome): string {
       ];
       const il = ingestLine(o.ingest);
       if (il) lines.push(il);
+      const rl = renderLine(o.render);
+      if (rl) lines.push(rl);
       if (o.backed && o.backed.length > 0) {
         lines.push(`  Backups de arquivos modificados: ${o.backed.length} (.bak)`);
       }
@@ -219,7 +227,9 @@ export function formatOutcome(o: InstallOutcome): string {
     case 'already-current': {
       const base = `✓ process-ai já está instalado e atualizado em ${o.targetDir} (IDE: ${o.ide ?? '?'}). Nada a fazer.`;
       const il = ingestLine(o.ingest);
-      return il ? `${base}\n${il}\n` : `${base}\n`;
+      const rl = renderLine(o.render);
+      const extra = [il, rl].filter(Boolean).join('\n');
+      return extra ? `${base}\n${extra}\n` : `${base}\n`;
     }
     case 'uninstalled':
       return `✓ process-ai desinstalado de ${o.targetDir} (${o.removed?.length ?? 0} skill(s) removidas). Config e estado de sessão preservados (use --purge p/ remover tudo).\n`;
@@ -237,4 +247,11 @@ function ingestLine(ingest?: PythonDepResult): string | null {
   if (!ingest) return null;
   const marker = ingest.installed ? '✓' : '⚠';
   return `  Ingest: ${marker} ${ingest.message}`;
+}
+
+/** Linha de resumo do runtime de render (✓ Playwright+navegador / ⚠ indisponível — não-bloqueante). */
+function renderLine(render?: RenderDepResult): string | null {
+  if (!render) return null;
+  const marker = render.installed ? '✓' : '⚠';
+  return `  Render: ${marker} ${render.message}`;
 }

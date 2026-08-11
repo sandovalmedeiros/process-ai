@@ -57,28 +57,28 @@ escrita acontece pelo canal de runtime **`process-ai`** (CLI executado via Bash)
 
 ### Passo 2 — Renderizar
 
-1. Salve o XML em um arquivo temporário:
+1. Execute o renderizador via subcomando CLI (ele resolve o script pela raiz do
+   pacote — funciona no install do consumidor, **não depende do cwd**):
    ```bash
-   echo "$BPMN_XML" > /tmp/flow-<sha>.bpmn
+   npx process-ai render-flow \
+     --input _process-ai_output/flow/<sha>.md \
+     --output-dir _process-ai_output/flow \
+     --base-name flow-<sha>
    ```
-2. Execute o renderizador (toolkit Node + Playwright):
-   ```bash
-   npx tsx -e "
-     const { renderBpmn } = await import('./scripts/bpmn-renderer/render.ts');
-     const { readFileSync } = await import('node:fs');
-     const xml = readFileSync('/tmp/flow-<sha>.bpmn', 'utf8');
-     const result = await renderBpmn(xml, '_process-ai_output/flow', 'flow-<sha>');
-     console.log(JSON.stringify(result));
-   "
-   ```
-3. O renderizador gera 2 arquivos em `_process-ai_output/flow/`:
+2. O subcomando imprime o `RenderResult` (JSON): `{ pngPath, svgPath, warnings }`.
+   Ele gera 2 arquivos em `_process-ai_output/flow/`:
    - `flow-<sha>.png` — imagem raster (para relatórios e previews)
    - `flow-<sha>.svg` — imagem vetorial (para edição e zoom)
+3. Capture `pngPath` e `svgPath` do JSON para montar a proposta no Passo 3.
 
-> **Nota técnica:** O renderizador usa Playwright (Chromium headless) + bpmn-js (CDN).
-> Requer `playwright` instalado (`npm install playwright`) e Chromium baixado
-> (`npx playwright install chromium`). Em ambiente sem browser, Guilherme reporta 🔴
-> "Renderização indisponível — Playwright/Chromium não encontrado" e segue sem imagem.
+> **Nota técnica:** o renderizador usa Playwright (navegador headless) + bpmn-js
+> (CDN). Playwright é `devDependency` do framework e **não é shipado** ao consumidor
+> — exige `npm i playwright` no projeto-alvo (opt-in). No **Windows**, o Edge do
+> sistema é usado automaticamente (sem download de ~150 MB de Chromium); a env
+> `PA_BROWSER=msedge|chrome|chromium` força um canal. Em ambiente sem
+> Playwright/navegador, o subcomando falha com "Renderização indisponível —
+> Playwright/Chromium não encontrado" (exit 1) — Guilherme reporta 🔴 e segue sem
+> imagem (o BPMN XML canônico permanece salvo).
 
 ### Passo 3 — Propôr o artefato de imagem
 

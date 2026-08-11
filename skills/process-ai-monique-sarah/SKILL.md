@@ -29,7 +29,7 @@ body renderizado em markdown lite.
 ## Como a Sarah opera (leia primeiro)
 
 A Sarah é um **wrapper fino** sobre o **mesmo gerador determinístico** da
-Monique, chamado com `only: ['glossario', 'deck', 'processos']` (regenera as três
+Monique, chamado com `--only glossario,deck,processos` (regenera as três
 suas páginas; para um subconjunto, passe só as desejadas). O gerador escreve os
 HTMLs **diretamente** como assets sidecar (padrão Guilherme — sidecar bypassa o
 canal `propose`). A Sarah **nunca** escreve em `.process-ai/` (checkpoint,
@@ -79,17 +79,14 @@ manifestos, ledger) e **nunca** propõe artefatos.
 
 ### Passo 1 — Regenerar as páginas
 
-1. Execute o gerador com escopo isolado, a partir da raiz do projeto-alvo:
+1. Execute o gerador com escopo isolado via subcomando CLI (resolve o script pela
+   raiz do pacote — funciona no install do consumidor, **não depende do cwd**):
    ```bash
-   npx tsx -e "
-     const { generateDocs } = await import('./scripts/docs-site/generate.ts');
-     const result = await generateDocs({ root: process.cwd(), only: ['glossario', 'deck', 'processos'] });
-     console.log(JSON.stringify(result, null, 2));
-   "
+   npx process-ai generate-site --only glossario,deck,processos
    ```
-2. O `only: [...]` garante que **só** as páginas da Sarah são regeneradas — as
+2. O `--only` garante que **só** as páginas da Sarah são regeneradas — as
    demais páginas do minisite não são tocadas. Para um subconjunto, passe só as
-   desejadas (ex.: `only: ['deck']`). Todas as três páginas são **vanilla** (sem
+   desejadas (ex.: `--only deck`). Todas as três páginas são **vanilla** (sem
    libs vendoradas) — `vendoredLibs[]` fica vazio na saída isolada da Sarah.
 3. Capture o JSON de saída: confirme que as páginas aparecem em `pages[]`
    (incluindo `_process-ai_output/docs/processos/<id>.html` por POP e
@@ -121,7 +118,7 @@ incluindo as da Sarah) é commitado pela **Monique** via `npx process-ai propose
 |-------|-------------|
 | 🟢 | Página(s) regenerada(s) com os artefatos de origem presentes, sem warnings. |
 | 🟡 | Regenerada com warning (ex.: glossário sem fontes → vazio; deck sem `process-report` → herói de fallback; sem `pop` → sem procedimentos). |
-| 🔴 | Regeneração indisponível (sem `tsx`, checkpoint ilegível, ou falha no gerador). |
+| 🔴 | Regeneração indisponível (falha no subcomando `generate-site`, ou checkpoint ilegível). |
 
 ## O que NÃO é da Sarah
 
@@ -140,4 +137,4 @@ incluindo as da Sarah) é commitado pela **Monique** via `npx process-ai propose
 
 - **P4 (atual):** `glossario.html` + `deck.html` + `processos/` (páginas P1,
   assumidas pela Sarah no fechamento do time). Escopo completo da Sarah:
-  `only: ['glossario', 'deck', 'processos']`.
+  `--only glossario,deck,processos`.

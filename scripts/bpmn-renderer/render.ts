@@ -18,6 +18,41 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEMPLATE_PATH = path.join(__dirname, 'render.html');
 
+/**
+ * Lança o navegador headless. Prefere um browser de SISTEMA (msedge/chrome) ao
+ * Chromium bundled (~150MB) — no Windows, o Edge está sempre presente, tornando o
+ * opt-in do renderer trivial. A env `PA_BROWSER=msedge|chrome|chromium` sobrepõe a
+ * ordem; tenta cada candidato em sequência e, se todos falharem, lança um erro
+ * acionável em pt-BR (rede secundária — o gate `ensureRenderDeps` do subcomando
+ * `render-flow` é a primária).
+ *
+ * AD-6: o navegador só afeta COMO a imagem é materializada, não O QUÊ (o XML
+ * canônico é a fonte única e permanece salvo independentemente do browser).
+ */
+async function launchBrowser(): Promise<Browser> {
+  const pref = process.env.PA_BROWSER?.trim().toLowerCase();
+  const order: Array<string | null> =
+    pref === 'msedge' || pref === 'chrome'
+      ? [pref]
+      : pref === 'chromium'
+        ? [null] // força bundled
+        : ['msedge', 'chrome', null]; // default: sistema → bundled
+  let lastErr: unknown;
+  for (const channel of order) {
+    try {
+      return await chromium.launch(channel ? { headless: true, channel } : { headless: true });
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw new Error(
+    'Renderização indisponível — não foi possível lançar o navegador (Playwright/Chromium). ' +
+      'Defina PA_BROWSER=msedge|chrome para usar um browser de sistema, ou rode ' +
+      '`npx playwright install chromium` para o Chromium bundled. ' +
+      `Detalhe: ${lastErr instanceof Error ? lastErr.message : String(lastErr)}`,
+  );
+}
+
 /** Resultado da renderização. */
 export interface RenderResult {
   /** Caminho do arquivo PNG gerado. */
@@ -69,8 +104,9 @@ export async function renderBpmn(
   }
 
   try {
-    // 1. Launch headless Chromium
-    browser = await chromium.launch({ headless: true });
+    // 1. Launch headless browser. Prefere um browser de sistema (msedge/chrome) ao
+    //    Chromium bundled — evita o download de ~150MB no opt-in. PA_BROWSER sobrepõe.
+    browser = await launchBrowser();
 
     const page: Page = await browser.newPage();
     await page.setViewportSize({ width: 1560, height: 1002 });
@@ -81,7 +117,7 @@ export async function renderBpmn(
 
     // 3. Inject BPMN XML and wait for render
     await page.evaluate(
-      (xml) => (window as unknown as Record<string, unknown>)['renderBpmn'](xml),
+      (xml) => ((window as unknown as Record<string, (xml: string) => void>)['renderBpmn'])(xml),
       finalXml,
     );
 

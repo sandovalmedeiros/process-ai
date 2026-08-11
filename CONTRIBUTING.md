@@ -32,8 +32,14 @@ process-ai/
 ├── skills/                 # Skills dos agentes (Déa+Bento+Miguel+Júlia+Guilherme+Zanoni+Laura+Tiago+Monique + time da Monique: João+Mônica+Sarah+Victor)
 ├── method-packs/           # Method-packs plugáveis
 │   └── bpmn-sipoc/         # Pack padrão v1
+├── scripts/                # Geradores/converters externos ao core (AD-3)
+│   ├── bpmn-renderer/      # render.ts (Playwright) — invocado por `render-flow`
+│   ├── docs-site/          # generate.ts (node:* puro) — invocado por `generate-site`
+│   └── ingest_*.py         # Conversores PDF/DOCX/PPTX — invocados por `ingest`
 └── tests/                  # Testes determinísticos (node --test)
 ```
+
+> **Subcomandos que importam scripts de `scripts/`:** `render-flow` e `generate-site` resolvem o gerador pela **raiz do pacote** (`findPackageRoot`) — path absoluto, **independente do cwd** (fix do bug de campo de 0.9.2). Em produção importam o `.js` **compilado** em `dist/scripts/...` (o build os emite via `tsconfig.scripts.json` + `bin/copy-assets.cjs`): o Node 24 **recusa** type-strip de `.ts` sob `node_modules`, então o `.ts` source não roda direto num install consumidor. Em dev (repo, fora de `node_modules`) o dispatch cai para o `.ts` source via strip-only. Esses scripts vivem fora de `toolkit/src/`, então o boundary AD-3 (só `node:*` + relativos) é preservado.
 
 ## Invariantes de arquitetura (AD-1..7)
 

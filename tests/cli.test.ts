@@ -161,6 +161,65 @@ test('parseArgs: ingest sem --path → erro', () => {
   assert.throws(() => parseArgs(['ingest']), /path/i);
 });
 
+// ---- parseArgs (render-flow / generate-site — novos subcomandos 0.9.2) ----
+// Resolvem scripts pela raiz do pacote (fix do path bug de campo). parseArgs é
+// puro; o dispatch dinâmico (import do .ts shipado) é exercitado no smoke de npm pack.
+
+test('parseArgs: render-flow --input <flow.md> [--output-dir] [--base-name]', () => {
+  const bare = parseArgs(['render-flow', '--input', 'flow.md']) as Extract<ParsedCommand, { kind: 'render-flow' }>;
+  assert.equal(bare.kind, 'render-flow');
+  assert.equal(bare.input, 'flow.md');
+  assert.equal(bare.outputDir, undefined);
+  assert.equal(bare.baseName, undefined);
+  const full = parseArgs([
+    'render-flow', '--input', 'flow.md', '--output-dir', 'out/', '--base-name', 'flow-abc',
+  ]) as Extract<ParsedCommand, { kind: 'render-flow' }>;
+  assert.equal(full.input, 'flow.md');
+  assert.equal(full.outputDir, 'out/');
+  assert.equal(full.baseName, 'flow-abc');
+});
+
+test('parseArgs: render-flow --input=<path> (form com =)', () => {
+  const c = parseArgs(['render-flow', '--input=flow.md']) as Extract<ParsedCommand, { kind: 'render-flow' }>;
+  assert.equal(c.input, 'flow.md');
+});
+
+test('parseArgs: render-flow sem --input → erro pt-BR acionável', () => {
+  assert.throws(() => parseArgs(['render-flow']), /input/i);
+});
+
+test('parseArgs: render-flow flag desconhecida → erro', () => {
+  assert.throws(() => parseArgs(['render-flow', '--input', 'f.md', '--bogus', 'x']), /desconhecid/i);
+});
+
+test('parseArgs: generate-site [--target] [--only a,b,c] [--seed]', () => {
+  const bare = parseArgs(['generate-site']) as Extract<ParsedCommand, { kind: 'generate-site' }>;
+  assert.equal(bare.kind, 'generate-site');
+  assert.equal(bare.target, undefined);
+  assert.equal(bare.only, undefined);
+  assert.equal(bare.seed, undefined);
+  const full = parseArgs([
+    'generate-site', '--target', '/proj', '--only', 'metricas,cronograma', '--seed', 'abc123',
+  ]) as Extract<ParsedCommand, { kind: 'generate-site' }>;
+  assert.equal(full.target, '/proj');
+  assert.deepEqual(full.only, ['metricas', 'cronograma']);
+  assert.equal(full.seed, 'abc123');
+});
+
+test('parseArgs: generate-site --only splita em vírgula, trima e remove vazios', () => {
+  const c = parseArgs(['generate-site', '--only', ' deck ,,glossario , ']) as Extract<ParsedCommand, { kind: 'generate-site' }>;
+  assert.deepEqual(c.only, ['deck', 'glossario']);
+});
+
+test('parseArgs: generate-site --only só-vírgulas → only undefined (não array vazio)', () => {
+  const c = parseArgs(['generate-site', '--only', ',,']) as Extract<ParsedCommand, { kind: 'generate-site' }>;
+  assert.equal(c.only, undefined, 'only filtrado a vazio deve normalizar para undefined (site completo)');
+});
+
+test('parseArgs: generate-site flag desconhecida → erro', () => {
+  assert.throws(() => parseArgs(['generate-site', '--pages', 'x']), /desconhecid/i);
+});
+
 test('parseArgs: subcomando desconhecido → erro pt-BR', () => {
   assert.throws(() => parseArgs(['inexistente']), /subcomando|desconhecido/i);
 });
@@ -169,8 +228,8 @@ test('parseArgs: flag duplicada → erro', () => {
   assert.throws(() => parseArgs(['gate', '--id', 'gate-0', '--id', 'gate-1', '--decision', 'approved']), /duplicad/i);
 });
 
-test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status/ingest) + install', () => {
-  for (const sub of ['propose', 'gate', 'stage', 'resume', 'report', 'status', 'ingest']) {
+test('HELP lista todos os subcomandos (propose/gate/stage/resume/report/status/ingest/render-flow/generate-site) + install', () => {
+  for (const sub of ['propose', 'gate', 'stage', 'resume', 'report', 'status', 'ingest', 'render-flow', 'generate-site']) {
     assert.ok(HELP.includes(sub), `HELP deve listar o subcomando ${sub}`);
   }
   assert.ok(HELP.includes('install'), 'HELP deve mencionar install (entry do usuário)');

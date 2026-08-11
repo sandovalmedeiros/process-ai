@@ -28,7 +28,7 @@ ordenados por timestamp, cruzados com o ledger de provenance.
 ## Como a Mônica opera (leia primeiro)
 
 A Mônica é um **wrapper fino** sobre o **mesmo gerador determinístico** da
-Monique, chamado com `only: ['metricas', 'cronograma']` (regenera ambas as suas
+Monique, chamado com `--only metricas,cronograma` (regenera ambas as suas
 páginas; para uma só, passe só a desejada). O gerador escreve os HTMLs
 **diretamente** como assets sidecar (padrão Guilherme — sidecar bypassa o canal
 `propose`). A Mônica **nunca** escreve em `.process-ai/` (checkpoint, manifestos,
@@ -78,17 +78,14 @@ ledger) e **nunca** propõe artefatos.
 
 ### Passo 1 — Regenerar as páginas
 
-1. Execute o gerador com escopo isolado, a partir da raiz do projeto-alvo:
+1. Execute o gerador com escopo isolado via subcomando CLI (resolve o script pela
+   raiz do pacote — funciona no install do consumidor, **não depende do cwd**):
    ```bash
-   npx tsx -e "
-     const { generateDocs } = await import('./scripts/docs-site/generate.ts');
-     const result = await generateDocs({ root: process.cwd(), only: ['metricas', 'cronograma'] });
-     console.log(JSON.stringify(result, null, 2));
-   "
+   npx process-ai generate-site --only metricas,cronograma
    ```
-2. O `only: [...]` garante que **só** as páginas da Mônica são regeneradas — as
+2. O `--only` garante que **só** as páginas da Mônica são regeneradas — as
    demais páginas do minisite não são tocadas. Para regenerar uma só, passe só a
-   desejada (ex.: `only: ['metricas']`). O gerador também copia a lib vendorada
+   desejada (ex.: `--only metricas`). O gerador também copia a lib vendorada
    para `_process-ai_output/docs/assets/vendor/` (`echarts/5.5.0/echarts.min.js`,
    Apache-2.0) quando a página de métricas é gerada.
 3. Capture o JSON de saída: confirme que ambas as páginas aparecem em `pages[]`
@@ -122,7 +119,7 @@ incluindo as da Mônica) é commitado pela **Monique** via `npx process-ai propo
 |-------|-------------|
 | 🟢 | Página(s) regenerada(s) com os artefatos de origem presentes, sem warnings. |
 | 🟡 | Regenerada com warning (ex.: sem `hierarchy` → treemap/níveis vazios; sem `pop` → cobertura sem dados; sem `provenance` → commits sem timestamp). |
-| 🔴 | Regeneração indisponível (sem `tsx`, checkpoint ilegível, ou falha no gerador). |
+| 🔴 | Regeneração indisponível (falha no subcomando `generate-site`, ou checkpoint ilegível). |
 
 ## O que NÃO é da Mônica
 
@@ -140,4 +137,4 @@ incluindo as da Mônica) é commitado pela **Monique** via `npx process-ai propo
 ## Escopo por fase
 
 - **P4 (atual):** `metricas.html` (painel ECharts) + `cronograma.html` (timeline
-  vanilla). Escopo completo da Mônica: `only: ['metricas', 'cronograma']`.
+  vanilla). Escopo completo da Mônica: `--only metricas,cronograma`.

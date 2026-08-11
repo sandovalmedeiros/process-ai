@@ -581,7 +581,7 @@ test('docs-site: fornecedores-clientes.html gerada com grafo + dep d3 vendorado'
   }
 });
 
-test('docs-site: skill do João tem frontmatter + escopo only:[fornecedores-clientes, hierarquia-3d] + sem propose', async () => {
+test('docs-site: skill do João tem frontmatter + escopo --only fornecedores-clientes,hierarquia-3d + sem propose', async () => {
   const skill = await fs.readFile(
     path.resolve(import.meta.dirname, '..', 'skills', 'process-ai-monique-joao', 'SKILL.md'),
     'utf8',
@@ -591,7 +591,7 @@ test('docs-site: skill do João tem frontmatter + escopo only:[fornecedores-clie
   assert.ok(skill.includes('João, o Cartógrafo'), 'persona João');
   // P3: o João agora cobre as DUAS páginas (fornecedores-clientes + hierarquia-3d).
   assert.ok(
-    skill.includes("only: ['fornecedores-clientes', 'hierarquia-3d']"),
+    skill.includes('--only fornecedores-clientes,hierarquia-3d'),
     'escopo P3 do João (ambas as páginas)',
   );
   assert.ok(skill.includes('hierarquia-3d.html'), 'skill referencia hierarquia-3d.html');
@@ -877,7 +877,7 @@ test('docs-site: telemetry local — conteúdo escreve pa:views; index só lê (
 
 // ---- P4: skills Mônica / Sarah / Victor ----
 
-test('docs-site: skill da Mônica tem frontmatter + escopo only:[metricas, cronograma] + sem propose', async () => {
+test('docs-site: skill da Mônica tem frontmatter + escopo --only metricas,cronograma + sem propose', async () => {
   const skill = await fs.readFile(
     path.resolve(import.meta.dirname, '..', 'skills', 'process-ai-monique-monica', 'SKILL.md'),
     'utf8',
@@ -885,13 +885,13 @@ test('docs-site: skill da Mônica tem frontmatter + escopo only:[metricas, crono
   assert.match(skill, /^name: process-ai-monique-monica/m, 'frontmatter name');
   assert.match(skill, /^description: .+/m, 'frontmatter description');
   assert.ok(skill.includes('Mônica, a Analista'), 'persona Mônica');
-  assert.ok(skill.includes("only: ['metricas', 'cronograma']"), 'escopo da Mônica');
+  assert.ok(skill.includes('--only metricas,cronograma'), 'escopo da Mônica');
   assert.ok(skill.includes('metricas.html'), 'skill referencia metricas.html');
   assert.ok(skill.includes('echarts'), 'skill menciona echarts (Apache-2.0)');
   assert.ok(/não propõe|n[oã]o.*propor|Nenhum.*prop[oõ]e/i.test(skill), 'declara que não propõe artefato');
 });
 
-test('docs-site: skill da Sarah tem frontmatter + escopo only:[glossario, deck, processos] + sem propose', async () => {
+test('docs-site: skill da Sarah tem frontmatter + escopo --only glossario,deck,processos + sem propose', async () => {
   const skill = await fs.readFile(
     path.resolve(import.meta.dirname, '..', 'skills', 'process-ai-monique-sarah', 'SKILL.md'),
     'utf8',
@@ -900,14 +900,14 @@ test('docs-site: skill da Sarah tem frontmatter + escopo only:[glossario, deck, 
   assert.match(skill, /^description: .+/m, 'frontmatter description');
   assert.ok(skill.includes('Sarah, a Narradora'), 'persona Sarah');
   assert.ok(
-    skill.includes("only: ['glossario', 'deck', 'processos']"),
+    skill.includes('--only glossario,deck,processos'),
     'escopo da Sarah',
   );
   assert.ok(skill.includes('deck.html'), 'skill referencia deck.html');
   assert.ok(/não propõe|n[oã]o.*propor|Nenhum.*prop[oõ]e/i.test(skill), 'declara que não propõe artefato');
 });
 
-test('docs-site: skill do Victor tem frontmatter + escopo only:[index] + sem propose', async () => {
+test('docs-site: skill do Victor tem frontmatter + escopo --only index + sem propose', async () => {
   const skill = await fs.readFile(
     path.resolve(import.meta.dirname, '..', 'skills', 'process-ai-monique-victor', 'SKILL.md'),
     'utf8',
@@ -915,7 +915,7 @@ test('docs-site: skill do Victor tem frontmatter + escopo only:[index] + sem pro
   assert.match(skill, /^name: process-ai-monique-victor/m, 'frontmatter name');
   assert.match(skill, /^description: .+/m, 'frontmatter description');
   assert.ok(skill.includes('Victor, o Publicador'), 'persona Victor');
-  assert.ok(skill.includes("only: ['index']"), 'escopo do Victor');
+  assert.ok(skill.includes('--only index'), 'escopo do Victor');
   assert.ok(skill.includes('index.html'), 'skill referencia index.html');
   assert.ok(/não propõe|n[oã]o.*propor|Nenhum.*prop[oõ]e/i.test(skill), 'declara que não propõe artefato');
 });

@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": ".",
+    "outDir": "dist",
+    "rewriteRelativeImportExtensions": true,
+    "declaration": false,
+    "sourceMap": false,
+    "lib": ["ES2024", "DOM"]
+  },
+  "include": ["scripts/bpmn-renderer/**/*.ts", "scripts/docs-site/**/*.ts"],
+  "exclude": ["node_modules", "dist", "tests"]
+}

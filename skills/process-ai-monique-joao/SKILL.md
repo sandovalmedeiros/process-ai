@@ -29,7 +29,7 @@ rótulos em overlay.
 ## Como o João opera (leia primeiro)
 
 O João é um **wrapper fino** sobre o **mesmo gerador determinístico** da Monique,
-chamado com `only: ['fornecedores-clientes', 'hierarquia-3d']` (regenera ambas as
+chamado com `--only fornecedores-clientes,hierarquia-3d` (regenera ambas as
 suas páginas; para uma só, passe só a desejada). O gerador escreve os HTMLs
 **diretamente** como assets sidecar (padrão Guilherme — sidecar bypassa o canal
 `propose`). O João **nunca** escreve em `.process-ai/` (checkpoint, manifestos,
@@ -75,17 +75,14 @@ ledger) e **nunca** propõe artefatos.
 
 ### Passo 1 — Regenerar as páginas
 
-1. Execute o gerador com escopo isolado, a partir da raiz do projeto-alvo:
+1. Execute o gerador com escopo isolado via subcomando CLI (resolve o script pela
+   raiz do pacote — funciona no install do consumidor, **não depende do cwd**):
    ```bash
-   npx tsx -e "
-     const { generateDocs } = await import('./scripts/docs-site/generate.ts');
-     const result = await generateDocs({ root: process.cwd(), only: ['fornecedores-clientes', 'hierarquia-3d'] });
-     console.log(JSON.stringify(result, null, 2));
-   "
+   npx process-ai generate-site --only fornecedores-clientes,hierarquia-3d
    ```
-2. O `only: [...]` garante que **só** as páginas do João são regeneradas — as
+2. O `--only` garante que **só** as páginas do João são regeneradas — as
    demais páginas do minisite não são tocadas. Para regenerar uma só, passe só a
-   desejada (ex.: `only: ['hierarquia-3d']`). O gerador também copia as libs
+   desejada (ex.: `--only hierarquia-3d`). O gerador também copia as libs
    vendoradas para `_process-ai_output/docs/assets/vendor/` (`d3/7/d3.min.js`,
    `three/0.137.0/three.min.js`).
 3. Capture o JSON de saída: confirme que ambas as páginas aparecem em `pages[]` e
@@ -120,7 +117,7 @@ incluindo as do João) é commitado pela **Monique** via `npx process-ai propose
 |-------|-------------|
 | 🟢 | Página(s) regenerada(s) com os artefatos de origem presentes, sem warnings. |
 | 🟡 | Regenerada com warning (ex.: grafo sem `value-chain`; árvore sem `hierarchy` → fallback textual). |
-| 🔴 | Regeneração indisponível (sem `tsx`, checkpoint ilegível, ou sem os artefatos de origem — grafo vazio). |
+| 🔴 | Regeneração indisponível (falha no subcomando `generate-site`, checkpoint ilegível, ou sem os artefatos de origem — grafo vazio). |
 
 ## O que NÃO é do João
 
@@ -139,4 +136,4 @@ incluindo as do João) é commitado pela **Monique** via `npx process-ai propose
 
 - **P2:** `fornecedores-clientes.html` (grafo D3, fornecedores↔clientes).
 - **P3 (atual):** também `hierarquia-3d.html` (árvore 3D Three.js). Escopo
-  completo do João: `only: ['fornecedores-clientes', 'hierarquia-3d']`.
+  completo do João: `--only fornecedores-clientes,hierarquia-3d`.
