@@ -1,0 +1,27 @@
+{
+  "version": "1.0",
+  "description": "Base de conhecimento metodológico do process-ai — Material de referência para enriquecer o julgamento dos especialistas durante o mapeamento.",
+  "documents": [
+    {
+      "id": "metodologias",
+      "path": "base-conhecimento/Metodologias de Mapeamento de Processos.md",
+      "title": "Metodologias de Mapeamento de Processos",
+      "topics": ["BPM", "BPMN", "SIPOC", "VSM", "Lean", "Six Sigma", "DMAIC", "Kaizen", "IDEF", "EPC", "UML", "TOGAF", "APQC", "SCOR", "comparativo"],
+      "use_when": "escolha de abordagem metodológica, justificativa de notação, adaptação ao contexto da organização"
+    },
+    {
+      "id": "guia-ufsm",
+      "path": "base-conhecimento/GUIA MAPEAMENTO PROCESSOS 2.0.md",
+      "title": "Guia de Mapeamento de Processos — UFSM 2ª ed.",
+      "topics": ["template", "passo a passo", "governança", "validação", "indicadores", "POP"],
+      "use_when": "dúvida sobre estrutura de entrega, templates, validação de processo, elaboração de POPs"
+    },
+    {
+      "id": "resumo",
+      "path": "base-conhecimento/resumo_metodologias.md",
+      "title": "Resumo das Metodologias de Mapeamento de Processos",
+      "topics": ["BPM", "BPMN", "SIPOC", "VSM", "Lean", "Six Sigma", "DMAIC", "Kaizen", "fluxograma", "resumo"],
+      "use_when": "consulta rápida a metodologias, visão geral, fundamentação teórica"
+    }
+  ]
+}

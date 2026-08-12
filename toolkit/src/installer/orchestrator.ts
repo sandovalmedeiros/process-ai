@@ -23,6 +23,7 @@ import { backupFile } from './file-ops.ts';
 import { MANIFEST_REL_PATH, writeManifest } from './manifest.ts';
 import type { InstallType, Manifest } from './manifest.ts';
 import { installMethodPacks, uninstallMethodPacks } from './pack-copy.ts';
+import { installKb, uninstallKb } from './kb-copy.ts';
 import { ensureIngestDeps } from './python-deps.ts';
 import type { PythonDepResult } from './python-deps.ts';
 import { ensureRenderDeps } from './playwright-deps.ts';
@@ -116,6 +117,7 @@ export class Installer {
       processAiVersion: version,
     });
     const packFiles = await installMethodPacks(targetDir);
+    const kbFiles = await installKb(targetDir);
     await scaffoldConfig(targetDir, { activePack: req.activePack, processAiVersion: version });
 
     const manifest: Manifest = {
@@ -126,13 +128,13 @@ export class Installer {
         ide: ideResult.ide,
         active_pack: req.activePack ?? 'bpmn-sipoc',
       },
-      files: [...ideResult.files, ...packFiles],
+      files: [...ideResult.files, ...packFiles, ...kbFiles],
     };
     await writeManifest(targetDir, manifest);
 
     const outcome: InstallOutcome['outcome'] =
       installType === 'fresh' ? 'installed' : installType === 'update' ? 'updated' : 'repaired';
-    return { outcome, installType, ide: ideResult.ide, files: [...ideResult.files, ...packFiles], backed, ingest, render, targetDir };
+    return { outcome, installType, ide: ideResult.ide, files: [...ideResult.files, ...packFiles, ...kbFiles], backed, ingest, render, targetDir };
   }
 
   /** Atualiza uma instalação existente. Erro se não instalado; no-op se já atual. */
@@ -165,7 +167,8 @@ export class Installer {
 
     const ideRemoved = (await this.ideSetup.uninstallIde(targetDir)).removed;
     const packRemoved = await uninstallMethodPacks(targetDir);
-    const removed = [...ideRemoved, ...packRemoved];
+    const kbRemoved = await uninstallKb(targetDir);
+    const removed = [...ideRemoved, ...packRemoved, ...kbRemoved];
     await fs.rm(path.join(targetDir, MANIFEST_REL_PATH), { force: true });
     if (req.purge) {
       await fs.rm(path.join(targetDir, '.process-ai'), { recursive: true, force: true });

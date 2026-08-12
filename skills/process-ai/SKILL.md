@@ -155,6 +155,27 @@ via `/process-ai-laura` ou `npx process-ai ingest --path`.
 
 ---
 
+## 2.6. Base de conhecimento metodológico
+
+Antes de iniciar a pipeline de mapeamento, a Déa **consulta o manifesto de
+conhecimento** em `base-conhecimento/manifest.json`. Se o arquivo existir:
+
+1. Leia o manifesto e identifique quais documentos são relevantes para o
+   **contexto específico do processo** (ex.: indústria → VSM/Lean; órgão público
+   → APQC/BPM; supply chain → SCOR).
+2. Leia o(s) documento(s) pertinente(s) **antes** de passar o handoff ao Bento.
+3. Durante o handoff para cada especialista, **passe o contexto metodológico**
+   relevante junto com os `sha256` dos artefatos (ex.: "Bento, este é um processo
+   industrial — considere usar VSM em vez de SIPOC puro; consulte o
+   documento `metodologias` para referência.").
+4. Os especialistas **não leem** a base diretamente — a Déa faz a curadoria do
+   que é relevante para cada etapa e repassa no handoff.
+
+> **Isto é uma camada de enriquecimento, não um requisito.** Se o manifesto não
+> existir ou o contexto não justificar consulta, a pipeline segue normalmente com
+> os roteiros inline de cada especialista. Nenhum gate é bloqueado por falta de
+> consulta à base.
+
 ---
 
 ## 3. Pipeline — especialistas + gates (AC3)

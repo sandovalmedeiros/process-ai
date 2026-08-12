@@ -128,7 +128,7 @@ test('scaffoldConfig: PRESERVA config.user em re-run (nunca tocado pelo installe
 
 // ---- Installer.install (adapter real) ----
 
-test('Installer.install: cria só .claude/, .process-ai/ e method-packs/ no target', async () => {
+test('Installer.install: cria só .claude/, .process-ai/, method-packs/ e base-conhecimento/ no target', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'pa-installer-scope-'));
   try {
     const inst = new Installer(new ClaudeCodeIdeSetup());
@@ -138,8 +138,8 @@ test('Installer.install: cria só .claude/, .process-ai/ e method-packs/ no targ
     const top = (await fs.readdir(tmp)).sort();
     assert.deepEqual(
       top,
-      ['.claude', '.process-ai', 'method-packs'],
-      `install só deve criar .claude/, .process-ai/ e method-packs/, got ${top.join(',')}`,
+      ['.claude', '.process-ai', 'base-conhecimento', 'method-packs'],
+      `install só deve criar .claude/, .process-ai/, method-packs/ e base-conhecimento/, got ${top.join(',')}`,
     );
     // provisão de ingest sempre presente no outcome (summary)
     assert.ok(outcome.ingest, 'outcome deve carregar o resultado do provisionamento de ingest');

@@ -64,6 +64,12 @@ test('install em clean → outcome installed, manifest escrito, installType fres
     // Deve haver pelo menos um arquivo de pack (method-packs/)
     const packFiles = manifest?.files.filter((f) => f.path.startsWith('method-packs/')) ?? [];
     assert.ok(packFiles.length >= 1, `esperado ≥1 arquivo em method-packs/, got ${packFiles.length}`);
+    // Deve haver pelo menos um arquivo da base de conhecimento (base-conhecimento/)
+    const kbFiles = manifest?.files.filter((f) => f.path.startsWith('base-conhecimento/')) ?? [];
+    assert.ok(kbFiles.length >= 1, `esperado ≥1 arquivo em base-conhecimento/, got ${kbFiles.length}`);
+    // base-conhecimento/ materializada no topo do projeto-alvo
+    const top = await fs.readdir(dir);
+    assert.ok(top.includes('base-conhecimento'), `esperado base-conhecimento/ no topo do target, got ${top.join(', ')}`);
   });
 });
 
@@ -110,11 +116,12 @@ test('uninstall remove skills + packs + manifest, preserva config', async () => 
     await inst.install({ targetDir: dir, interactive: false });
     const outcome = await inst.uninstall({ targetDir: dir });
     assert.equal(outcome.outcome, 'uninstalled');
-    // removed inclui .fake (IDE) + method-packs (framework)
-    assert.ok(outcome.removed && outcome.removed.length >= 2, `esperado ≥2 removidos (.fake + method-packs), got ${outcome.removed?.length}`);
-    // skills e manifest removidos
+    // removed inclui .fake (IDE) + method-packs + base-conhecimento (framework)
+    assert.ok(outcome.removed && outcome.removed.length >= 3, `esperado ≥3 removidos (.fake + method-packs + base-conhecimento), got ${outcome.removed?.length}`);
+    // skills, packs, base-conhecimento e manifest removidos
     assert.equal(await fs.stat(path.join(dir, '.fake')).then(() => true).catch(() => false), false);
     assert.equal(await fs.stat(path.join(dir, 'method-packs')).then(() => true).catch(() => false), false);
+    assert.equal(await fs.stat(path.join(dir, 'base-conhecimento')).then(() => true).catch(() => false), false);
     assert.equal(await fs.stat(path.join(dir, MANIFEST_REL_PATH)).then(() => true).catch(() => false), false);
     // config preservado
     assert.equal(await fs.stat(path.join(dir, '.process-ai/config')).then(() => true).catch(() => false), true);
