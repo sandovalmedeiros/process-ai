@@ -13,11 +13,13 @@
  * `writeManifest`/`readManifest` — mantendo a orquestração de install num só lugar.
  *
  * AD-3 / import-boundary: só `node:*` + relativos (../ide-setup.ts, ../install.ts,
- * ./file-ops.ts, ./manifest.ts, ./state.ts, ./resource.ts).
+ * ./banner.ts, ./file-ops.ts, ./manifest.ts, ./state.ts, ./resource.ts).
  */
 import { promises as fs, realpathSync } from 'node:fs';
 import path from 'node:path';
 import type { IdeSetup, InstalledFile } from '../ide-setup.ts';
+import { theme } from './banner.ts';
+import type { BannerTheme } from './banner.ts';
 import { scaffoldConfig } from '../install.ts';
 import { backupFile } from './file-ops.ts';
 import { MANIFEST_REL_PATH, writeManifest } from './manifest.ts';
@@ -200,26 +202,32 @@ function assertNotSelfInstall(targetDir: string): void {
 /**
  * Formata o resumo humano do outcome (stdout): ✓ + caminho + skills + slash
  * + workspace trust + status do provisionamento de deps Python do ingest.
+ * Tema ciano do installer (banner.ts — paridade Reversa): ✓ e labels INTEIROS
+ * coloridos em TTY; fora de TTY o tema é identidade e as strings ficam
+ * byte-idênticas às canônicas (contrato dos regexes de cli.test.ts/smoke).
  */
 export function formatOutcome(o: InstallOutcome): string {
+  const t = theme();
   switch (o.outcome) {
     case 'installed':
     case 'updated':
     case 'repaired': {
       const skills = o.files && o.files.length > 0 ? `${o.files.length} skill(s)` : '(nenhuma)';
       const lines = [
-        `✓ process-ai ${labelFor(o.outcome)} no projeto-alvo: ${o.targetDir}`,
-        `  Skills: ${skills}  ·  IDE: ${o.ide ?? '?'}  ·  Slash: /process-ai`,
-        `  Config: .process-ai/config (+ config.user preservado)  ·  Manifest: .process-ai/install-manifest.toml`,
+        `${t.cyan('✓')} process-ai ${labelFor(o.outcome)} no projeto-alvo: ${o.targetDir}`,
+        `  ${t.cyan('Skills:')} ${skills}  ·  ${t.cyan('IDE:')} ${o.ide ?? '?'}  ·  ${t.cyan('Slash:')} /process-ai`,
+        `  ${t.cyan('Config:')} .process-ai/config (+ config.user preservado)  ·  ${t.cyan('Manifest:')} .process-ai/install-manifest.toml`,
       ];
-      const il = ingestLine(o.ingest);
+      const il = ingestLine(o.ingest, t);
       if (il) lines.push(il);
-      const rl = renderLine(o.render);
+      const rl = renderLine(o.render, t);
       if (rl) lines.push(rl);
       if (o.backed && o.backed.length > 0) {
-        lines.push(`  Backups de arquivos modificados: ${o.backed.length} (.bak)`);
+        lines.push(`  ${t.cyan('Backups de arquivos modificados:')} ${o.backed.length} (.bak)`);
       }
       lines.push(
+        ``,
+        `  ${t.cyan('→ Abra o Claude Code e digite /process-ai no chat para começar')}`,
         ``,
         `⚠  Workspace trust: abra o projeto-alvo no Claude Code e aceite o diálogo`,
         `   de workspace trust para que a skill de projeto seja carregada.`,
@@ -228,14 +236,14 @@ export function formatOutcome(o: InstallOutcome): string {
       return lines.join('\n');
     }
     case 'already-current': {
-      const base = `✓ process-ai já está instalado e atualizado em ${o.targetDir} (IDE: ${o.ide ?? '?'}). Nada a fazer.`;
-      const il = ingestLine(o.ingest);
-      const rl = renderLine(o.render);
+      const base = `${t.cyan('✓')} process-ai já está instalado e atualizado em ${o.targetDir} (IDE: ${o.ide ?? '?'}). Nada a fazer.`;
+      const il = ingestLine(o.ingest, t);
+      const rl = renderLine(o.render, t);
       const extra = [il, rl].filter(Boolean).join('\n');
       return extra ? `${base}\n${extra}\n` : `${base}\n`;
     }
     case 'uninstalled':
-      return `✓ process-ai desinstalado de ${o.targetDir} (${o.removed?.length ?? 0} skill(s) removidas). Config e estado de sessão preservados (use --purge p/ remover tudo).\n`;
+      return `${t.cyan('✓')} process-ai desinstalado de ${o.targetDir} (${o.removed?.length ?? 0} skill(s) removidas). Config e estado de sessão preservados (use --purge p/ remover tudo).\n`;
     case 'not-installed':
       return `ℹ process-ai não está instalado em ${o.targetDir}. Nada a desinstalar.\n`;
   }
@@ -246,15 +254,15 @@ function labelFor(outcome: InstallOutcome['outcome']): string {
 }
 
 /** Linha de resumo do provisionamento de ingest (✓ instalado / ⚠ ausência ou falha). */
-function ingestLine(ingest?: PythonDepResult): string | null {
+function ingestLine(ingest: PythonDepResult | undefined, t: BannerTheme): string | null {
   if (!ingest) return null;
   const marker = ingest.installed ? '✓' : '⚠';
-  return `  Ingest: ${marker} ${ingest.message}`;
+  return `  ${t.cyan('Ingest:')} ${marker} ${ingest.message}`;
 }
 
 /** Linha de resumo do runtime de render (✓ Playwright+navegador / ⚠ indisponível — não-bloqueante). */
-function renderLine(render?: RenderDepResult): string | null {
+function renderLine(render: RenderDepResult | undefined, t: BannerTheme): string | null {
   if (!render) return null;
   const marker = render.installed ? '✓' : '⚠';
-  return `  Render: ${marker} ${render.message}`;
+  return `  ${t.cyan('Render:')} ${marker} ${render.message}`;
 }

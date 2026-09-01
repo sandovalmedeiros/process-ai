@@ -52,6 +52,12 @@ import { checkForUpdate, defaultDeps, formatUpdateWarning } from '../toolkit/src
 import type { UpdateCheckResult } from '../toolkit/src/installer/update-check.ts';
 import type { InstallState } from '../toolkit/src/installer/state.ts';
 import { gatherInstallOptions } from '../toolkit/src/installer/prompts.ts';
+import {
+  clearScreenIfTty,
+  createSpinner,
+  renderBanner,
+  useBanner,
+} from '../toolkit/src/installer/banner.ts';
 import * as readline from 'node:readline/promises';
 import { ingest, supportedFormats } from '../toolkit/src/ingest.ts';
 import { ensureRenderDeps } from '../toolkit/src/installer/playwright-deps.ts';
@@ -851,11 +857,25 @@ async function runUpdateCheckSafely(cmd: ParsedCommand, opts: MainOptions): Prom
  * Composition root: resolve a raiz, instancia o adapter (porta runtime) + o
  * Installer (porta install, concrete ClaudeCodeIdeSetup), e despacha. Install é
  * interativo quando TTY e sem flags (modelo BMAD); demais comandos são headless.
+ * Banner ciano (paridade Reversa, ver toolkit/src/installer/banner.ts) nos
+ * caminhos de USUÁRIO — help e install interativo — impresso ANTES do
+ * update-check (o clear-screen não pode apagar o aviso de versão do stderr).
  * Tratamento de erro (stderr + exit 1) fica no entry-point guard.
  */
 export async function main(argv: string[], opts: MainOptions = {}): Promise<void> {
   const root = path.resolve(opts.cwd ?? process.cwd());
   let cmd = parseArgs(argv);
+
+  // Banner: TTY real (com clear-screen) ou FORCE_COLOR (demo em pipe — sem
+  // clear). Subcomandos runtime (propose/status/…) nunca passam por aqui.
+  if (
+    (cmd.kind === 'help' || (cmd.kind === 'install' && !cmd.statusOnly && isInteractive(cmd))) &&
+    useBanner()
+  ) {
+    clearScreenIfTty();
+    process.stdout.write(renderBanner(getFrameworkVersion()) + '\n');
+  }
+
   // AD-3: runtime depende da porta; ClaudeCodeAdapter é instanciado aqui.
   const adapter: EngineAdapter = new ClaudeCodeAdapter({ cwd: root });
 
@@ -867,7 +887,23 @@ export async function main(argv: string[], opts: MainOptions = {}): Promise<void
   }
 
   const installer = new Installer(new ClaudeCodeIdeSetup());
-  const result = await dispatch(cmd, adapter, root, installer, updateInfo);
+  // Spinner (paridade Reversa) em volta do install/update — é onde vivem as
+  // esperas de pip/Playwright (até ~70s). Inerte fora de TTY real (nenhum
+  // timer/write); try/finally garante o interval limpo em caminho de erro.
+  const withSpinner = (cmd.kind === 'install' && !cmd.statusOnly) || cmd.kind === 'update';
+  const runDispatch = async (): Promise<DispatchResult> => {
+    if (!withSpinner) return dispatch(cmd, adapter, root, installer, updateInfo);
+    const spinner = createSpinner('Instalando skills do process-ai…');
+    spinner.start();
+    try {
+      const result = await dispatch(cmd, adapter, root, installer, updateInfo);
+      spinner.succeed('Instalação concluída!');
+      return result;
+    } finally {
+      spinner.stop();
+    }
+  };
+  const result = await runDispatch();
   process.stdout.write(result.output + '\n');
 }
 

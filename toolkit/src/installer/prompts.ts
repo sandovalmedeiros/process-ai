@@ -12,9 +12,14 @@
  * v1: choices únicas (1 IDE, 1 pack) — a estrutura (select/confirm) suporta
  * expansão futura sem mudar a assinatura.
  *
- * AD-3 / import-boundary: só `node:*` (path). Nenhum import de adapter.
+ * Prompts numerados ("1."–"4.") e ciano-tema do installer (paridade Reversa,
+ * ver ./banner.ts): em não-TTY o tema é identidade — strings plain canônicas.
+ *
+ * AD-3 / import-boundary: só `node:*` (path) + relativo ./banner.ts. Nenhum
+ * import de adapter.
  */
 import path from 'node:path';
+import { theme } from './banner.ts';
 
 /** Interface mínima para perguntar (duck-typed — `readline.Interface` a satisfaz). */
 export interface PromptRl {
@@ -43,25 +48,28 @@ export async function gatherInstallOptions(
   rl: PromptRl,
   defaults: PromptDefaults,
 ): Promise<ResolvedOptions> {
-  const targetDirRaw = await askInput(rl, 'Diretório-alvo?', defaults.targetDir);
+  // Tema ciano do installer (banner.ts) nas 4 perguntas numeradas — paridade
+  // com os prompts numerados do Reversa. Fora de TTY o tema é identidade.
+  const t = theme();
+  const targetDirRaw = await askInput(rl, t.cyan('1. Diretório-alvo?'), defaults.targetDir);
   const targetDir = targetDirRaw.trim();
   if (!targetDir) throw new Error('Diretório-alvo não pode ser vazio.');
 
   const ide = await askSelect(
     rl,
-    'IDE?',
+    t.cyan('2. IDE?'),
     [{ value: 'claude-code', label: 'Claude Code (outras IDEs em breve)' }],
     defaults.ide,
   );
   const activePack = await askSelect(
     rl,
-    'Method-pack ativo?',
+    t.cyan('3. Method-pack ativo?'),
     [{ value: 'bpmn-sipoc', label: 'bpmn-sipoc (pack padrão v1)' }],
     defaults.activePack,
   );
   const full = await askConfirm(
     rl,
-    'Instalar condutor (/process-ai) + 4 especialistas?',
+    t.cyan('4. Instalar condutor (/process-ai) + 4 especialistas?'),
     defaults.full,
   );
 

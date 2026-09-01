@@ -58,6 +58,8 @@ npx process-ai
 
 `npx process-ai` instala o framework no diretório atual. Em **TTY** (terminal interativo) abre um prompt curto (diretório, method-pack, IDE); em **CI** (não-TTY) ou com flags, instala headless com defaults.
 
+Em terminal interativo, o `--help` e o install abrem com um banner ASCII-art **"process-ai" em ciano** (com spinner de progresso durante a cópia das skills e resumo colorido ao final) — a mesma apresentação do installer do [Reversa](https://github.com/sandeco/reversa), reimplementada em ANSI puro, sem dependências. Variáveis: `NO_COLOR=1` desativa cores e banner (saída plain); `FORCE_COLOR=1` força as cores mesmo em saída capturada (demo/`less -R` — não ativa spinner nem clear-screen).
+
 O que o install faz:
 
 - copia as skills (condutora Déa + 8 agentes: Bento, Miguel, Júlia, Guilherme, Zanoni, Tiago, Laura e Monique + o time da Monique: João, Mônica, Sarah e Victor) para `.claude/skills/`;
