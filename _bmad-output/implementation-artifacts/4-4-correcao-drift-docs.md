@@ -1,7 +1,12 @@
 # Story 4.4: Documentação — drift zero (código ↔ docs)
 
 baseline_commit: 80c5387864b61670f128eee287fa24676e4db8cc
-Status: review
+Status: done
+
+> **2026-08-23 — Ratificação de status (Project Lead: Sandoval):** `review` ratificado como `done`.
+> Revisão adversarial formal dispensada por decisão: épico declarado concluído na retro de
+> 2026-08-07 (7/7 stories, 318/324 testes, AD-2 fechado), v1.1 declarado pronto, releases
+> 0.12.1→0.13.0 publicadas desde então.
 
 ## Story
 

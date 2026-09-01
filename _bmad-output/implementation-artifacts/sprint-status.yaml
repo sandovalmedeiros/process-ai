@@ -1,5 +1,5 @@
 # generated: 2026-08-01
-# last_updated: 2026-08-02
+# last_updated: 2026-08-23
 # project: process-ai
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,8 +41,10 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-01
-last_updated: 2026-08-07
+last_updated: 2026-08-23
 # Epic 4 concluído (2026-08-07): 7/7 stories, 318/324 testes, AD-2 fechado, v1.1 declarado pronto.
+# 2026-08-23: reconciliação de registro — stories 4-x ratificadas done (ver bloco epic-4),
+# action items do Épico 3 fechados com evidência da retro do Épico 4 §7.
 project: process-ai
 project_key: NOKEY
 tracking_system: file-system
@@ -88,12 +90,15 @@ development_status:
   # ===== Epic 4: Hardening v1.1 — Confiabilidade e Integridade =====
   # Adicionado via Sprint Change Proposal 2026-08-07 (bmad-correct-course)
   epic-4: done
-  4-1-schema-enforcement-estrito: review
-  4-2-self-check-gate: review
+  # 2026-08-23: 4-1/4-2/4-4/4-5/4-6 ratificados review→done por decisão do Project Lead
+  # (Sandoval) — revisão adversarial formal dispensada: épico declarado concluído na retro
+  # 2026-08-07, v1.1 pronto, releases 0.12.x→0.13.0 desde então. Nota datada em cada story.
+  4-1-schema-enforcement-estrito: done
+  4-2-self-check-gate: done
   4-3-smoke-test-consumer-install: done
-  4-4-correcao-drift-docs: review
-  4-5-claims-validadas-consumo: review
-  4-6-triagem-deferred-work: review
+  4-4-correcao-drift-docs: done
+  4-5-claims-validadas-consumo: done
+  4-6-triagem-deferred-work: done
   4-7-readiness-final: done
   epic-4-retrospective: done
 
@@ -101,24 +106,43 @@ action_items:
   - epic: 3
     action: "Self-check gate antes de done — Dev Agent Record preenchido + ACs com evidência antes de marcar done"
     owner: "Amelia"
-    status: open
+    status: done
   - epic: 3
     action: "Smoke test de consumer-install (npm pack -> install em temp -> process-ai --help)"
     owner: "Amelia"
-    status: open
+    status: done
   - epic: 3
     action: "Enforcement estrito do schema-núcleo (story dedicada, decisão D1) — auditar payloads, ativar required, fechar additionalProperties"
     owner: "Winston"
-    status: open
+    status: done
   - epic: 3
     action: "Triagem do hardening [Low] do deferred-work por arquivo-gatilho"
     owner: "Mary"
-    status: open
+    status: done
   - epic: 3
     action: "Corrigir drift de docs (require para import ESM; contagem de testes stale) + teste leve de contagem"
     owner: "Paige"
-    status: open
+    status: done
   - epic: 3
     action: "Claims de contract/doc validadas contra consumo (guards no estilo doesNotMatch)"
     owner: "Winston"
+    status: done
+
+  # 2026-08-23: action items da retro do Épico 4 (§9) adicionados — nunca haviam sido
+  # refletidos neste arquivo (convenção do arquivo: retro anexa seus action items aqui).
+  - epic: 4
+    action: "Publicar no npm — npm publish executado, pacote disponível em registry público (deferido por decisão do Project Lead)"
+    owner: "Sandoval"
+    status: open
+  - epic: 4
+    action: "Validar wedge com stakeholder externo — ≥1 PME real executa /process-ai e produz documentação de processo real (deferido)"
+    owner: "Sandoval"
+    status: open
+  - epic: 4
+    action: "Investigar poluição de ordenação nos testes — 2 testes do confidence.test.ts que falham em suite passam consistentemente [Low]"
+    owner: "Amelia"
+    status: open
+  - epic: 4
+    action: "Triar deferred-work ao final de cada épico, não a cada 3 (acordo de equipe)"
+    owner: "Mary"
     status: open
