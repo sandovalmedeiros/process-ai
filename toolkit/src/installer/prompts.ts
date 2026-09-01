@@ -1,86 +1,137 @@
 /**
- * toolkit/src/installer/prompts.ts — prompts interativos de install (TTY-gated).
+ * toolkit/src/installer/prompts.ts — prompts do install interativo (v2, paridade Reversa).
  *
- * Equivalente do `promptInstallation()` do BMAD, mas com `node:readline/promises`
- * (zero deps) e injetável: `gatherInstallOptions(rl, defaults)` recebe um objeto
- * duck-typed (`PromptRl`) — em produção é um `readline.Interface`; em teste é um
- * fake que devolve respostas canned. Assim o caminho de prompts é testável sem TTY.
+ * Seis perguntas pt-BR no ritmo do Reversa (`lib/installer/prompts.js`):
+ *  1. Engines de apoio — checkbox raw-mode (interact.ts), detecção prévia
+ *     (engines.ts), só as suportadas são marcáveis (v1: Claude Code);
+ *  2. Nome do projeto (default: basename do cwd);
+ *  3. Como os agentes devem te chamar?;
+ *  4. Idioma das interações com agentes (default: pt-br);
+ *  5. Idioma dos documentos gerados (default: Português);
+ *  6. Como tratar artefatos no git? (commit | gitignore — select numérico).
+ *
+ * Sem perguntas de diretório (install interativo = cwd, como o Reversa;
+ * `--target` fica para headless), de method-pack (default bpmn-sipoc; flag
+ * headless) nem de "quais skills" (v1 instala todas sempre).
+ *
+ * Transição readline×raw-mode (P10 da validação): o checkbox roda com NENHUM
+ * `readline.Interface` vivo (senão o rl disputa os keypresses do stdin) — por
+ * isso `makeRl` é FACTORY, chamada só depois do widget fechar o raw mode. A
+ * pergunta 6 usa o select numérico do readline (uma única superfície raw-mode
+ * por execução; widget `select` com setas fica para v1.1).
  *
  * O GATE de interatividade (TTY vs headless) fica no caller (`bin/process-ai.ts`
  * via `process.stdout.isTTY`), não aqui — este módulo só sabe perguntar.
  *
- * v1: choices únicas (1 IDE, 1 pack) — a estrutura (select/confirm) suporta
- * expansão futura sem mudar a assinatura.
- *
- * Prompts numerados ("1."–"4.") e ciano-tema do installer (paridade Reversa,
- * ver ./banner.ts): em não-TTY o tema é identidade — strings plain canônicas.
- *
- * AD-3 / import-boundary: só `node:*` (path) + relativo ./banner.ts. Nenhum
- * import de adapter.
+ * AD-3 / import-boundary: só `node:*` (path) + relativos ./banner.ts,
+ * ./interact.ts, ./engines.ts. Nenhum import de adapter.
  */
 import path from 'node:path';
 import { theme } from './banner.ts';
+import { checkbox } from './interact.ts';
+import type { KeySource, WidgetStream } from './interact.ts';
+import type { DetectedEngine } from './engines.ts';
 
-/** Interface mínima para perguntar (duck-typed — `readline.Interface` a satisfaz). */
+/** Interface mínima para perguntar texto (duck-typed — `readline.Interface` a satisfaz). */
 export interface PromptRl {
   question(query: string): Promise<string>;
   close(): void;
 }
 
-/** Defaults dos prompts (derivados do contexto pelo caller). */
+/** Defaults derivados do contexto pelo caller. */
 export interface PromptDefaults {
-  targetDir: string;
-  ide: string;
-  activePack: string;
-  full: boolean;
+  projectName: string;
+  chatLanguage: string;
+  docLanguage: string;
 }
 
-/** Opções resolvidas pelos prompts (entradas do `InstallRequest`). */
-export interface ResolvedOptions {
-  targetDir: string;
-  ide: string;
-  activePack: string;
-  full: boolean;
+/** Dependências do fluxo (fábricas + detecção + saída — tudo injetável p/ teste). */
+export interface GatherDeps {
+  /** Factory de readline — chamada APÓS o checkbox (raw e rl nunca convivem). */
+  makeRl(): PromptRl;
+  /** Factory de KeySource — uma sessão raw por widget. */
+  keys(): KeySource;
+  out?: WidgetStream;
+  engines: readonly DetectedEngine[];
+  defaults: PromptDefaults;
 }
 
-/** Sequência de prompts do install interativo. */
-export async function gatherInstallOptions(
-  rl: PromptRl,
-  defaults: PromptDefaults,
-): Promise<ResolvedOptions> {
-  // Tema ciano do installer (banner.ts) nas 4 perguntas numeradas — formato do
-  // Reversa: linha em branco antes de cada pergunta, frase declarativa com ":"
-  // (confirm fecha com "?"). Fora de TTY o tema é identidade.
+/** Respostas do install interativo (persistidas como `InstallPrefs`). */
+export interface InstallAnswers {
+  engines: string[];
+  projectName: string;
+  userName: string;
+  chatLanguage: string;
+  docLanguage: string;
+  gitStrategy: 'commit' | 'gitignore';
+}
+
+/** Sequência completa dos prompts do install interativo. */
+export async function gatherInstallAnswers(deps: GatherDeps): Promise<InstallAnswers> {
   const t = theme();
-  const targetDirRaw = await askInput(rl, t.cyan('\n1. Diretório-alvo'), defaults.targetDir);
-  const targetDir = targetDirRaw.trim();
-  if (!targetDir) throw new Error('Diretório-alvo não pode ser vazio.');
 
-  const ide = await askSelect(
-    rl,
-    t.cyan('\n2. IDE de apoio'),
-    [{ value: 'claude-code', label: 'Claude Code (outras IDEs em breve)' }],
-    defaults.ide,
-  );
-  const activePack = await askSelect(
-    rl,
-    t.cyan('\n3. Method-pack ativo'),
-    [{ value: 'bpmn-sipoc', label: 'bpmn-sipoc (pack padrão v1)' }],
-    defaults.activePack,
-  );
-  // 13 skills = condutora Déa + 12 agentes (8 + time da Monique — ver README).
-  const full = await askConfirm(
-    rl,
-    t.cyan('\n4. Instalar condutora (/process-ai) + 12 agentes?'),
-    defaults.full,
-  );
+  // 1. Engines de apoio — checkbox raw-mode (nenhum rl vivo neste momento).
+  const anyDetected = deps.engines.some((e) => e.detected);
+  const choices = deps.engines.map((e) => ({
+    value: e.id,
+    label: e.supported
+      ? `${e.name}${e.detected ? ' (detectada · recomendada)' : ' (recomendada)'}`
+      : `${e.name} (em breve)`,
+    // default: suportadas marcadas quando detectadas — ou quando NADA foi
+    // detectado (evita abrir com zero, o que travaria a validação de ≥1).
+    checked: e.supported && (e.detected || !anyDetected),
+    disabled: !e.supported,
+  }));
+  const engines = await checkbox(t.cyan('\n1. Engines de apoio'), choices, {
+    keys: deps.keys(),
+    stream: deps.out,
+  });
 
-  return { targetDir: path.resolve(targetDir), ide, activePack, full };
+  // 2-6 — perguntas de texto/seleção via readline (raw mode já fechado).
+  const rl = deps.makeRl();
+  try {
+    const projectNameRaw = await askInput(rl, t.cyan('2. Nome do projeto'), deps.defaults.projectName);
+    const projectName = projectNameRaw.trim();
+    if (!projectName) throw new Error('Nome do projeto não pode ser vazio.');
+
+    const userNameRaw = await askInput(rl, t.cyan('3. Como os agentes devem te chamar'), '');
+    const userName = userNameRaw.trim();
+    if (!userName) throw new Error('Informe como os agentes devem te chamar (não pode ser vazio).');
+
+    const chatLanguage = await askInput(rl, t.cyan('4. Idioma das interações com agentes'), deps.defaults.chatLanguage);
+    const docLanguage = await askInput(rl, t.cyan('5. Idioma dos documentos gerados'), deps.defaults.docLanguage);
+    const gitStrategy = await askSelect(
+      rl,
+      t.cyan('6. Como tratar artefatos no git?'),
+      [
+        { value: 'commit', label: 'Commitar com o projeto (recomendado p/ times)' },
+        { value: 'gitignore', label: 'Adicionar ao .gitignore (uso pessoal)' },
+      ],
+      'commit',
+    );
+
+    return {
+      engines,
+      projectName,
+      userName,
+      chatLanguage: chatLanguage.trim(),
+      docLanguage: docLanguage.trim(),
+      gitStrategy: gitStrategy as 'commit' | 'gitignore',
+    };
+  } finally {
+    rl.close();
+  }
+}
+
+/** Nome default do projeto (basename do diretório-alvo). */
+export function defaultProjectName(targetDir: string): string {
+  return path.basename(path.resolve(targetDir));
 }
 
 /** Prompt de texto livre com default (ENTER aceita o default). */
 async function askInput(rl: PromptRl, question: string, def: string): Promise<string> {
-  const answer = (await rl.question(`${question} [${def}]: `)).trim();
+  const suffix = def === '' ? ': ' : ` [${def}]: `;
+  const answer = (await rl.question(`${question}${suffix}`)).trim();
   return answer === '' ? def : answer;
 }
 
@@ -102,11 +153,4 @@ async function askSelect(
   const n = Number.parseInt(answer, 10);
   if (Number.isInteger(n) && n >= 1 && n <= choices.length) return choices[n - 1].value;
   return choices[defaultIdx].value; // inválido → default
-}
-
-/** Prompt sim/não (ENTER aceita o default). */
-async function askConfirm(rl: PromptRl, question: string, def: boolean): Promise<boolean> {
-  const answer = (await rl.question(`${question} (y/n) [${def ? 'y' : 'n'}]: `)).trim().toLowerCase();
-  if (answer === '') return def;
-  return answer === 'y' || answer === 'yes' || answer === 's' || answer === 'sim';
 }

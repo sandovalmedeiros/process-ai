@@ -435,11 +435,50 @@ export async function loadPack(packDir: string): Promise<MethodPack> {
 /** Config da sessão (.process-ai/config). */
 export interface SessionConfig {
   activePack?: { id: string; version: string };
+  /**
+   * Preferências do install interativo — overlay de `.process-ai/config.user`
+   * (implementa a promessa do stub "Valores aqui sobrepõem", com whitelist).
+   */
+  projectName?: string;
+  userName?: string;
+  chatLanguage?: string;
+  docLanguage?: string;
+  gitStrategy?: string;
+}
+
+/** Chaves de preferência aceitas no overlay do config.user (WHITELIST). */
+const CONFIG_USER_PREF_KEYS: Readonly<Record<string, keyof SessionConfig>> = {
+  project_name: 'projectName',
+  user_name: 'userName',
+  chat_language: 'chatLanguage',
+  doc_language: 'docLanguage',
+  git_strategy: 'gitStrategy',
+};
+
+/** Scan TOML mínimo linha-a-linha → record chave→valor (comentários pulos). */
+function parseConfigLines(raw: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of raw.split('\n')) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0 || trimmed.startsWith('#')) continue;
+    const eq = trimmed.indexOf('=');
+    if (eq < 0) continue;
+    const key = trimmed.slice(0, eq).trim();
+    const val = trimmed.slice(eq + 1).trim().replace(/^["'](.*)["']$/, '$1');
+    if (key !== '') out[key] = val;
+  }
+  return out;
 }
 
 /**
- * Lê .process-ai/config (se existir). Retorna config vazia se não existir.
- * v1: TOML mínimo (active_pack + pack_version).
+ * Lê .process-ai/config (se existir) + overlay de .process-ai/config.user.
+ * Retorna config vazia se não existir. v1: TOML mínimo (active_pack +
+ * pack_version no config; preferências no config.user).
+ *
+ * Overlay WHITELIST: `active_pack`/`pack_version` em config.user NÃO são
+ * aplicados em v1 — troca de pack tem invariantes no manifest/provenance
+ * (merece story própria); as 5 chaves de preferência do install são.
+ * config.user ausente/ilegível → sem overlay (fail-soft).
  */
 export async function readConfig(root: string): Promise<SessionConfig> {
   const configPath = path.join(root, '.process-ai', 'config');
@@ -451,25 +490,27 @@ export async function readConfig(root: string): Promise<SessionConfig> {
     throw new PackError(`Erro ao ler .process-ai/config: ${(e as Error).message}`);
   }
 
-  let activePackId = '';
-  let activePackVersion = '';
-
-  for (const line of raw.split('\n')) {
-    const trimmed = line.trim();
-    if (trimmed.length === 0 || trimmed.startsWith('#')) continue;
-    const eq = trimmed.indexOf('=');
-    if (eq < 0) continue;
-    const key = trimmed.slice(0, eq).trim();
-    const val = trimmed.slice(eq + 1).trim().replace(/^["'](.*)["']$/, '$1');
-    if (key === 'active_pack') activePackId = val;
-    if (key === 'pack_version') activePackVersion = val;
-  }
-
-  if (activePackId) {
+  const parsed = parseConfigLines(raw);
+  const cfg: SessionConfig = {};
+  if (parsed.active_pack) {
     // Não fabricamos "0.0.0" quando pack_version ausente (hardening — antes
     // corrompia provenance silenciosamente). Retorna string vazia; commit usa
     // a versão do pack carregado (truthful) e warn se a config divergir.
-    return { activePack: { id: activePackId, version: activePackVersion } };
+    cfg.activePack = { id: parsed.active_pack, version: parsed.pack_version ?? '' };
   }
-  return {};
+
+  try {
+    const userRaw = await fs.readFile(path.join(root, '.process-ai', 'config.user'), 'utf8');
+    const user = parseConfigLines(userRaw);
+    for (const [tomlKey, sessionKey] of Object.entries(CONFIG_USER_PREF_KEYS)) {
+      const v = user[tomlKey];
+      if (v !== undefined && v !== '') {
+        (cfg as Record<string, unknown>)[sessionKey] = v;
+      }
+    }
+  } catch {
+    // config.user ausente (ou lixo ilegível) → sem overlay
+  }
+
+  return cfg;
 }

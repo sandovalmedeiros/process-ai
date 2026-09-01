@@ -56,7 +56,7 @@ cd meu-projeto
 npx process-ai
 ```
 
-`npx process-ai` instala o framework no diretório atual. Em **TTY** (terminal interativo) abre um prompt curto (diretório, method-pack, IDE); em **CI** (não-TTY) ou com flags, instala headless com defaults.
+`npx process-ai` instala o framework no diretório atual. Em **TTY** (terminal interativo) abre um fluxo de 6 perguntas no estilo do Reversa — checkbox de **engines** navegável por setas/espaço (com detecção de quais você já usa; v1 instala só Claude Code), nome do projeto, como os agentes devem te chamar, idioma das interações, idioma dos documentos e estratégia de git (commitar × `.gitignore`). As respostas são persistidas em `.process-ai/config.user` (edições manuais nunca são sobrescritas — o installer só acrescenta/atualiza as linhas que ele mesmo escreveu). Em **CI** (não-TTY) ou com flags, instala headless com defaults.
 
 Em terminal interativo, o `--help` e o install abrem com um banner ASCII-art **"process-ai" em ciano** (com spinner de progresso durante a cópia das skills e resumo colorido ao final) — a mesma apresentação do installer do [Reversa](https://github.com/sandeco/reversa), reimplementada em ANSI puro, sem dependências. Variáveis: `NO_COLOR=1` desativa cores e banner (saída plain); `FORCE_COLOR=1` força as cores mesmo em saída capturada (demo/`less -R` — não ativa spinner nem clear-screen).
 

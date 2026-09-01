@@ -146,3 +146,74 @@ export async function scaffoldConfig(
 
   return { configPath, configUserPath, configUserExisted };
 }
+
+/**
+ * Preferências coletadas pelo install interativo (paridade Reversa: nome do
+ * projeto, como te chamar, idiomas, estratégia git). Persistidas em
+ * `.process-ai/config.user` via `mergeConfigUser`.
+ */
+export interface InstallPrefs {
+  projectName?: string;
+  userName?: string;
+  chatLanguage?: string;
+  docLanguage?: string;
+  gitStrategy?: 'commit' | 'gitignore';
+}
+
+/** Marcador de proveniência: linha escrita pelo installer (re-run atualiza). */
+const CONFIG_USER_INSTALL_MARKER = '# definido pelo install';
+
+/** Chave TOML de cada pref (snake_case — lidas pelo overlay do readConfig). */
+const PREF_KEYS: ReadonlyArray<[keyof InstallPrefs, string]> = [
+  ['projectName', 'project_name'],
+  ['userName', 'user_name'],
+  ['chatLanguage', 'chat_language'],
+  ['docLanguage', 'doc_language'],
+  ['gitStrategy', 'git_strategy'],
+];
+
+/**
+ * Persiste as preferências do install em `.process-ai/config.user` — merge
+ * linha-a-linha com marcador de proveniência:
+ *  - chave ausente → append (com marcador);
+ *  - chave em linha COM marcador → re-run atualiza o valor (comportamento
+ *    Reversa: re-install re-responde);
+ *  - chave em linha SEM marcador → edição manual do usuário, INTOCÁVEL.
+ * Comentários/EOL dominante preservados; escrita atômica; valor vazio → chave
+ * não é escrita. Se o arquivo não existe, nasce do stub.
+ */
+export async function mergeConfigUser(targetDir: string, prefs: InstallPrefs): Promise<string> {
+  const configUserPath = path.join(targetDir, '.process-ai', 'config.user');
+  let text: string;
+  try {
+    text = await fs.readFile(configUserPath, 'utf8');
+  } catch {
+    text = CONFIG_USER_STUB;
+  }
+  const eol = text.includes('\r\n') ? '\r\n' : '\n';
+  const lines = text.split(/\r?\n/);
+
+  for (const [prefKey, tomlKey] of PREF_KEYS) {
+    const value = prefs[prefKey];
+    if (value === undefined || value === '') continue;
+    const re = new RegExp(`^\\s*${tomlKey}\\s*=`);
+    const idx = lines.findIndex((l) => re.test(l) && !l.trimStart().startsWith('#'));
+    const newLine = `${tomlKey} = "${escapeTomlString(value)}" ${CONFIG_USER_INSTALL_MARKER}`;
+    if (idx === -1) {
+      // append no fim; UMA linha em branco separa o bloco novo do conteúdo
+      // existente (chaves subsequentes do mesmo merge entram coladas).
+      while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+      if (lines.length > 0) lines.push('');
+      lines.push(newLine);
+    } else if (lines[idx].includes(CONFIG_USER_INSTALL_MARKER)) {
+      lines[idx] = newLine; // linha do installer → re-run atualiza
+    }
+    // linha sem marcador → do usuário: não sobrescreve.
+  }
+
+  let out = lines.join(eol);
+  if (!out.endsWith(eol)) out += eol;
+  await fs.mkdir(path.dirname(configUserPath), { recursive: true });
+  await atomicWrite(configUserPath, out);
+  return configUserPath;
+}

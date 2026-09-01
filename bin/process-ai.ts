@@ -51,13 +51,17 @@ import { getFrameworkVersion } from '../toolkit/src/installer/resource.ts';
 import { checkForUpdate, defaultDeps, formatUpdateWarning } from '../toolkit/src/installer/update-check.ts';
 import type { UpdateCheckResult } from '../toolkit/src/installer/update-check.ts';
 import type { InstallState } from '../toolkit/src/installer/state.ts';
-import { gatherInstallOptions } from '../toolkit/src/installer/prompts.ts';
+import { gatherInstallAnswers, defaultProjectName } from '../toolkit/src/installer/prompts.ts';
+import { CancelledInstallError, keysFromStdin } from '../toolkit/src/installer/interact.ts';
+import { detectEngines } from '../toolkit/src/installer/engines.ts';
 import {
   clearScreenIfTty,
   createSpinner,
   renderBanner,
+  theme,
   useBanner,
 } from '../toolkit/src/installer/banner.ts';
+import type { InstallPrefs } from '../toolkit/src/install.ts';
 import * as readline from 'node:readline/promises';
 import { ingest, supportedFormats } from '../toolkit/src/ingest.ts';
 import { ensureRenderDeps } from '../toolkit/src/installer/playwright-deps.ts';
@@ -76,6 +80,8 @@ export type ParsedCommand =
       pack?: string;
       full?: boolean;
       statusOnly?: boolean;
+      /** Preferências resolvidas pelo install interativo (runInteractive). */
+      prefs?: InstallPrefs;
     }
   | { kind: 'update'; target?: string; pack?: string }
   | { kind: 'uninstall'; target?: string; purge?: boolean }
@@ -141,7 +147,9 @@ Uso:
 
 Install (usuário):
   install            instala skills em .claude/skills/ + .process-ai/config + .process-ai/install-manifest.toml.
-                     Interativo quando TTY e sem flags; headless com --target/--ide/--pack/--full ou em CI.
+                     Interativo quando TTY e sem flags: 6 perguntas (engines c/ checkbox navegável,
+                     projeto, como te chamar, idiomas, git) e instala no cwd — as respostas vão para
+                     .process-ai/config.user. Headless com --target/--ide/--pack/--full ou em CI.
   --target <dir>     diretório-alvo (default: cwd).
   --ide <id>         IDE alvo (v1: claude-code apenas; outras em breve).
   --pack <id>        method-pack ativo (default: bpmn-sipoc).
@@ -577,6 +585,7 @@ export async function dispatch(
         targetDir: cmd.target ?? root,
         activePack: cmd.pack,
         interactive: false,
+        prefs: cmd.prefs,
       });
       return { ok: true, output: formatOutcome(outcome) };
     }
@@ -783,37 +792,66 @@ function isInteractive(cmd: Extract<ParsedCommand, { kind: 'install' }>): boolea
   return process.stdout.isTTY === true && !cmd.target && !cmd.ide && !cmd.pack && !cmd.full;
 }
 
-/** Roda os prompts interativos e devolve o comando install resolvido (headless). */
+/**
+ * Roda o fluxo interativo do install (paridade Reversa): header "Instalação" +
+ * engines detectadas + 6 perguntas (checkbox de engines em raw-mode, depois
+ * inputs/select via readline — o rl só nasce APÓS o widget fechar o raw mode).
+ * Retorna o comando install resolvido, ou `null` quando o usuário cancela
+ * (Ctrl+C no widget → CancelledInstallError) — o caller encerra limpo.
+ */
 async function runInteractive(
   cmd: Extract<ParsedCommand, { kind: 'install' }>,
   root: string,
-): Promise<Extract<ParsedCommand, { kind: 'install' }>> {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+): Promise<Extract<ParsedCommand, { kind: 'install' }> | null> {
+  const t = theme();
+  const detected = detectEngines(root);
+  const detectedNames = detected
+    .filter((e) => e.detected)
+    .map((e) => e.name)
+    .join(', ');
+
+  // Header (espelho install.js:32-38 do Reversa): "Installation" bold + detectadas.
+  process.stdout.write(`\n${t.bold('Instalação')}\n\n`);
+  if (detectedNames !== '') {
+    process.stdout.write(`${t.gray(`Detectado: ${detectedNames}`)}\n\n`);
+  }
+
   try {
-    let resolved;
-    try {
-      resolved = await gatherInstallOptions(rl, {
-        targetDir: cmd.target ?? root,
-        ide: cmd.ide ?? 'claude-code',
-        activePack: cmd.pack ?? 'bpmn-sipoc',
-        full: cmd.full ?? true,
-      });
-    } catch {
-      // EOF / stdin fechado (Ctrl+D, pipe cerrado) — rejeição do readline vira
-      // mensagem acionável em vez de stack cru.
+    const answers = await gatherInstallAnswers({
+      makeRl: () =>
+        readline.createInterface({ input: process.stdin, output: process.stdout }),
+      keys: () => keysFromStdin(),
+      engines: detected,
+      defaults: {
+        projectName: defaultProjectName(root),
+        chatLanguage: 'pt-br',
+        docLanguage: 'Português',
+      },
+    });
+    return {
+      kind: 'install',
+      target: root,
+      ide: cmd.ide,
+      pack: cmd.pack,
+      full: true,
+      prefs: {
+        projectName: answers.projectName,
+        userName: answers.userName,
+        chatLanguage: answers.chatLanguage,
+        docLanguage: answers.docLanguage,
+        gitStrategy: answers.gitStrategy,
+      },
+    };
+  } catch (e) {
+    if (e instanceof CancelledInstallError) return null;
+    if (e instanceof Error && e.message.includes('EOF/stdin fechado')) {
+      // EOF / stdin fechado (Ctrl+D, pipe cerrado) — rejeição vira mensagem
+      // acionável em vez de stack cru.
       throw new Error(
         'Entrada interativa encerrada (EOF/stdin fechado). Rode `process-ai install --target <dir>` para instalar sem prompts.',
       );
     }
-    return {
-      kind: 'install',
-      target: resolved.targetDir,
-      ide: resolved.ide,
-      pack: resolved.activePack,
-      full: resolved.full,
-    };
-  } finally {
-    rl.close();
+    throw e;
   }
 }
 
@@ -881,9 +919,15 @@ export async function main(argv: string[], opts: MainOptions = {}): Promise<void
 
   const updateInfo = await runUpdateCheckSafely(cmd, opts);
 
-  // install interativo quando TTY e sem flags de install.
+  // install interativo quando TTY e sem flags de install. Cancelamento
+  // (Ctrl+C) → mensagem cinza + encerramento limpo (exit 0, paridade Reversa).
   if (cmd.kind === 'install' && !cmd.statusOnly && isInteractive(cmd)) {
-    cmd = await runInteractive(cmd, root);
+    const resolved = await runInteractive(cmd, root);
+    if (resolved === null) {
+      process.stdout.write(theme().gray('\n  Instalação cancelada.\n'));
+      return;
+    }
+    cmd = resolved;
   }
 
   const installer = new Installer(new ClaudeCodeIdeSetup());
