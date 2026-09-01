@@ -104,13 +104,12 @@ development_status:
 
   # ===== Epic 5: Instalador — UX Interativa paridade Reversa =====
   # Formalizado 2026-09-01 via bmad-sprint-planning. Trabalho realizado em
-  # commits pós-0.13.0 (d4eb0e3, 9c168fd, 38dde37) + 5-4 (diff, ver abaixo).
-  # ⚠ COMMIT PENDENTE: 5-4 + fixes de code review estão no working tree (não commitados).
-  epic-5: in-progress
+  # commits d4eb0e3, 9c168fd, 38dde37 (5-1..5-3) + 3165303 (5-4) + 514ae6b (artefatos).
+  epic-5: done
   5-1-banner-tema-spinner-zero-dep: done
   5-2-perguntas-formato-reversa-contagem-real: done
   5-3-ux-interativa-checkbox-prefs-resumo-time: done
-  # 5-4 → done em 2026-09-01 (code review 3 camadas; 10 achados resolvidos; 475 testes) — NÃO COMMITADO
+  # 5-4 → done em 2026-09-01 (code review 3 camadas; 10 achados resolvidos; 475 testes; commit 3165303)
   5-4-engines-persistidas-checkbox-wrap-validacao: done
   epic-5-retrospective: optional
 
