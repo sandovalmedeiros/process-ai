@@ -2,8 +2,8 @@
  * toolkit/src/installer/prompts.ts — prompts do install interativo (v2, paridade Reversa).
  *
  * Seis perguntas pt-BR no ritmo do Reversa (`lib/installer/prompts.js`):
- *  1. Engines de apoio — checkbox raw-mode (interact.ts), detecção prévia
- *     (engines.ts), só as suportadas são marcáveis (v1: Claude Code);
+ *  1. Engines de apoio — checkbox raw-mode (interact.ts), todas as engines
+ *     marcáveis (v1: Claude Code padrão; demais registradas p/ quando houver adapter);
  *  2. Nome do projeto (default: basename do cwd);
  *  3. Como os agentes devem te chamar?;
  *  4. Idioma das interações com agentes (default: pt-br);
@@ -58,6 +58,7 @@ export interface GatherDeps {
 
 /** Respostas do install interativo (persistidas como `InstallPrefs`). */
 export interface InstallAnswers {
+  /** Engines marcadas no checkbox (todas as selecionadas pelo usuário). */
   engines: string[];
   projectName: string;
   userName: string;
@@ -71,21 +72,31 @@ export async function gatherInstallAnswers(deps: GatherDeps): Promise<InstallAns
   const t = theme();
 
   // 1. Engines de apoio — checkbox raw-mode (nenhum rl vivo neste momento).
-  const anyDetected = deps.engines.some((e) => e.detected);
+  // Todas as engines são marcáveis (sem gating "(em breve)"): as sem adapter
+  // são persistidas em config.user e instalam quando o adapter chegar — nada
+  // promete instalação que não existe (honestidade do framework).
   const choices = deps.engines.map((e) => ({
     value: e.id,
-    label: e.supported
-      ? `${e.name}${e.detected ? ' (detectada · recomendada)' : ' (recomendada)'}`
-      : `${e.name} (em breve)`,
-    // default: suportadas marcadas quando detectadas — ou quando NADA foi
-    // detectado (evita abrir com zero, o que travaria a validação de ≥1).
-    checked: e.supported && (e.detected || !anyDetected),
-    disabled: !e.supported,
+    label: e.name,
+    // default: Claude Code (única supported) sempre pré-marcada; demais livres.
+    checked: e.supported,
   }));
   const engines = await checkbox(t.cyan('\n1. Engines de apoio'), choices, {
     keys: deps.keys(),
     stream: deps.out,
   });
+
+  // Nota pós-checkbox quando há engines sem adapter (persistidas, não instaladas).
+  const registered = deps.engines.filter((e) => !e.supported && engines.includes(e.id));
+  if (registered.length > 0) {
+    const names = registered.map((r) => r.name).join(', ');
+    const plural = registered.length > 1;
+    (deps.out ?? process.stdout).write(
+      t.gray(
+        `  (${names} ${plural ? 'ficam' : 'fica'} no config.user e ${plural ? 'instalam' : 'instala'} quando o adapter chegar)\n`,
+      ),
+    );
+  }
 
   // 2-6 — perguntas de texto/seleção via readline (raw mode já fechado).
   const rl = deps.makeRl();

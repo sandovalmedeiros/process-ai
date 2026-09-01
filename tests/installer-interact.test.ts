@@ -1,9 +1,10 @@
 /**
  * tests/installer-interact.test.ts — checkbox raw-mode (interact.ts).
  *
- * Dirigido por KeySource scriptado + stream fake: navegação pula desabilitadas,
- * espaço/a/i alternam, enter exige ≥1, Ctrl+C → CancelledInstallError, EOF →
- * erro acionável, redraw usa sequências VT (cursor-up + \x1b[J), truncagem a
+ * Dirigido por KeySource scriptado + stream fake: navegação por TODAS com
+ * wrap (inquirer loop), espaço/a/i alternam (só habilitadas), enter exige ≥1
+ * (com zero, validação visível), Ctrl+C → CancelledInstallError, EOF → erro
+ * acionável, redraw usa sequências VT (cursor-up + \x1b[J), truncagem a
  * columns-1 e colapso p/ [título, resposta] ao confirmar.
  */
 import test from 'node:test';
@@ -44,36 +45,39 @@ test('checkbox: enter confirma o default; render com ❯/◉/○/dica; colapsa p
   assert.ok(tail.endsWith('\n'), 'colapso fecha com newline');
 });
 
-test('checkbox: down PULA desabilitada (a→c); espaço marca c; enter → [a, c]', async () => {
+test('checkbox: down move por TODAS (inclui desabilitada); espaço em desabilitada é no-op', async () => {
   const out = fakeOut();
   const values = await checkbox('T', CHOICES, {
-    keys: keyScript([{ name: 'down' }, { name: 'space' }, { name: 'return' }]),
+    // down a→b (desabilitada, navegável), espaço (no-op), down b→c, espaço (marca c)
+    keys: keyScript([{ name: 'down' }, { name: 'space' }, { name: 'down' }, { name: 'space' }, { name: 'return' }]),
     stream: out,
   });
   assert.deepEqual(values, ['a', 'c']);
-  // o repaint após down mostra o cursor sobre Gama (pulou Beta)
-  assert.ok(out.chunks.join('').includes('❯ ○ Gama'));
+  const all = out.chunks.join('');
+  assert.ok(all.includes('❯ ○ Beta (em breve)'), 'cursor navega sobre item desabilitado');
 });
 
-test('checkbox: "a" ×2 desliga todas → enter é NO-OP (exige ≥1) → espaço religa a focada', async () => {
+test('checkbox: "a" ×2 desliga todas → enter pisca validação (exige ≥1) → espaço religa a focada', async () => {
   const out = fakeOut();
   const values = await checkbox('T', CHOICES, {
-    // 1º 'a' liga todas (toggle-all: nem todas marcadas), 2º desliga; enter com
-    // zero marcadas é no-op; espaço religa a focada (cursor em a).
+    // 1º 'a' liga todas (toggle-all), 2º desliga; enter com zero marcadas NÃO
+    // confirma — mostra validação; espaço religa a focada (cursor em a).
     keys: keyScript([{ name: 'a' }, { name: 'a' }, { name: 'return' }, { name: 'space' }, { name: 'return' }]),
     stream: out,
   });
   assert.deepEqual(values, ['a'], 'enter com nada marcado não confirma');
+  assert.ok(out.chunks.join('').includes('⚠ Selecione ao menos uma'), 'validação visível no enter vazio');
 });
 
-test('checkbox: espaço em desabilitada não alterna; up/down sem sair das habilitadas', async () => {
-  // down (a→c), down (c → fim, no-op), up (c→a): cursor termina em a.
+test('checkbox: navegação com WRAP (inquirer loop) — up de a vai para c, down de c volta para a', async () => {
   const out = fakeOut();
   const values = await checkbox('T', CHOICES, {
-    keys: keyScript([{ name: 'down' }, { name: 'down' }, { name: 'up' }, { name: 'return' }]),
+    // up: a → c (wrap), down: c → a (wrap pela "direita"), nada alternado.
+    keys: keyScript([{ name: 'up' }, { name: 'down' }, { name: 'return' }]),
     stream: out,
   });
   assert.deepEqual(values, ['a']);
+  assert.ok(out.chunks.join('').includes('❯ ○ Gama'), 'wrap: cursor passou por Gama');
 });
 
 test('checkbox: Ctrl+C → CancelledInstallError', async () => {

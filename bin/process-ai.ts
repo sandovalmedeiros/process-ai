@@ -840,6 +840,7 @@ async function runInteractive(
         chatLanguage: answers.chatLanguage,
         docLanguage: answers.docLanguage,
         gitStrategy: answers.gitStrategy,
+        engines: answers.engines,
       },
     };
   } catch (e) {

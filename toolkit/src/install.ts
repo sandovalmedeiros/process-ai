@@ -158,6 +158,8 @@ export interface InstallPrefs {
   chatLanguage?: string;
   docLanguage?: string;
   gitStrategy?: 'commit' | 'gitignore';
+  /** Engines marcadas no checkbox: instaláveis + "(em breve)" registradas. */
+  engines?: readonly string[];
 }
 
 /** Marcador de proveniência: linha escrita pelo installer (re-run atualiza). */
@@ -170,6 +172,7 @@ const PREF_KEYS: ReadonlyArray<[keyof InstallPrefs, string]> = [
   ['chatLanguage', 'chat_language'],
   ['docLanguage', 'doc_language'],
   ['gitStrategy', 'git_strategy'],
+  ['engines', 'engines'],
 ];
 
 /**
@@ -182,7 +185,14 @@ const PREF_KEYS: ReadonlyArray<[keyof InstallPrefs, string]> = [
  * Comentários/EOL dominante preservados; escrita atômica; valor vazio → chave
  * não é escrita. Se o arquivo não existe, nasce do stub.
  */
-export async function mergeConfigUser(targetDir: string, prefs: InstallPrefs): Promise<string> {
+/** Resultado do merge de config.user: caminho + chaves efetivamente escritas. */
+export interface MergeConfigUserResult {
+  path: string;
+  /** Chaves TOML escritas/atualizadas (exclui as puladas por override manual). */
+  written: ReadonlyArray<string>;
+}
+
+export async function mergeConfigUser(targetDir: string, prefs: InstallPrefs): Promise<MergeConfigUserResult> {
   const configUserPath = path.join(targetDir, '.process-ai', 'config.user');
   let text: string;
   try {
@@ -193,9 +203,13 @@ export async function mergeConfigUser(targetDir: string, prefs: InstallPrefs): P
   const eol = text.includes('\r\n') ? '\r\n' : '\n';
   const lines = text.split(/\r?\n/);
 
+  const written: string[] = [];
   for (const [prefKey, tomlKey] of PREF_KEYS) {
-    const value = prefs[prefKey];
-    if (value === undefined || value === '') continue;
+    const raw = prefs[prefKey];
+    if (raw === undefined) continue;
+    // engines é array → lista CSV; demais são strings.
+    const value = typeof raw === 'string' ? raw : raw.join(',');
+    if (value === '') continue;
     const re = new RegExp(`^\\s*${tomlKey}\\s*=`);
     const idx = lines.findIndex((l) => re.test(l) && !l.trimStart().startsWith('#'));
     const newLine = `${tomlKey} = "${escapeTomlString(value)}" ${CONFIG_USER_INSTALL_MARKER}`;
@@ -205,15 +219,17 @@ export async function mergeConfigUser(targetDir: string, prefs: InstallPrefs): P
       while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
       if (lines.length > 0) lines.push('');
       lines.push(newLine);
+      written.push(tomlKey);
     } else if (lines[idx].includes(CONFIG_USER_INSTALL_MARKER)) {
       lines[idx] = newLine; // linha do installer → re-run atualiza
+      written.push(tomlKey);
     }
-    // linha sem marcador → do usuário: não sobrescreve.
+    // linha sem marcador → do usuário: não sobrescreve (não entra em `written`).
   }
 
   let out = lines.join(eol);
   if (!out.endsWith(eol)) out += eol;
   await fs.mkdir(path.dirname(configUserPath), { recursive: true });
   await atomicWrite(configUserPath, out);
-  return configUserPath;
+  return { path: configUserPath, written };
 }

@@ -444,6 +444,8 @@ export interface SessionConfig {
   chatLanguage?: string;
   docLanguage?: string;
   gitStrategy?: string;
+  /** Engines marcadas no install (CSV: instaláveis + "(em breve)" registradas). */
+  enginesPref?: string;
 }
 
 /** Chaves de preferência aceitas no overlay do config.user (WHITELIST). */
@@ -453,6 +455,7 @@ const CONFIG_USER_PREF_KEYS: Readonly<Record<string, keyof SessionConfig>> = {
   chat_language: 'chatLanguage',
   doc_language: 'docLanguage',
   git_strategy: 'gitStrategy',
+  engines: 'enginesPref',
 };
 
 /** Scan TOML mínimo linha-a-linha → record chave→valor (comentários pulos). */
@@ -464,10 +467,24 @@ function parseConfigLines(raw: string): Record<string, string> {
     const eq = trimmed.indexOf('=');
     if (eq < 0) continue;
     const key = trimmed.slice(0, eq).trim();
-    const val = trimmed.slice(eq + 1).trim().replace(/^["'](.*)["']$/, '$1');
+    // Comentário inline (`# ...` fora de aspas) — o marcador "# definido pelo
+    // install" vem após a string citada e deve ser descartado para o round-trip
+    // (leitura == escrita) funcionar.
+    const val = stripInlineComment(trimmed.slice(eq + 1).trim()).replace(/^["'](.*)["']$/, '$1');
     if (key !== '') out[key] = val;
   }
   return out;
+}
+
+/** Remove comentário inline TOML (`#` fora de aspas); preserva `#` dentro de aspas. */
+function stripInlineComment(raw: string): string {
+  let inQuote = false;
+  for (let i = 0; i < raw.length; i++) {
+    const c = raw[i];
+    if (c === '"' || c === "'") inQuote = !inQuote;
+    else if (c === '#' && !inQuote) return raw.slice(0, i).trim();
+  }
+  return raw;
 }
 
 /**

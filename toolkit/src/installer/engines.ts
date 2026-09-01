@@ -4,7 +4,7 @@
  * Espelha o `lib/installer/detector.js` do Reversa (mesmos 13 ids/nomes e
  * marcadores) para a pergunta 1 do install (checkbox multi-select). Em v1 só
  * `claude-code` é `supported` (único adapter `IdeSetup` existe — AD-3 porta);
- * as demais aparecem como "(em breve)" e não são marcáveis.
+ * as demais são marcáveis e ficam registradas no config.user até terem adapter.
  *
  * Detecção: marcadores no projeto-alvo (dir/arquivo) OU CLI da engine presente
  * no PATH (`where`/`which`, try/catch → false, timeout 3s contra PATH travado).

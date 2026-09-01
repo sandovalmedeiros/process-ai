@@ -75,6 +75,8 @@ export interface InstallOutcome {
   render?: RenderDepResult;
   /** Preferências persistidas neste install (interativo) — alimenta o Resumo. */
   prefs?: InstallPrefs;
+  /** true quando `engines` do prefs foi ignorado por override manual em config.user. */
+  enginesOverridden?: boolean;
   /** Versão do framework instalada/corrente (Resumo). */
   version?: string;
   /** Method-pack ativo estampado (Resumo). */
@@ -110,8 +112,10 @@ export class Installer {
     // (re-run interativo numa instalação corrente também persiste) e antes de
     // qualquer outra escrita. Headless sem prefs → no-op total (não cria
     // .gitignore, não toca config.user).
+    let enginesOverridden = false;
     if (req.prefs) {
-      await mergeConfigUser(targetDir, req.prefs);
+      const merged = await mergeConfigUser(targetDir, req.prefs);
+      enginesOverridden = req.prefs.engines !== undefined && !merged.written.includes('engines');
       if (req.prefs.gitStrategy === 'gitignore') await updateGitignore(targetDir);
     }
     // Provisiona deps Python do ingest ANTES do early-return already-current — todo
@@ -177,6 +181,7 @@ export class Installer {
       ingest,
       render,
       prefs: req.prefs,
+      enginesOverridden,
       version,
       activePack: req.activePack ?? 'bpmn-sipoc',
       targetDir,
@@ -281,7 +286,7 @@ export function formatOutcome(o: InstallOutcome): string {
           ``,
           `  ${t.bold('Resumo:')}`,
           `  ${t.cyan('Projeto:')}    ${o.prefs.projectName ?? '—'}`,
-          `  ${t.cyan('Engines:')}    ${engineDisplayName(o.ide)}`,
+          `  ${t.cyan('Engines:')}    ${enginesSummaryLine(o)}`,
           `  ${t.cyan('Versão:')}     ${o.version ?? '—'}`,
           `  ${t.cyan('Git:')}        ${o.prefs.gitStrategy === 'gitignore' ? '.gitignore (uso pessoal)' : 'commitados com o projeto'}`,
         );
@@ -327,6 +332,29 @@ function labelFor(outcome: InstallOutcome['outcome']): string {
 function engineDisplayName(ide: string | undefined): string {
   if (ide === undefined || ide === '') return '?';
   return ENGINES.find((e) => e.id === ide)?.name ?? ide;
+}
+
+/**
+ * Linha de engines do Resumo: instaláveis marcadas "(instalada)" e as
+ * "(em breve)" do checkbox como "(registrada)" — registradas ficam no
+ * config.user e instalam quando o adapter existir (nada promete o que não há).
+ */
+function enginesSummaryLine(o: InstallOutcome): string {
+  const sel = o.prefs?.engines ?? [];
+  const isSupported = (id: string): boolean =>
+    ENGINES.some((e) => e.id === id && e.supported);
+  // "instalada" = a engine que o setupIde de fato instalou (v1: Claude Code,
+  // sempre) — a seleção só registra as demais, não desinstala a corrente.
+  const installed = [engineDisplayName(o.ide)];
+  const registered = sel.filter((id) => !isSupported(id)).map((id) => engineDisplayName(id));
+  const parts = [`${installed.join(', ')} (instalada)`];
+  if (o.enginesOverridden) {
+    // config.user já definia `engines` manualmente — a seleção não foi persistida.
+    parts.push('engines manual em config.user (mantida)');
+  } else if (registered.length > 0) {
+    parts.push(`${registered.join(', ')} (registrada${registered.length > 1 ? 's' : ''})`);
+  }
+  return parts.join(' + ');
 }
 
 /**

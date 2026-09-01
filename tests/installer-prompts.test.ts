@@ -4,8 +4,8 @@
  * Contrato: checkbox de engines via KeySource scriptado (raw-mode DI) + inputs
  * 2-6 via FakeRl duck-typed (question/close). O gate TTY fica no bin (só
  * exercitado em smoke); aqui o fluxo é dirigido por key-script/respostas
- * canned. Paridade Reversa: 6 perguntas, engines com default detectado,
- * validação de nome não-vazio, git commit|gitignore.
+ * canned. Paridade Reversa: 6 perguntas, Claude Code como default (todas as
+ * engines marcáveis), validação de nome não-vazio, git commit|gitignore.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -81,11 +81,13 @@ test('explicit: nome/chamar/idiomas/git preenchidos; git=2 → gitignore', async
   assert.equal(answers.gitStrategy, 'gitignore');
 });
 
-test('checkbox: "a" desliga tudo → enter é no-op (exige ≥1) → espaço religa → confirma', async () => {
+test('checkbox: "a" ×2 desliga tudo → enter no-op (validação) → espaço religa → confirma', async () => {
   const { rl } = fakeRl(['', 'Sandoval', '', '', '']);
   const answers = await gatherInstallAnswers({
     makeRl: () => rl,
-    keys: () => keyScript([{ name: 'a' }, { name: 'return' }, { name: 'space' }, { name: 'return' }]),
+    // com todas alternáveis: 1º 'a' LIGA todas, 2º desliga; enter com zero é
+    // no-op (validação); espaço religa a focada (claude-code, cursor 0).
+    keys: () => keyScript([{ name: 'a' }, { name: 'a' }, { name: 'return' }, { name: 'space' }, { name: 'return' }]),
     engines: ENGINES,
     defaults: DEPS,
   });
@@ -117,4 +119,21 @@ test('"como te chamar" vazio → erro acionável (validação do Reversa)', asyn
     }),
     /não pode ser vazio/,
   );
+});
+
+test('engine sem adapter marcável → persistida: nota pós-checkbox + engines completas', async () => {
+  const { rl } = fakeRl(['', 'Sandoval', '', '', '']);
+  const outChunks: string[] = [];
+  const answers = await gatherInstallAnswers({
+    makeRl: () => rl,
+    keys: () => keyScript([{ name: 'down' }, { name: 'space' }, { name: 'return' }]),
+    engines: ENGINES,
+    defaults: DEPS,
+    out: { write(s: string): boolean { outChunks.push(s); return true; } },
+  });
+  // down: claude-code → codex; space marca codex; enter confirma.
+  assert.deepEqual(answers.engines, ['claude-code', 'codex']);
+  const note = outChunks.join('');
+  assert.match(note, /Codex fica no config\.user/);
+  assert.match(note, /instala quando o adapter chegar/);
 });

@@ -2,9 +2,11 @@
  * toolkit/src/installer/interact.ts — checkbox raw-mode zero-dep (paridade inquirer).
  *
  * Widget multi-select da pergunta 1 do install (engines), com o feel do
- * inquirer do Reversa SEM dependência: navegação ↑/↓ (pula desabilitadas, sem
- * wrap), <espaço> alterna, <a> alterna todas as habilitadas, <i> inverte as
- * habilitadas, <enter> confirma (exige ≥1 marcada). Redraw por keypress com
+ * inquirer do Reversa SEM dependência: navegação ↑/↓ por TODOS os itens com
+ * wrap (inquirer loop), <espaço> alterna (itens `disabled` são só navegáveis,
+ * não alternáveis), <a> alterna todas as alternáveis, <i> inverte as
+ * alternáveis, <enter> confirma (exige ≥1 marcada — com zero, pisca uma
+ * mensagem de validação em vez de silêncio). Redraw por keypress com
  * sequências VT level-0 (`\r`, `\x1b[<n>A`, `\x1b[J`, `\x1b[2K`) — mesma classe
  * de risco que banner.ts já assume; linhas truncadas a `columns-1` para o
  * line-wrap do terminal não desalinhar a contagem de rows do redraw.
@@ -46,7 +48,7 @@ export interface CheckboxChoice {
   readonly value: string;
   readonly label: string;
   readonly checked?: boolean;
-  /** Não-marcável e pulada pela navegação (ex.: engines "(em breve)"). */
+  /** Não-marcável, mas ainda navegável (o cursor passa por ela; espaço não alterna). */
   readonly disabled?: boolean;
 }
 
@@ -169,19 +171,22 @@ export async function checkbox(
   const t = opts.theme ?? theme();
 
   const selected = choices.map((c) => c.checked === true && c.disabled !== true);
-  const enabledIdx = choices.map((c, i) => (c.disabled === true ? -1 : i)).filter((i) => i >= 0);
-  if (enabledIdx.length === 0) throw new Error('Checkbox sem opções habilitadas.');
-  let cursor = enabledIdx[0] ?? 0;
+  if (choices.length === 0) throw new Error('Checkbox sem opções.');
+  if (choices.every((c) => c.disabled === true)) throw new Error('Checkbox sem opções marcáveis.');
+  let cursor = 0;
+  // Mensagem de validação (enter com zero marcadas) — some no próximo keypress.
+  let validation = '';
 
   const render = (): string[] => {
     const lines = [title, t.gray('(espaço)=selecionar · (a)=todas · (i)=inverter · (enter)=confirmar')];
     for (let i = 0; i < choices.length; i++) {
       const c = choices[i];
-      const marker = c.disabled === true ? t.gray('○') : selected[i] ? t.cyan('◉') : '○';
+      const marker = selected[i] ? t.cyan('◉') : c.disabled === true ? t.gray('○') : '○';
       const pointer = i === cursor ? t.cyan('❯') : ' ';
       const label = c.disabled === true ? t.gray(c.label) : c.label;
       lines.push(truncLine(`${pointer} ${marker} ${label}`, width));
     }
+    if (validation !== '') lines.push(truncLine(t.gray(validation), width));
     return lines;
   };
 
@@ -205,27 +210,26 @@ export async function checkbox(
       if (key.ctrl === true && (key.name === 'c' || key.name === 'C')) {
         throw new CancelledInstallError();
       }
+      // qualquer keypress limpa a validação do enter vazio — e força repaint
+      // se ela estava visível (senão a tela fica com o ⚠ fantasma em teclas
+      // que não repintam, ex.: tecla desconhecida).
+      if (validation !== '') {
+        validation = '';
+        repaint = true;
+      }
       switch (key.name) {
         case 'up': {
-          const pos = enabledIdx.indexOf(cursor);
-          const next = pos > 0 ? enabledIdx[pos - 1] : undefined;
-          if (next !== undefined) {
-            cursor = next;
-            repaint = true;
-          }
+          cursor = (cursor - 1 + choices.length) % choices.length; // wrap (inquirer)
+          repaint = true;
           break;
         }
         case 'down': {
-          const pos = enabledIdx.indexOf(cursor);
-          const next = pos >= 0 && pos < enabledIdx.length - 1 ? enabledIdx[pos + 1] : undefined;
-          if (next !== undefined) {
-            cursor = next;
-            repaint = true;
-          }
+          cursor = (cursor + 1) % choices.length; // wrap (inquirer)
+          repaint = true;
           break;
         }
         case 'space': {
-          if (choices[cursor]?.disabled !== true) {
+          if (choices[cursor] !== undefined && choices[cursor]?.disabled !== true) {
             selected[cursor] = !selected[cursor];
             repaint = true;
           }
@@ -233,19 +237,27 @@ export async function checkbox(
         }
         case 'a': {
           // toggle-all (inquirer): todas ON, ou todas OFF se já todas marcadas.
-          const allOn = enabledIdx.every((i) => selected[i]);
-          for (const i of enabledIdx) selected[i] = !allOn;
+          const idx = choices.map((_, i) => i).filter((i) => choices[i]?.disabled !== true);
+          const allOn = idx.every((i) => selected[i]);
+          for (const i of idx) selected[i] = !allOn;
           repaint = true;
           break;
         }
         case 'i': {
-          for (const i of enabledIdx) selected[i] = !selected[i];
+          for (let i = 0; i < choices.length; i++) {
+            if (choices[i]?.disabled !== true) selected[i] = !selected[i];
+          }
           repaint = true;
           break;
         }
         case 'return': {
           const values = choices.filter((_, i) => selected[i]).map((c) => c.value);
-          if (values.length === 0) break; // exige ≥1 — enter é no-op com nada marcado
+          if (values.length === 0) {
+            // enter com zero marcadas: validação VISÍVEL (não silêncio).
+            validation = '⚠ Selecione ao menos uma opção (espaço) antes de confirmar.';
+            repaint = true;
+            break;
+          }
           const labels = choices.filter((_, i) => selected[i]).map((c) => c.label);
           paint([title, truncLine(` ${labels.join(', ')}`, width)], prev, true);
           closedWithNewline = true;

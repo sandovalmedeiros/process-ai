@@ -29,17 +29,18 @@ function tmpProject(): string {
 
 // ---- mergeConfigUser ----
 
-test('mergeConfigUser: do stub → adiciona as 5 chaves com marcador', async () => {
+test('mergeConfigUser: do stub → adiciona as 6 chaves com marcador (engines em CSV)', async () => {
   const tmp = tmpProject();
   try {
     await scaffoldConfig(tmp, {}); // cria config + stub do config.user
-    await mergeConfigUser(tmp, PREFS);
+    await mergeConfigUser(tmp, { ...PREFS, engines: ['claude-code', 'codex'] });
     const text = readFileSync(path.join(tmp, '.process-ai', 'config.user'), 'utf8');
     assert.match(text, /project_name = "pa-demo" # definido pelo install/);
     assert.match(text, /user_name = "Sandoval" # definido pelo install/);
     assert.match(text, /chat_language = "pt-br" # definido pelo install/);
     assert.match(text, /doc_language = "Português" # definido pelo install/);
     assert.match(text, /git_strategy = "commit" # definido pelo install/);
+    assert.match(text, /engines = "claude-code,codex" # definido pelo install/);
     assert.match(text, /# Overrides do usuário/, 'stub (comentários) preservado');
   } finally {
     rmSync(tmp, { recursive: true, force: true });
@@ -138,11 +139,11 @@ async function writeConfig(root: string, configBody: string, userBody: string | 
   if (userBody !== null) writeFileSync(path.join(root, '.process-ai', 'config.user'), userBody);
 }
 
-test('readConfig: overlay aplica as 5 chaves de config.user sobre o config', async () => {
+test('readConfig: overlay aplica as 6 chaves de config.user sobre o config', async () => {
   const tmp = tmpProject();
   try {
     await writeConfig(tmp, 'active_pack = "bpmn-sipoc"\npack_version = "1.0.0"\n',
-      'project_name = "pa-demo"\nuser_name = "Sandoval"\nchat_language = "pt-br"\ndoc_language = "Português"\ngit_strategy = "gitignore"\n');
+      'project_name = "pa-demo"\nuser_name = "Sandoval"\nchat_language = "pt-br"\ndoc_language = "Português"\ngit_strategy = "gitignore"\nengines = "claude-code,codex"\n');
     const cfg = await readConfig(tmp);
     assert.equal(cfg.activePack?.id, 'bpmn-sipoc');
     assert.equal(cfg.projectName, 'pa-demo');
@@ -150,6 +151,26 @@ test('readConfig: overlay aplica as 5 chaves de config.user sobre o config', asy
     assert.equal(cfg.chatLanguage, 'pt-br');
     assert.equal(cfg.docLanguage, 'Português');
     assert.equal(cfg.gitStrategy, 'gitignore');
+    assert.equal(cfg.enginesPref, 'claude-code,codex');
+  } finally {
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('readConfig: marcador "# definido pelo install" é descartado no valor (round-trip)', async () => {
+  const tmp = tmpProject();
+  try {
+    // caminho de produção: mergeConfigUser grava valor + marcador na mesma linha;
+    // o parser deve devolver só o valor (round-trip leitura == escrita).
+    await writeConfig(tmp, 'active_pack = "bpmn-sipoc"\npack_version = "1.0.0"\n',
+      'project_name = "pa-demo" # definido pelo install\nuser_name = "Sandoval" # definido pelo install\nchat_language = "pt-br" # definido pelo install\ndoc_language = "Português" # definido pelo install\ngit_strategy = "commit" # definido pelo install\nengines = "claude-code,codex" # definido pelo install\n');
+    const cfg = await readConfig(tmp);
+    assert.equal(cfg.projectName, 'pa-demo');
+    assert.equal(cfg.userName, 'Sandoval');
+    assert.equal(cfg.chatLanguage, 'pt-br');
+    assert.equal(cfg.docLanguage, 'Português');
+    assert.equal(cfg.gitStrategy, 'commit');
+    assert.equal(cfg.enginesPref, 'claude-code,codex');
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }
