@@ -48,28 +48,30 @@ export async function gatherInstallOptions(
   rl: PromptRl,
   defaults: PromptDefaults,
 ): Promise<ResolvedOptions> {
-  // Tema ciano do installer (banner.ts) nas 4 perguntas numeradas — paridade
-  // com os prompts numerados do Reversa. Fora de TTY o tema é identidade.
+  // Tema ciano do installer (banner.ts) nas 4 perguntas numeradas — formato do
+  // Reversa: linha em branco antes de cada pergunta, frase declarativa com ":"
+  // (confirm fecha com "?"). Fora de TTY o tema é identidade.
   const t = theme();
-  const targetDirRaw = await askInput(rl, t.cyan('1. Diretório-alvo?'), defaults.targetDir);
+  const targetDirRaw = await askInput(rl, t.cyan('\n1. Diretório-alvo'), defaults.targetDir);
   const targetDir = targetDirRaw.trim();
   if (!targetDir) throw new Error('Diretório-alvo não pode ser vazio.');
 
   const ide = await askSelect(
     rl,
-    t.cyan('2. IDE?'),
+    t.cyan('\n2. IDE de apoio'),
     [{ value: 'claude-code', label: 'Claude Code (outras IDEs em breve)' }],
     defaults.ide,
   );
   const activePack = await askSelect(
     rl,
-    t.cyan('3. Method-pack ativo?'),
+    t.cyan('\n3. Method-pack ativo'),
     [{ value: 'bpmn-sipoc', label: 'bpmn-sipoc (pack padrão v1)' }],
     defaults.activePack,
   );
+  // 13 skills = condutora Déa + 12 agentes (8 + time da Monique — ver README).
   const full = await askConfirm(
     rl,
-    t.cyan('4. Instalar condutor (/process-ai) + 4 especialistas?'),
+    t.cyan('\n4. Instalar condutora (/process-ai) + 12 agentes?'),
     defaults.full,
   );
 
