@@ -1,5 +1,5 @@
 # generated: 2026-08-01
-# last_updated: 2026-08-23
+# last_updated: 2026-09-01
 # project: process-ai
 # project_key: NOKEY
 # tracking_system: file-system
@@ -41,7 +41,7 @@
 # - Retrospective appends its action items to action_items; sprint-status surfaces open ones
 
 generated: 2026-08-01
-last_updated: 2026-08-23
+last_updated: 2026-09-01
 # Epic 4 concluído (2026-08-07): 7/7 stories, 318/324 testes, AD-2 fechado, v1.1 declarado pronto.
 # 2026-08-23: reconciliação de registro — stories 4-x ratificadas done (ver bloco epic-4),
 # action items do Épico 3 fechados com evidência da retro do Épico 4 §7.
@@ -101,6 +101,18 @@ development_status:
   4-6-triagem-deferred-work: done
   4-7-readiness-final: done
   epic-4-retrospective: done
+
+  # ===== Epic 5: Instalador — UX Interativa paridade Reversa =====
+  # Formalizado 2026-09-01 via bmad-sprint-planning. Trabalho realizado em
+  # commits pós-0.13.0 (d4eb0e3, 9c168fd, 38dde37) + 5-4 (diff, ver abaixo).
+  # ⚠ COMMIT PENDENTE: 5-4 + fixes de code review estão no working tree (não commitados).
+  epic-5: in-progress
+  5-1-banner-tema-spinner-zero-dep: done
+  5-2-perguntas-formato-reversa-contagem-real: done
+  5-3-ux-interativa-checkbox-prefs-resumo-time: done
+  # 5-4 → done em 2026-09-01 (code review 3 camadas; 10 achados resolvidos; 475 testes) — NÃO COMMITADO
+  5-4-engines-persistidas-checkbox-wrap-validacao: done
+  epic-5-retrospective: optional
 
 action_items:
   - epic: 3

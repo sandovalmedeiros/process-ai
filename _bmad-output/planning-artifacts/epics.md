@@ -5,6 +5,7 @@ stepsCompleted:
   - step-03-stories
   - step-04-validation
   - step-04-validation-epic-4-hardening
+  - step-04-validation-epic-5-installer
 inputDocuments:
   - ../specs/spec-process-ai/SPEC.md
   - prds/prd-process-ai-2026-08-01/prd.md
@@ -440,3 +441,59 @@ So that o v1.1 seja declarado completo com confiança.
 **And** (b) Aceitação de stakeholders: wedge Vendas/PME validado com ≥1 pessoa externa ou explicitamente deferido com justificativa
 **And** (c) Estabilidade (gut): o Project Lead declara o v1.1 pronto — decisão documentada
 **And** retros opcionais dos Épicos 1 e 2 são consideradas (rodar ou declarar N/A com justificativa).
+
+## Epic 5: Instalador — UX Interativa paridade Reversa
+
+O instalador (`npx process-ai`) atinge **paridade de UX** com a rotina interativa do Reversa (framework de referência — [arXiv:2605.18684](../../docs/2605.18684v1_Reversa-pt-BR.md)): banner ciano + tema + spinner (zero-dep), perguntas no formato Reversa com contagem real de agentes, checkbox raw-mode para seleção de engines, preferências persistidas em `config.user`, e resumo por time ao final. O objetivo é que a primeira experiência de instalação seja guiada, profissional e sem dependências externas — alinhado ao AD-3 (core isolado do engine, hexagonal) e ao NFR-6 (portabilidade).
+
+**FRs cobertos:** reforça FR-21 (porta `EngineAdapter` multi-engine) e a experiência de onboarding (antes implícita no AD-7 — Story 3.4).
+
+### Story 5.1: Banner ciano + tema + spinner (zero-dep)
+
+As a usuário,
+I want um banner ciano + tema de cores + spinner de progresso no instalador,
+So that a primeira impressão do `npx process-ai` seja polida e acolhedora.
+
+**Acceptance Criteria:**
+**Given** a execução do install interativo
+**When** o instalador inicia
+**Then** um banner ciano é renderizado com tema de cores consistente e um spinner indica progresso nas etapas
+**And** tudo é zero-dep (`node:*`), sem dependências npm externas. *(AD-3, NFR-6)*
+
+### Story 5.2: Perguntas no formato Reversa + contagem real (12 agentes)
+
+As a usuário,
+I want que o instalador faça perguntas no formato do Reversa com a contagem real de agentes,
+So that as escolhas reflitam exatamente o time instalado, sem números genéricos.
+
+**Acceptance Criteria:**
+**Given** o install interativo
+**When** as perguntas são apresentadas
+**Then** seguem o formato do Reversa (nome do projeto, como te chamar, idiomas, estratégia git, engines)
+**And** a contagem de agentes é real (12 agentes), não um placeholder. *(FR-21)*
+
+### Story 5.3: UX interativa completa — checkbox raw-mode, prefs em config.user, resumo por time
+
+As a usuário,
+I want a UX interativa completa (checkbox raw-mode de engines, preferências gravadas em `config.user`, resumo por time),
+So that eu configure a instalação inteira numa única passada guiada.
+
+**Acceptance Criteria:**
+**Given** o install interativo
+**When** completo as perguntas
+**Then** o checkbox raw-mode permite selecionar engines sem dependência de `inquirer`
+**And** as preferências (nome, como chamar, idiomas, git) são persistidas em `config.user` no topo do install
+**And** um resumo por time é exibido ao final. *(AD-3, FR-21)*
+
+### Story 5.4: Engines persistidas + checkbox com wrap e validação visível
+
+As a usuário,
+I want engines "(em breve)" marcáveis e registradas em `config.user`, e um checkbox que navega com wrap e mostra validação no enter vazio,
+So that a seleção de engines seja fiel ao comportamento do inquirer do Reversa.
+
+**Acceptance Criteria:**
+**Given** o checkbox de engines
+**When** navego e seleciono
+**Then** a navegação percorre TODOS os itens com wrap (inquirer loop); itens "(em breve)" são navegáveis mas só os registrados alternam
+**And** `engines` é persistido em `config.user` como CSV (incluindo as "(em breve)" marcadas)
+**And** enter com zero marcadas exibe validação visível em vez de silêncio. *(AD-3, FR-21)*

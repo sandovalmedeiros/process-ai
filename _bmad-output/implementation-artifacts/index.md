@@ -4,7 +4,7 @@
 
 - **[relatorio-erros-instalacao-2026-08-08.md](./relatorio-erros-instalacao-2026-08-08.md)** — 5 erros ao instalar em máquina limpa: causas, severidade e soluções
 - **[deferred-work.md](./deferred-work.md)** — Dívida técnica triada: 35 itens [Low] em 8 grupos + decisão D2 (Chromium)
-- **[sprint-status.yaml](./sprint-status.yaml)** — Status de todos os épicos e stories (4 épicos, 25 stories)
+- **[sprint-status.yaml](./sprint-status.yaml)** — Status de todos os épicos e stories (5 épicos, 29 stories)
 
 ## Retrospectivas
 
@@ -51,3 +51,10 @@
 - **[4-5-claims-validadas-consumo.md](./4-5-claims-validadas-consumo.md)** — Claims de contrato/doc validadas contra consumo
 - **[4-6-triagem-deferred-work.md](./4-6-triagem-deferred-work.md)** — Triagem do deferred-work: agrupar, priorizar, fechar lotes
 - **[4-7-readiness-final.md](./4-7-readiness-final.md)** — Readiness final: fechar dimensões pendentes da retro
+
+## Epic 5: Instalador — UX Interativa paridade Reversa
+
+- **[5-1-banner-tema-spinner-zero-dep.md](./5-1-banner-tema-spinner-zero-dep.md)** — Banner ciano + tema + spinner (zero-dep)
+- **[5-2-perguntas-formato-reversa-contagem-real.md](./5-2-perguntas-formato-reversa-contagem-real.md)** — Perguntas no formato Reversa + contagem real (12 agentes)
+- **[5-3-ux-interativa-checkbox-prefs-resumo-time.md](./5-3-ux-interativa-checkbox-prefs-resumo-time.md)** — UX interativa: checkbox raw-mode, prefs em config.user, resumo por time
+- **[5-4-engines-persistidas-checkbox-wrap-validacao.md](./5-4-engines-persistidas-checkbox-wrap-validacao.md)** — Engines persistidas + checkbox wrap/validação (em andamento)
